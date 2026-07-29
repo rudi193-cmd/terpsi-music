@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Editors / OS
+.DS_Store
+
+# Fleet development overlay — local only, never published.
+.mcp.json
+.willow/
+.cursor/
