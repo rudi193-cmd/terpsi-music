@@ -114,15 +114,30 @@ So: **sqlglot for `CHECK` and column-constraint mutation, hand-rolled SQLite for
 
 Script: `./trigger_mutation_demo.py` in this directory (stdlib only, `sqlite3` 3.45.1). It builds a
 guardian-consent trigger plus a bitemporal `CHECK`, then applies four mutants and reports whether
-the adversarial test goes red and whether a schema-object manifest test goes red. Actual output:
+the adversarial test goes red and whether a schema-object manifest test goes red.
 
-| Mutant | Adversarial test refuses forbidden act? | Trigger-name manifest matches? |
+> **Provenance of this table.** When this report was written the script it names was not in the
+> tree, so the one result here derived by *running code* rather than by citation was the one result
+> that could not be re-run — §18 item 0 ("an unverified table and a verified one look identical")
+> occurring inside the report about verifying verifiers. The script has since been restored and the
+> table below is its actual output. `tests/test_claimed_artifacts.py` is the middle that would have
+> caught the original absence, and it fails when a report claims an artifact the tree does not have.
+
+Actual output:
+
+| Mutant | Adversarial test refuses forbidden act? | Schema-object manifest matches? |
 |---|---|---|
 | baseline | ✅ refused | ✅ matches |
 | **A · rename the trigger** | ✅ **still refused — mutant SURVIVES silently** | ❌ **manifest CATCHES it** |
 | **B · `DROP TRIGGER`** (ablation) | ❌ RED — guard shown to fail | ❌ |
 | **C · neuter `WHEN` → `WHEN 0`** | ❌ RED | ✅ **manifest does NOT catch it** |
-| **D · drop the bitemporal `CHECK`** | backdated `invalid_at` accepted | (n/a) |
+| **D · drop the bitemporal `CHECK`** | backdated `invalid_at` accepted | ❌ **manifest CATCHES it** |
+
+**One correction from re-running it.** Row D's manifest cell was `(n/a)`; it is not. A *named*
+`CHECK` survives in `sqlite_master.sql` as the stored text of the statement that created the table,
+so dropping it is caught by both middles — unlike the trigger's `WHEN` clause in row C, which the
+manifest cannot see. The distinction is worth carrying: **naming a constraint is what makes its
+removal visible to an inventory.** An anonymous `CHECK` would behave like row C.
 
 Three things fall straight out of that table and all three are load-bearing:
 
@@ -527,5 +542,8 @@ CLAUDE.md §13 and §17 apply to this report as much as to the code.
   TRIGGER`, neutered `WHEN`, dropped `CHECK`) against an adversarial test and a `sqlite_master`
   manifest test, plus the negative control. Output table in §2. Lift the `trigger_inventory` and
   `check_constraint_inventory` helpers directly.
-- `sqlglot_probe.py` — the probe that established sqlglot cannot see inside a trigger and that its
-  AST diff reports a rename and an evisceration identically.
+- `sqlglot_probe.py` — NOT RETAINED. The probe that established sqlglot cannot see inside a
+  trigger and that its AST diff reports a rename and an evisceration identically. The finding it
+  produced is recorded in §2 and is unreproduced: it rests on `sqlglot` 30.14.0, which this
+  repository does not depend on and should not acquire for one probe. Treat it as `P2 Cited` on a
+  source that no longer exists, and re-derive before anything is built on it.
