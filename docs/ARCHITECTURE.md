@@ -1508,6 +1508,15 @@ Two settled clauses assume the opposite. **W-6** transfers the lane's keys *to t
 
 `tests/test_serving.py::test_a_student_CANNOT_read_their_own_record_documented_not_hidden` asserts the current behaviour so that changing it is a visible diff.
 
+**13 · `PLAN-GUARDIANSHIP.md`'s gate set is incomplete in two places.**
+**State: open, found by ablation 2026-07-30. Small, and a decision only in the sense that someone must write the gates down.**
+Building `records/sending.py` against G1–G11 and then ablating it left two mutants alive. Neither is covered by any of the eleven gates, because **every gate in the plan is about a *restriction* and none is about the standing edge itself**:
+
+- **G12 — an ended guardianship must not be messaged.** Refusal 3 ends guardianship by setting `invalid_at`. G1–G11 all test restrictions on a *live* guardian; none ends the guardianship. A predicate ignoring edge dates entirely passed all eleven.
+- **G13 — only guardians are messaged.** A predicate that messaged every edge holder — `judge_at`, `clinician_for`, `staff_of`, `director_of` — also passed all eleven. *"Ben will be at the away game in Dayton until 10pm"* delivered to a judge is §4.1's own worked harm.
+
+Both now have tests in `tests/test_sending.py`. The item stands until the plan itself carries them, because a gate that exists only in a test file is one refactor from being deleted as redundant.
+
 ### The three to state, which do not block day one
 
 **5 · The exit line is unwritten.** §11.1 requires it *before* the first install and it does not exist. W-6 (§7.4) additionally requires the per-graduate version, which is the harder of the two and is a precondition of enrolment rather than an end-of-life feature.

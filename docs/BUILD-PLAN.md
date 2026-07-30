@@ -110,7 +110,8 @@ those.
 
 | | task | depends on |
 |---|---|---|
-| ~~C1~~ | ~~The vertical slice~~ | **Built 2026-07-30** — `records/`, the first code here that touches the domain. Found §18 item 12 in an afternoon |
+| ~~C1~~ | ~~The vertical slice~~ | **Built 2026-07-30** — `records/serving.py`, the first code here that touches the domain. Found §18 item 12 |
+| ~~C1b~~ | ~~The send predicate~~ | **Built 2026-07-30** — `records/sending.py`, G1–G11 of `PLAN-GUARDIANSHIP.md`. Found §18 item 13 and a missing `created_at` on `Edge` |
 | C1 | Extend `craft/` | nothing — text-only, no student data, no network, no model |
 | C2 | Sweep `docs/survey/*.md` for `§N` | needs the routing decision in `scout-25` part 5 first |
 | C3 | A rule-13 acceptance test | nothing. `willow-grove`'s constraint 1 supplies the shape — point a reader at an unreachable source in CI and assert no surface reports health. Rule 13 has **no test here** |

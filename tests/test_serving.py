@@ -37,11 +37,11 @@ LANE = "lane-ben"
 
 
 def guardian(at=SEASON, until=None) -> Edge:
-    return Edge("guardian_of", "guardian-alvarez", BEN, at, until)
+    return Edge("guardian_of", "guardian-alvarez", BEN, at, until, created_at=at)
 
 
 def judge() -> Edge:
-    return Edge("judge_at", "judge-okonkwo", "event-saturday", SEASON)
+    return Edge("judge_at", "judge-okonkwo", "event-saturday", SEASON, created_at=SEASON)
 
 
 def roster_field(**kw) -> Field:
@@ -151,7 +151,7 @@ def test_l4_needs_a_declared_purpose_even_with_an_edge():
     """The chaperone case. An entitled principal without a declared medical
     purpose gets the instruction; the diagnosis was never on the screen."""
     staff = Principal("staff-nguyen")
-    edges = [Edge("staff_of", "staff-nguyen", BEN, SEASON)]
+    edges = [Edge("staff_of", "staff-nguyen", BEN, SEASON, created_at=SEASON)]
     s = serve(health_field(), staff, edges, SEASON)
     assert s.outcome is Outcome.INSTRUCTION
     assert "epinephrine, tree-nut allergy" not in (s.value or "")
@@ -168,7 +168,7 @@ def test_the_same_staff_member_ten_minutes_earlier_gets_nothing_extra():
     same person on the same device under an attendance purpose does not get
     the medical payload."""
     attendance = Principal("staff-nguyen", frozenset({"attendance"}))
-    edges = [Edge("staff_of", "staff-nguyen", BEN, SEASON)]
+    edges = [Edge("staff_of", "staff-nguyen", BEN, SEASON, created_at=SEASON)]
     s = serve(health_field(), attendance, edges, SEASON)
     assert s.outcome is Outcome.INSTRUCTION
 
@@ -191,7 +191,7 @@ def test_l5_is_refused_to_everyone_including_the_entitled():
     for p, e in (
         (Principal("guardian-alvarez", frozenset({"health"})), [guardian()]),
         (Principal("director-shaw", frozenset({"health"})),
-         [Edge("director_of", "director-shaw", BEN, SEASON)]),
+         [Edge("director_of", "director-shaw", BEN, SEASON, created_at=SEASON)]),
     ):
         s = serve(order, p, e, SEASON)
         assert s.outcome is Outcome.REFUSED, f"{p.id} was served an L5 field"
@@ -224,7 +224,7 @@ def test_a_missing_instruction_refuses_rather_than_falling_back_to_the_payload()
     """The fail-open shape this predicate exists to prevent: no derived form
     authored must not mean 'serve the fact instead'."""
     s = serve(health_field(instruction=None), Principal("staff-nguyen"),
-              [Edge("staff_of", "staff-nguyen", BEN, SEASON)], SEASON)
+              [Edge("staff_of", "staff-nguyen", BEN, SEASON, created_at=SEASON)], SEASON)
     assert s.outcome is Outcome.REFUSED
     assert s.value is None
 
@@ -235,7 +235,7 @@ def test_a_refusal_and_an_absence_are_indistinguishable():
     declined = health_field(payload="media release refused", instruction=None)
     absent = Field(lane_id=LANE, subject_id=BEN, name="allergy", rung=Rung.L4,
                    category="health", payload=None, instruction=None)
-    p, e = Principal("staff-nguyen"), [Edge("staff_of", "staff-nguyen", BEN, SEASON)]
+    p, e = Principal("staff-nguyen"), [Edge("staff_of", "staff-nguyen", BEN, SEASON, created_at=SEASON)]
     a, b = serve(declined, p, e, SEASON), serve(absent, p, e, SEASON)
     assert (a.outcome, a.value) == (b.outcome, b.value) == (Outcome.REFUSED, None)
 
@@ -244,7 +244,7 @@ def test_the_decision_carries_its_reason():
     """§7.2, narrate the read. A caller must be able to assert on *why*, and a
     log must have something to record beyond a boolean."""
     s = serve(health_field(), Principal("staff-nguyen", frozenset({"health"})),
-              [Edge("staff_of", "staff-nguyen", BEN, SEASON)], SEASON)
+              [Edge("staff_of", "staff-nguyen", BEN, SEASON, created_at=SEASON)], SEASON)
     assert s.reason and s.rung is Rung.L4 and s.via_edge == "staff_of"
     assert s.disclosed is True
     assert serve(roster_field(), Principal("nobody"), [], SEASON).disclosed is False
@@ -273,7 +273,7 @@ def test_dropping_the_purpose_check_would_be_caught():
     """Mutant: L4 served on an edge alone. Confirm the suite's L4 test is the
     thing standing between that mutant and a green run."""
     staff = Principal("staff-nguyen")  # no declared purpose
-    edges = [Edge("staff_of", "staff-nguyen", BEN, SEASON)]
+    edges = [Edge("staff_of", "staff-nguyen", BEN, SEASON, created_at=SEASON)]
     assert not _serves_payload(health_field(), staff, edges), (
         "L4 served without a declared purpose — the knock is not enforced"
     )
@@ -315,9 +315,55 @@ def test_defaulting_an_unclassified_field_to_open_would_be_caught():
 def test_the_subject_of_an_edge_is_checked_not_just_its_existence():
     """A principal holding a live edge to a *different* student must not read
     this one. W-2's 'a name is the scope' at the read rather than at issuance."""
-    other = Edge("guardian_of", "guardian-alvarez", "student-other", SEASON)
+    other = Edge("guardian_of", "guardian-alvarez", "student-other", SEASON, created_at=SEASON)
     assert not _serves_payload(roster_field(), Principal("guardian-alvarez"), [other]), (
         "an edge to another student served this student's payload"
+    )
+
+
+def test_an_edge_carries_the_second_clock_and_it_is_required():
+    """§7.1: *"keep `created_at` immutable alongside the pair, and never update
+    it."* It was absent from `Edge` until `records/sending.py` needed it — the
+    second slice finding a defect in the first, which no amount of reading §7.1
+    had surfaced.
+
+    Required and keyword-only, so a five-argument positional call fails loudly
+    instead of absorbing a date into `invalid_at` and meaning something else."""
+    import dataclasses
+    try:
+        Edge("guardian_of", "g", BEN, SEASON, SEASON)  # 5 positional
+    except TypeError as exc:
+        assert "created_at" in str(exc)
+    else:
+        raise AssertionError("created_at is not required — §7.1's second axis is optional")
+
+    e = Edge("guardian_of", "g", BEN, SEASON, created_at=SEASON)
+    assert dataclasses.fields(Edge)[-1].name == "created_at"
+    try:
+        e.created_at = LATER  # type: ignore[misc]
+    except Exception:
+        return
+    raise AssertionError("created_at was rewritable")
+
+
+def test_the_read_path_honours_the_knowledge_horizon_like_the_send_path():
+    """The read half of G5, and the reason the two predicates must agree.
+
+    An edge the system had not yet learned of cannot have entitled a read that
+    already happened. Asked *"what could this principal see in June"*, the
+    answer depends on whether you mean *with June's knowledge* or *with what we
+    know now* — and an audit of a disclosure that already went out needs the
+    first."""
+    learned_late = Edge("guardian_of", "guardian-alvarez", BEN, SEASON,
+                        created_at=LATER)  # true since March, recorded in June
+    with_todays_knowledge = serve(roster_field(), Principal("guardian-alvarez"),
+                                  [learned_late], SEASON, known_as_of=LATER)
+    assert with_todays_knowledge.outcome is Outcome.PAYLOAD
+
+    as_known_then = serve(roster_field(), Principal("guardian-alvarez"),
+                          [learned_late], SEASON, known_as_of=SEASON)
+    assert as_known_then.outcome is Outcome.INSTRUCTION, (
+        "a read was entitled by an edge the system had not yet learned of"
     )
 
 

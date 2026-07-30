@@ -39,18 +39,38 @@ from .rungs import DERIVE_AT, NEVER_SERVED, Rung, at_least
 
 @dataclass(frozen=True)
 class Edge:
-    """A dated relationship (§7.1). Terminated by `invalid_at`, never deleted."""
+    """A dated relationship (§7.1). Terminated by `invalid_at`, never deleted.
+
+    **Three dates, not two.** `valid_at`/`invalid_at` say when the relationship
+    was true in the world; `created_at` says when this system learned of it, and
+    §7.1 requires it explicitly — *"keep `created_at` immutable alongside the
+    pair, and never update it"* — for the case that proves it: a court order
+    dated in March and delivered in October. A disclosure made in June was
+    compliant or not depending on which axis you ask about.
+
+    `created_at` was missing from this class until the send predicate needed it,
+    which is the second slice finding a defect in the first. It is **keyword-only
+    and required**, so no existing positional call silently absorbs it into
+    `invalid_at` — a five-argument `Edge(...)` now fails loudly rather than
+    quietly meaning something else.
+    """
 
     kind: str  # guardian_of, staff_of, director_of, judge_at, clinician_for
     principal_id: str
     subject_id: str
     valid_at: datetime
     invalid_at: Optional[datetime] = None
+    created_at: datetime = _field(kw_only=True)
 
     def live_at(self, when: datetime) -> bool:
+        """True in the world at `when`, regardless of when we learned it."""
         if when < self.valid_at:
             return False
         return self.invalid_at is None or when < self.invalid_at
+
+    def known_at(self, when: datetime) -> bool:
+        """Whether this system had learned of the edge by `when` (§7.1's second axis)."""
+        return when >= self.created_at
 
 
 @dataclass(frozen=True)
@@ -108,6 +128,7 @@ def serve(
     edges: Sequence[Edge],
     at: datetime,
     lane_id: Optional[str] = None,
+    known_as_of: Optional[datetime] = None,
 ) -> Serving:
     """Decide what `principal` is served for `fld` at instant `at`.
 
@@ -141,7 +162,8 @@ def serve(
 
     # §18 item 1a, decided scoped: entitlement is an edge to *this subject*,
     # live at *this instant*. An expired edge is not an edge.
-    edge = _entitling_edge(fld.subject_id, principal.id, edges, at)
+    edge = _entitling_edge(fld.subject_id, principal.id, edges, at,
+                           known_as_of if known_as_of is not None else at)
     if edge is None:
         return _derived_or_refused(
             fld, "no live entitlement edge to this subject at this instant")
@@ -163,10 +185,19 @@ def serve(
 
 
 def _entitling_edge(
-    subject_id: str, principal_id: str, edges: Sequence[Edge], at: datetime
+    subject_id: str, principal_id: str, edges: Sequence[Edge],
+    at: datetime, horizon: datetime,
 ) -> Optional[Edge]:
+    """The live, *known* edge from this principal to this subject.
+
+    Two clocks, symmetric with `sending.recipients` (§7.1). An edge the system
+    had not yet learned of cannot have entitled a read that already happened —
+    which is the read-path half of G5's March-order-delivered-in-October case,
+    and the question an audit asks about a disclosure that already went out.
+    """
     for e in edges:
-        if e.subject_id == subject_id and e.principal_id == principal_id and e.live_at(at):
+        if (e.subject_id == subject_id and e.principal_id == principal_id
+                and e.live_at(at) and e.known_at(horizon)):
             return e
     return None
 
