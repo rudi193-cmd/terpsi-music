@@ -129,6 +129,100 @@ def test_a_voice_refusal_still_logs_the_serving_decision():
     assert d.log.entries[-1].outcome is Outcome.PAYLOAD
 
 
+def test_dispatch_forwards_the_self_edge_threshold():
+    """§18 item 12 must be reachable through the join, not only through serve().
+
+    `dispatch()` accepted neither `threshold` nor `widenings` nor `known_as_of`,
+    so a post-W-6 subject reading their own `L4` field got the derived
+    instruction through the only path that renders, gates and logs — while
+    `serve()` called directly returned the payload. Fail-closed, and still
+    wrong: the log records what THIS function decided, so §7.2's narration
+    disagreed with the predicate it claims to narrate.
+    """
+    fld = chair(rung=Rung.L4, category="health",
+                payload="carries an auto-injector",
+                instruction="has a health plan on file")
+    subject = Principal(id=BEN, purposes=frozenset({"health"}))
+    self_edge = [Edge("self", BEN, BEN, T0, created_at=T0)]
+    reached = datetime(2026, 1, 1)
+
+    d = dispatch(fld, subject, self_edge, T0, render, threshold=reached, log=Log())
+    assert d.serving.outcome is Outcome.PAYLOAD, d.serving.reason
+    assert d.log.entries[-1].outcome is Outcome.PAYLOAD, (
+        "the log must record the decision the predicate would make"
+    )
+
+
+def test_dispatch_forwards_a_guardian_widening():
+    """The other half of item 12: a signature the join could not see."""
+    from records.standing import Widening
+
+    fld = chair(rung=Rung.L4, category="health",
+                payload="carries an auto-injector",
+                instruction="has a health plan on file")
+    subject = Principal(id=BEN)
+    edges = [Edge("self", BEN, BEN, T0, created_at=T0),
+             Edge("guardian_of", "g-mother", BEN, T0, created_at=T0)]
+    w = Widening(subject_id=BEN, category="health", purpose="self-care",
+                 signed_by="g-mother", signed_at=T0,
+                 expires_at=datetime(2026, 12, 1))
+
+    d = dispatch(fld, subject, edges, T0, render, widenings=[w])
+    assert d.serving.outcome is Outcome.PAYLOAD, d.serving.reason
+    assert d.serving.via_purpose == "health"
+
+
+def test_dispatch_forwards_the_knowledge_horizon():
+    """G5's second clock. An edge this system had not yet learned of cannot
+    have entitled a read that already happened, and the join must be able to
+    ask that question — `known_as_of` was not in its signature either.
+
+    The horizon must differ from `at`, or this asserts nothing: `serve()`
+    defaults it to `at`, so `known_as_of=at` makes dropping the argument a
+    no-op. The first version of this test did exactly that and only "failed"
+    against the unfixed source because the old signature raised `TypeError` —
+    a red test for the wrong reason. Ablation caught it: SURVIVES.
+    """
+    read_at = datetime(2026, 6, 1)      # the read happens in June
+    learned = datetime(2026, 4, 1)      # the edge was recorded in April
+    audit_horizon = datetime(2026, 3, 1)  # what did we know in March?
+    edges = [Edge("guardian_of", "g-mother", BEN, T0, created_at=learned)]
+
+    d = dispatch(chair(), Principal(id="g-mother"), edges, read_at, render,
+                 known_as_of=audit_horizon)
+    assert d.serving.outcome is not Outcome.PAYLOAD, (
+        "an edge this system had not yet learned of cannot entitle the read"
+    )
+
+
+def test_an_instruction_carries_the_fields_provenance():
+    """A value that leaves the system says where it came from.
+
+    `_derived_or_refused` set `provenance` on neither branch, so every
+    INSTRUCTION reported `None` — indistinguishable from a field that genuinely
+    carried no provenance.
+    """
+    fld = chair(rung=Rung.L4, category="health", provenance="P2",
+                instruction="has a health plan on file")
+    d = dispatch(fld, Principal(id="g-mother"), mother(), T0, render)
+    assert d.serving.outcome is Outcome.INSTRUCTION, d.serving.reason
+    assert d.serving.provenance == "P2"
+
+
+def test_a_refusal_does_not_carry_the_fields_provenance():
+    """The asymmetry, asserted so it is not 'tidied up' later.
+
+    A refusal served nothing. Attaching the field's provenance would make a
+    refusal over a `P1` field distinguishable from one over a field carrying
+    none — a side channel in the function whose job is to close them.
+    """
+    fld = chair(rung=Rung.L4, category="health", provenance="P1",
+                instruction=None)
+    d = dispatch(fld, Principal(id="g-mother"), mother(), T0, render)
+    assert d.serving.outcome is Outcome.REFUSED, d.serving.reason
+    assert d.serving.provenance is None
+
+
 def test_dispatch_is_not_broken_shut():
     """Negative control: a dispatcher that released nothing would pass every
     refusal test above."""

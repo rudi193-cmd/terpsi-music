@@ -112,8 +112,29 @@ MUTATIONS = [
      "removal contradicts a receipt", "tests/test_receipts.py"),
     ("records/receipts.py", "if not r.matches(entry):", "if False:",
      "substitution contradicts a receipt", "tests/test_receipts.py"),
-    ("records/serving.py", 'if e.kind == "self" and e.principal_id != e.subject_id:',
+    ("records/serving.py", "if e.kind == SELF and e.principal_id != e.subject_id:",
      "if False:", "a forged self edge", "tests/test_standing.py"),
+    # The join forwards every argument `serve()` takes. Each of the next two
+    # reverts one to the value it effectively had when `dispatch()` did not
+    # accept it at all — which is how §18 item 12 came to be unreachable
+    # through the only path that renders, gates and logs.
+    ("records/dispatch.py", "threshold=threshold, widenings=widenings)",
+     "threshold=None, widenings=())",
+     "the join forwards the self-edge threshold", "tests/test_dispatch.py"),
+    ("records/dispatch.py", "known_as_of=known_as_of, envelopes=envelopes,",
+     "known_as_of=None, envelopes=envelopes,",
+     "the join forwards the knowledge horizon", "tests/test_dispatch.py"),
+    ("records/serving.py",
+     "via_edge=edge.kind if edge else None,\n                       provenance=fld.provenance)",
+     "via_edge=edge.kind if edge else None)",
+     "an instruction carries its provenance", "tests/test_dispatch.py"),
+    # The only mutation in this list that ADDS something rather than removing
+    # it. The refusal branch must stay provenance-free, so the ablation is the
+    # symmetry a later reader would "tidy up" — and the test has to notice.
+    ("records/serving.py",
+     "no derived instruction authored\",\n                   via_edge=edge.kind if edge else None)",
+     "no derived instruction authored\",\n                   via_edge=edge.kind if edge else None, provenance=fld.provenance)",
+     "a refusal leaks no provenance", "tests/test_dispatch.py"),
     ("records/serving.py", "if edge.kind == SELF and not past_threshold(at, threshold):",
      "if False:", "the self edge's L3 cap", "tests/test_standing.py"),
     ("records/serving.py", "if edge.kind == SELF and not past_threshold(at, threshold):",

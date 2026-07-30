@@ -247,13 +247,22 @@ def _entitling_edge(
     which is the read-path half of G5's March-order-delivered-in-October case,
     and the question an audit asks about a disclosure that already went out.
     """
+    from .standing import SELF
+
     for e in edges:
-        if e.kind == "self" and e.principal_id != e.subject_id:
+        if e.kind == SELF and e.principal_id != e.subject_id:
             # A row claiming `self` for somebody who is not the subject is not a
             # weaker edge; it is not an edge. The kind names a relationship and
             # nothing else here was checking that the relationship held, so
             # `Edge("self", "staff-nguyen", "student-ben", …)` would otherwise
             # entitle a staff member through the subject's own door.
+            #
+            # `standing.SELF`, not the literal `"self"`, which this line used to
+            # hardcode while `serve()` twenty lines up used the constant. Two
+            # spellings of one concept in one file: renaming the constant would
+            # have silently retired this filter, and the ablation entry pinned
+            # the literal too, so the guard would have gone on passing while
+            # being dead in production.
             continue
         if (e.subject_id == subject_id and e.principal_id == principal_id
                 and e.live_at(at) and e.known_at(horizon)):
@@ -269,9 +278,21 @@ def _derived_or_refused(fld: Field, why: str, edge: Optional[Edge] = None) -> Se
     has written a derived form for yet. §7's indistinguishability guarantee
     means this must look the same as a field that has no instruction *and* no
     payload.
+
+    **The instruction carries the field's provenance; the refusal does not**,
+    and the asymmetry is deliberate. An instruction is a value that leaves the
+    system, and this module's stated contract is that every decision carries the
+    provenance of what it served — without it a caller cannot distinguish a
+    provenance dropped in transit from a field that never had one, which is
+    absence rendered as a result in the module whose subject is that
+    distinction. A *refusal* served nothing, so attaching the field's provenance
+    to it would make a refusal over a `P1` field distinguishable from a refusal
+    over a field carrying none: a side channel opened in the exact function
+    whose job is to close them.
     """
     if fld.instruction is not None:
         return Serving(Outcome.INSTRUCTION, fld.instruction, fld.rung, why,
-                       via_edge=edge.kind if edge else None)
+                       via_edge=edge.kind if edge else None,
+                       provenance=fld.provenance)
     return Serving(Outcome.REFUSED, None, fld.rung, why + "; no derived instruction authored",
                    via_edge=edge.kind if edge else None)

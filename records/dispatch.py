@@ -67,7 +67,10 @@ def dispatch(
     render: Callable[[Serving], str],
     *,
     lane_id: Optional[str] = None,
+    known_as_of: Optional[datetime] = None,
     envelopes: Sequence = (),
+    threshold: Optional[datetime] = None,
+    widenings: Sequence = (),
     log: Optional[Log] = None,
     authority: str = "",
 ) -> Dispatch:
@@ -77,8 +80,28 @@ def dispatch(
     supplied by the caller because rendering is a surface concern and §18 item
     4 has not landed — but the gate runs over whatever it produces, so a future
     surface cannot route around this by rendering somewhere else.
+
+    **Every argument `serve()` takes is forwarded, and that is load-bearing.**
+    This function previously accepted neither `threshold` nor `widenings` nor
+    `known_as_of`, so the §18 item 12 mechanism and G5's two-clock case were
+    unreachable through the only path that renders, gates and logs. The
+    direction was fail-closed — the subject got the derived instruction where
+    the rules said payload — but **the log records the decision this function
+    made**, so §7.2's *narrate the read* was narrating a read the predicate
+    would not have made. A disagreement between the predicate and the audit
+    trail is worse than either answer alone.
+
+    `standing.py` was 295 lines with 337 lines of tests and not one of them
+    called this function, which is why nothing caught it. Ablation could not
+    either: it mutates predicates and asks whether a suite notices, and no
+    mutation of `standing.py` reaches a keyword argument that was never passed.
+    **Ablation proves a guard is load-bearing; it says nothing about a guard
+    attached to no caller** — the same gap `CROSSINGS.md`'s addendum names for
+    an assertion attached to no guard.
     """
-    decision = serve(fld, principal, edges, at, lane_id=lane_id, envelopes=envelopes)
+    decision = serve(fld, principal, edges, at, lane_id=lane_id,
+                     known_as_of=known_as_of, envelopes=envelopes,
+                     threshold=threshold, widenings=widenings)
 
     recorded = None
     if log is not None:
