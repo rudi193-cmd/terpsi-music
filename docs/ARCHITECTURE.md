@@ -1482,6 +1482,46 @@ Six personas (§4), `safe-design` ready with tokens and structurally-parity back
 > Egress purity is not the obstacle to a browser surface and should not be
 > raised as one: §6's inner ring forbids *outbound* — there is no client to
 > call out. A local listener is `lan_listen`, a permission.
+>
+> **(iii) The enforcement half of (ii) is built, 2026-07-30, and the decision is
+> still open — that ordering is the point.** `tools/sockets.py` enumerates every
+> listener and every outbound connection the source can open and reconciles them
+> against a manifest. There is no manifest yet, because item 4 owns it.
+>
+> **§4.3's failure was not a lie; it was an ordering.** `safe-app-willow-grove`
+> declared `"surfaces": ["tui"]` and *"portless means portless"*, then opened two
+> all-interface listeners and an `8.8.8.8` probe — because the declaration
+> shipped first and nothing was ever pointed at it. A checker that exists before
+> the first manifest means **the manifest cannot be born wrong**: whatever this
+> item decides gets written against something that already refuses.
+>
+> Three properties, each with a decoy in `tests/fixtures/decoys/` that trips it:
+>
+> - **It parses and never imports.** A checker that imported a module to inspect
+>   it would execute the code under inspection, and for a network module that
+>   means opening the socket it was written to detect.
+> - **A declared port is not enough; the host must match, and wider is a
+>   finding.** Declaring `8560` and binding `0.0.0.0:8560` is the willow-grove
+>   case exactly — true to a checker comparing ports, false to anyone on the LAN
+>   segment.
+> - **A bind it cannot resolve is not a pass.** `bind((HOST, PORT))` from the
+>   environment is `UNRESOLVED`, which is a finding — rule 13 at the one place
+>   where guessing means an open port nobody wrote down.
+>
+> **And the vacuous case is reported as vacuous.** No manifest and no listeners
+> means nothing was checked, which is not the same as nothing being wrong;
+> `conform.py` renders it `UNKNOWN`, never `PASS`. The moment a listener appears
+> with nothing declaring it, the result is `FAIL` — nobody has to remember to
+> switch the check on when this item closes.
+>
+> **The decoy earned its keep on the first run**, and the bug is worth recording
+> because it is the shape this repository keeps finding. The literal extractor
+> read `_const(x) or _UNRESOLVED` — the obvious spelling — and an empty string is
+> falsy, so `bind(("", 8560))`, **all-interfaces spelled as a blank**, was
+> silently reclassified as *could not resolve*. Without a decoy the checker would
+> have shipped reporting the exact case it was written for as unknown, and looked
+> like it worked. That is `§16`'s *mis-aimed middle* in three characters of
+> idiom.
 
 **~~11 · The class vocabulary does not cover the categories §20 of the capability map names.~~**
 **State: closed 2026-07-30. The vocabulary does not need new members. `docs/SENSITIVITY.md` *Protected status* is canonical for the resolution.**
