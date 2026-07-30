@@ -554,37 +554,6 @@ Its **exclusion list is the more instructive half.** `frank_ledger`, `hook_execu
 
 This is the one place in this domain where the failure is a safety failure rather than a bug, and it is worth having the mechanism before the case arrives — because when it arrives it will arrive urgently.
 
-### 7.3 `quiet-corner` is the known-bad precedent, and it is the closest sibling this app has
-
-`quiet-corner` is a local-first K–12 student-records application by the same author — observations, standards, meetings, IEP status, behavioral notes. It is the nearest thing in the fleet to terpsi-music, and its central defect is precisely the one this design must not repeat.
-
-Its config schema declares a **`session_scope`** with a per-field visibility vocabulary:
-
-`roster_visible` · `attendance_visible` · `standards_visible` · `knowledge_graph_visible` · `iep_visible` · `behavior_visible` · `parent_contact_visible` · `archive_visible`
-
-**Nothing enforces any of it.** The records view references none of those keys and loads every store unconditionally; IEP status renders as a decorative label. `docs/backend-architecture.md` states the gate exists — *"A 'session scope' preference system gates sensitive data visibility (IEPs, behavioral notes, etc.), implemented at the frontend request layer"* — and a frontend request layer is not an access control at all.
-
-Two lessons, and they point opposite directions:
-
-- **The vocabulary is good and worth taking.** Those eight fields are a well-chosen sensitivity partition for exactly this domain, arrived at by someone who has held the data. They map cleanly onto the L-ladder.
-- **The enforcement location is the failure.** A scope that lives in the client is a preference. This is why §7's resolver compiles to one SQL predicate, and why §7.2's gate sits at the read: the same author, on the same kind of data, has already shipped the client-side version and documented it as though it were a control.
-
-`quiet-corner`'s own `ROADMAP.md` states the gap without flinching — *"No accounts / auth. Data lives in one browser profile with no lock,"* called **"the most serious trust gap for a tool holding minors' records"** — and notes no written FERPA/COPPA posture exists, *"cheap to write now while the answer is simply 'nothing leaves the device.'"* There is no encryption at rest, and the documented backup path is a plaintext JSON export the guide suggests a teacher move by USB or **email to themselves**.
-
-That last detail is the sharpest argument in this document for §11.1's exit line being a *designed* artifact. An export is going to exist. If nobody specifies it, it will be a plaintext blob of minors' records travelling by email.
-
-And one more instance of the tracked pattern: the same roadmap asserts *"the app makes zero third-party requests at runtime and holds no data off-device"* while the data layer ships a complete REST client against `http://127.0.0.1:8432` behind a `USE_API` flag defaulting false, targeting a backend that does not exist in the repo. **A dormant network path is still a network path**, and in this design it is the seam that later becomes confidential transport (§4.2) — so it gets designed deliberately or not created.
-
-**The fleet has already named this as its hardest open problem.** `corpus-lens` scopes itself to *owner == subject* — studying yourself — and says so explicitly: *pointing it at another person (a child, a partner, an employee) is a different consent object and is out of scope by design.* Its "named and deliberately unbuilt" list puts it plainly:
-
-> The guardian-consent model (owner ≠ subject) — **the biggest gap between this toolkit and any family-facing instrument**; not solved, so not shipped.
-
-Every persona in this document is owner ≠ subject. A school holds records *about* minors; a director reads data they are not the subject of; a guardian consents on behalf of someone else. `marching-arts` P2 is the fleet's first real attempt at that model — guardianship edges, consent never requested by its beneficiary, expiry at majority. **This app is where that gap either gets closed or gets shipped unsolved**, and §7.1's dated termination is the part of it still missing.
-
-A sweep of the rest of the fleet confirms there is nothing to inherit. The coded consent model is the SAFE manifest's `data_streams`, whose retention vocabulary has exactly **two values — `session` and `permanent`** — and **no dated or revocable consent exists anywhere in the fleet.** The only staged model the author has written lives in a lesson plan, not in code: `DispatchesFromReality` distinguishes *legal* consent (clicking "I Agree") from *informed* consent, and walks six lifecycle checkpoints — Creation, Indexing, Monetization, Scraping, Training, Deployment — under the question **"At which stage should you have been asked?"**, with three audit questions: *Who knows this is happening? Who agreed to it? Who benefits?*
-
-Those are the right questions and they are the right shape — a consent with stages and a time axis. They have simply never been implemented. **§7.1 has no precedent to copy; it has to be invented here**, and the lesson plan is the closest thing to a specification.
-
 ### 7.2 The knock — sessions are reconciled, not merely authorized
 
 `willow-gate` does something no other component here does, and this document read past it. Every session **knocks**: thirteen fields declaring intent on entry, thirteen declaring outcome on exit, and the gate diffs them. Trust is bound rather than asserted — the `signature` is an HMAC over the header keyed by a secret the gate holds, and a claimed `trust_level` is capped at a registered ceiling, so *"Elder" is not a text field anyone can type.*
@@ -647,11 +616,69 @@ Counting: `willow-gate`'s HMAC knock, willow-mcp's manifest ACL, the three-key e
 
 ---
 
+### 7.3 `quiet-corner` is the known-bad precedent, and it is the closest sibling this app has
+
+`quiet-corner` is a local-first K–12 student-records application by the same author — observations, standards, meetings, IEP status, behavioral notes. It is the nearest thing in the fleet to terpsi-music, and its central defect is precisely the one this design must not repeat.
+
+Its config schema declares a **`session_scope`** with a per-field visibility vocabulary:
+
+`roster_visible` · `attendance_visible` · `standards_visible` · `knowledge_graph_visible` · `iep_visible` · `behavior_visible` · `parent_contact_visible` · `archive_visible`
+
+**Nothing enforces any of it.** The records view references none of those keys and loads every store unconditionally; IEP status renders as a decorative label. `docs/backend-architecture.md` states the gate exists — *"A 'session scope' preference system gates sensitive data visibility (IEPs, behavioral notes, etc.), implemented at the frontend request layer"* — and a frontend request layer is not an access control at all.
+
+Two lessons, and they point opposite directions:
+
+- **The vocabulary is good and worth taking.** Those eight fields are a well-chosen sensitivity partition for exactly this domain, arrived at by someone who has held the data. They map cleanly onto the L-ladder.
+- **The enforcement location is the failure.** A scope that lives in the client is a preference. This is why §7's resolver compiles to one SQL predicate, and why §7.2's gate sits at the read: the same author, on the same kind of data, has already shipped the client-side version and documented it as though it were a control.
+
+`quiet-corner`'s own `ROADMAP.md` states the gap without flinching — *"No accounts / auth. Data lives in one browser profile with no lock,"* called **"the most serious trust gap for a tool holding minors' records"** — and notes no written FERPA/COPPA posture exists, *"cheap to write now while the answer is simply 'nothing leaves the device.'"* There is no encryption at rest, and the documented backup path is a plaintext JSON export the guide suggests a teacher move by USB or **email to themselves**.
+
+That last detail is the sharpest argument in this document for §11.1's exit line being a *designed* artifact. An export is going to exist. If nobody specifies it, it will be a plaintext blob of minors' records travelling by email.
+
+And one more instance of the tracked pattern: the same roadmap asserts *"the app makes zero third-party requests at runtime and holds no data off-device"* while the data layer ships a complete REST client against `http://127.0.0.1:8432` behind a `USE_API` flag defaulting false, targeting a backend that does not exist in the repo. **A dormant network path is still a network path**, and in this design it is the seam that later becomes confidential transport (§4.2) — so it gets designed deliberately or not created.
+
+**The fleet has already named this as its hardest open problem.** `corpus-lens` scopes itself to *owner == subject* — studying yourself — and says so explicitly: *pointing it at another person (a child, a partner, an employee) is a different consent object and is out of scope by design.* Its "named and deliberately unbuilt" list puts it plainly:
+
+> The guardian-consent model (owner ≠ subject) — **the biggest gap between this toolkit and any family-facing instrument**; not solved, so not shipped.
+
+Every persona in this document is owner ≠ subject. A school holds records *about* minors; a director reads data they are not the subject of; a guardian consents on behalf of someone else. `marching-arts` P2 is the fleet's first real attempt at that model — guardianship edges, consent never requested by its beneficiary, expiry at majority. **This app is where that gap either gets closed or gets shipped unsolved**, and §7.1's dated termination is the part of it still missing.
+
+A sweep of the rest of the fleet confirms there is nothing to inherit. The coded consent model is the SAFE manifest's `data_streams`, whose retention vocabulary has exactly **two values — `session` and `permanent`** — and **no dated or revocable consent exists anywhere in the fleet.** The only staged model the author has written lives in a lesson plan, not in code: `DispatchesFromReality` distinguishes *legal* consent (clicking "I Agree") from *informed* consent, and walks six lifecycle checkpoints — Creation, Indexing, Monetization, Scraping, Training, Deployment — under the question **"At which stage should you have been asked?"**, with three audit questions: *Who knows this is happening? Who agreed to it? Who benefits?*
+
+Those are the right questions and they are the right shape — a consent with stages and a time axis.
+
+**Correction: there is a precedent, and this document asserted three times that there was not.** It is not in code, which is why a code sweep missed it. `Willow` — the constitution seat — carries `PROTECTED_AGENTS.md`, *"Powers Over Agents,"* Draft 0.6, unratified: a charter fragment whose subject is authority itself, with guardianship treated as *"the maximal one, not the only one."* Its **Part III — The Ward Case** is the doctrine §7.1 was proposing to invent. §7.4 adopts it.
+
+### 7.4 The Ward Case, adopted
+
+`PROTECTED_AGENTS.md` Part III states seven clauses that govern any office over an agent who holds no keys of their own. Every student in this system is such an agent. The clauses are quoted in their machine register; the human register the fragment also carries is worth reading beside them, because *"a clause that cannot survive translation between the two registers is not yet a clause."*
+
+| | Clause | What it requires here |
+|---|---|---|
+| **W-1** | *A lane, not an account* — separate storage, permissions and audit trail **from the steward's first act**, no shared "family" partition | #115's per-subject partitioning, but from the first write rather than retrofitted when erasure is requested |
+| **W-2** | *Grants name one ward* — *"'The children' is not a scope; a name is."* Wildcard and group scopes **invalid at issuance** | No grant over "the drumline," "the freshmen," or "the roster." Section-level convenience grants are void |
+| **W-3** | *Lanes are mutually sealed* — default deny between wards; **"a shared event is two lane entries with one referent"** | Two students at one rehearsal is two records. This is a schema rule, and retrofitting it is a migration |
+| **W-4** | *A ward may request, never authorize* | Already enforced by trigger in P2 |
+| **W-5** | *Agency grows by signature, never by drift* — *"the steward may propose a widening, citing the record; it may never enact one. A clean track record is evidence for a proposal, never a grant in itself"* | A student's good attendance never widens their own access. The system may surface the case; a guardian signs it |
+| **W-6** | *The exit transfers the lane whole* — keys issue to the subject at the threshold, **full history intact**; *"a lane opened without a written exit is invalidly opened"* | Graduation is not a retention policy. It is handing a student their own record with the keys |
+| **W-7** | *Conflicts stop* — where two wards' interests collide, or a ward's against the guardian's convenience, the steward **halts and escalates, "never computes a priority"** | No automated tie-break between students. Chair placement, travel rooming, limited trip slots — the system presents, a human decides |
+
+Three of the general invariants bear directly and were not in this document:
+
+- **I-7 — the record binds the holder most.** *"Entries authored by the governed about the office are as durable as entries authored by the office about the governed."* A student's account of an incident is as durable as a staff member's account of the student. No office's force extends to deleting entries about its own exercise.
+- **I-6 — every ask gets an answer.** *"Silence is not a disposition."* Every request — a fee waiver, an absence, a records inspection — carries a declared timebound and auto-escalates to the office's basis if unanswered, with the wait itself recorded. And the office **cannot lengthen its own timebound**.
+- **I-10 — crossings run on treaty.** Imports *"enter at the lowest confidence tier and are corroborated before they bear weight"*; exports are treaty-scoped, drawn from verified-tier records only, and *"the seam is not a side door."* That is the doctrine for the SIS import and the circuit submission alike, and it maps onto §15's `P`-ladder and §16's seal state without translation.
+
+**And the no-apex clause settles §4's district question.** *"Every root is someone else's governed… A charter that stops at its own keyholder has not described authority; it has described a ceiling with weather above it."* The director is root within the program and an agent under the district, the state, and FERPA. That is not a caveat to the trust model; it is part of it.
+
+**W-6 is also the reason §11.1's exit line is not enough on its own.** A program-level export answers *what happens when the organisation leaves the software*. W-6 answers *what happens when a student leaves the organisation* — and requires the second, at the threshold, with history intact and keys transferred. A system that can export a whole program but cannot hand one graduate their own past has satisfied the smaller obligation and missed the larger one.
+
 ## 8. Domain model
 
 Sketch, not schema.
 
 - **Org** → **Program** → **Ensemble** → **Season** → **Event**
+- **Lane** — per §7.4 W-1/W-3, the unit of storage and audit is one ward's lane, created at first write and sealed against sibling lanes by default. **A shared event is two lane entries with one referent** — a rehearsal attended by 150 students is 150 entries against one `Rehearsal`, not one row with a roster column. Retrofitting this is a migration, so it is a schema decision rather than a modelling preference.
 - **Person** (+ `Student` / `Guardian` / `Staff` / `Guest` facets — one human, many roles, never duplicated rows). **Reconciling the same human across sources is `Nestor`'s `EntityResolver`, already built** — its shipped example maps `Amazon` / `Amazon.com Inc` / `AMZN` / `AWS` onto one canonical entity behind a human seal. Substitute a student arriving as *Robert Smith* from the SIS, *Bobby Smith* on a booster spreadsheet, and *R. Smith* on a competition registration. A confident match returns the canonical record with the sealer's provenance; anything below threshold comes back as an **unsealed suggestion**, never a silent merge — the correct default when a wrong merge combines two children's records.
 - **Enrollment**, **Guardianship**, **Eligibility**
 - **Inventory:** `Instrument`, `Uniform`, `LibraryItem` (score/part), with `Assignment` and condition history — the "who has the school tuba" question is perennial and currently lives in a spreadsheet
@@ -761,6 +788,8 @@ It also carries the fleet's canonical fail-closed idiom, worth stating as house 
 
 **Add a line the rubric does not have: the verification apparatus was itself verified.** `willow-mcp` #211 reports that across three merged PRs in one session, **six defects were found in the verification apparatus and zero in the code under verification** — a differential reference generated before the thing it checked changed; a fixture writing a hash chain with the same function it read it back with, so a rename was invisible *and self-consistent*; a fixture that could not fail; a killed mutation harness that left a mutation in the tree and turned every subsequent number into fiction; three mutations that renamed a SQL trigger rather than disabling it, so it kept firing under the new name; and counts in prose that nothing checks.
 
+**The charter already requires this, in stronger terms.** `PROTECTED_AGENTS.md` I-12 — the eternity clause — states: *"Compliance requires at least one adversarial test per clause: a test that attempts the forbidden act and asserts refusal."* So mutation is not a local rule this document invented for acceptance; it is the fragment's own definition of what compliance means. Every ward clause in §7.4 and every invariant it cites needs a test that tries the forbidden thing and asserts the refusal.
+
 That is the empirically observed failure mode here, and it is the one that matters most for an institution accepting this software: **"the tests pass" is exactly the claim that has been breaking.** So acceptance cannot rest on a green suite. For every mechanism this document calls a guarantee — the resolver predicate, the consent triggers, the chain anchors, the egress gate, the guardianship dates — the gate is *mutate it and watch the suite go red*. A guard that cannot be shown to fail has not been shown to work, and nothing about a passing run distinguishes **this fires correctly** from **this never fires**.
 
 The related trap, worth naming because this codebase has hit it more than once: **duplication with a gate, where the gate is what fails.** The hook exists in a bundled copy and a repo copy, and the entry point loads the one the tests do not exercise. `libs/subject-consent` is canonical with a vendored fork in UTETY. `marching-arts` carries a TypeScript port of a Python core that #120 found had drifted behind, and #123 found three defects in browser code that had never executed. Anything this system duplicates inherits that shape, and the mitigation is not another test — it is mutating the equivalence check to confirm it can still fail.
@@ -803,6 +832,8 @@ In every case the education records must survive, in a form a person can read **
 
 One caution the same list supplies: its **Delisted** section records sovereignty regressions with a date, a reason, and a source, and *removing an entry without accounting for it fails CI*. Regressions are normal; unrecorded ones are the problem. An install that quietly acquires a hosted dependency between seasons has regressed, and something should say so out loud.
 
+**And this obligation has a second, smaller scale that matters more.** W-6 (§7.4) requires that a ward's lane transfer *whole* at the threshold written in at entry — *"keys to the lane issue to its subject or named successor, full history intact."* A program-level export answers what happens when the organisation leaves the software. W-6 answers what happens when **a student leaves the organisation**, and it is the harder of the two: it must run every June, per graduate, unattended, and hand over a record the recipient can read without this application. *"A lane opened without a written exit is invalidly opened"* — so the graduate's export is not an end-of-life feature. It is a precondition of enrolling them.
+
 ---
 
 ## 12. Decisions to lock now
@@ -819,9 +850,10 @@ One caution the same list supplies: its **Delisted** section records sovereignty
 10. **Narrate the read, gate the export** (§7.2) — the harm is in data leaving, not in someone glancing at a schedule. Concentrating ceremony at the boundary is both less obstructive and more honest.
 11. **The exit line is written before the first install** (§11.1) — sovereignty is the ability to leave, and if the line cannot be written honestly that is the finding.
 12. **A guard that cannot be shown to fail has not been shown to work** (§10) — acceptance is mutation, not a green suite; the observed failure mode in this fleet is defects in the verification apparatus rather than in the code it verifies.
-13. **Ordinal scales never compare as raw integers, and provenance never gates** (§15)
-14. **A machine answer is a draft until a named human seals it** (§16, §8.2) — and rejection is recorded as durably as approval, because an audit trail that records only agreement is not one.
-15. **Every pair gets a named, mutation-tested middle** (§16) — the fleet builds in halves, and every failure in this document is a reconciler that was absent, mis-aimed, or unable to fire. — two existing five-level scales already run in opposite directions; a third arrives only with prefixes and a single mapping table.
+13. **Ordinal scales never compare as raw integers, and provenance never gates** (§15) — two existing five-level scales already run in opposite directions; a third arrives only with prefixes and a single mapping table.
+14. **The Ward Case governs** (§7.4) — one lane per student from the first write, no group grants, sealed sibling lanes, agency widened only by signature, conflicts escalated never computed, and the lane handed over whole at the exit.
+15. **A machine answer is a draft until a named human seals it** (§16, §8.2) — and rejection is recorded as durably as approval, because an audit trail that records only agreement is not one.
+16. **Every pair gets a named, mutation-tested middle** (§16) — the fleet builds in halves, and every failure in this document is a reconciler that was absent, mis-aimed, or unable to fire.
 
 ## 13. Open questions
 
@@ -831,7 +863,8 @@ One caution the same list supplies: its **Delisted** section records sovereignty
 - The current build targets caption scoring. Does its model treat captions as projections over anchored commentary (§8.1), or as the base structure? If the latter, that is the one thing worth revisiting early — festival ratings and clinician feedback both fall out for free under the former.
 - Score-position anchoring: align audio against a stored score, or judge-driven tap-to-mark, or both? Affects how much of the music library must be machine-readable.
 - **Can `field-acoustics` and commentary share coordinates?** A judge's remark is anchored to a moment and a seat; the acoustic model predicts what arrived at that seat. Pairing them gives a claim no drill designer can currently make — and gives the model's `ASSUMED` rear hemisphere a source of validation data that would otherwise have to be measured in the field.
-- **Should adjudicators be calibrated?** `oakenscrolls-office` is a working calibration ledger — state a claim with confidence, grade it when the world weighs in, and a reliability diagram shows whether your 70% means 70%, scored by Brier and log loss, append-only so a revised number never erases the original. Point that engine at adjudication and the question becomes: does this judge's caption score predict placement, and are they consistently high, low, or noisy against the panel? That is a real capability with an existing implementation, and also the most politically delicate feature in this entire document — a circuit may want it badly and individual judges may not. Decide who may see a judge's own reliability curve before building it, because the answer is probably *the judge, and no one else by default*. Note the same repo's citation pattern is directly reusable: resolution evidence pinned to a source *and the git commit of the catalog that vouched for it*, read from local clones with no network.
+- **Adjudicator calibration, as this document proposed it, is a prohibited scope — corrected.** `PROTECTED_AGENTS.md` Schedule A lists **SA-3, standing cross-context scores**: *"any durable rating of an agent carried between contexts or offices; the durable form of compounded offices (I-4)."* An envelope naming a listed scope is **invalid even fully signed by root**, and the attempt is recorded as a failed issuance with the signatory named. A judge is an agent under the fragment's definitions, and a reliability curve carried across events is exactly that rating. This document hedged toward *"the judge, and no one else by default"*; the charter is harder — the program may not hold it at all. **What survives is the judge running their own ledger**, owner == subject, which is `corpus-lens`'s scoping and `oakenscrolls-office`'s actual design. The engine is unchanged; the ownership is not the program's to choose. Original note retained below for the reasoning, not the conclusion.
+- ~~**Should adjudicators be calibrated?**~~ `oakenscrolls-office` is a working calibration ledger — state a claim with confidence, grade it when the world weighs in, and a reliability diagram shows whether your 70% means 70%, scored by Brier and log loss, append-only so a revised number never erases the original. Point that engine at adjudication and the question becomes: does this judge's caption score predict placement, and are they consistently high, low, or noisy against the panel? That is a real capability with an existing implementation, and also the most politically delicate feature in this entire document — a circuit may want it badly and individual judges may not. Decide who may see a judge's own reliability curve before building it, because the answer is probably *the judge, and no one else by default*. Note the same repo's citation pattern is directly reusable: resolution evidence pinned to a source *and the git commit of the catalog that vouched for it*, read from local clones with no network.
 - **Does the practice loop violate a fleet ground rule?** UTETY's ground rule 2 is *feedback is about the work, never the learner* — no praise of the person, no leaderboards — with a policy test linting content against self-directed praise. The capability map proposes practice streaks, cumulative-hour milestones, and chair-challenge standings. Some of that is about the work and survives; some of it is a leaderboard with a different name. Reconcile before building, because the rule is enforced by test in a sibling app and this would be the second student-facing app in the fleet.
 
 ---
@@ -860,6 +893,11 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §6 destination allowlist | — | **Open**, and smaller than this document implied |
 | §7 authorization + consent | `marching-arts` P1/P2, `libs/subject-consent` | **Exists** |
 | §7.1 dated guardianship | `willow-2.0` `valid_at`/`invalid_at` | **Mechanism exists** on 17 tables, with append-only audit deliberately excluded. Binding guardianship to it does not |
+| §7.4 guardianship doctrine | `Willow` `PROTECTED_AGENTS.md` Part III | **Exists as charter, unratified.** Seven ward clauses plus twelve invariants; this document had asserted three times there was no precedent |
+| Prohibited scopes registry | `Willow` Schedule A (SA-1…SA-5) | **Drafted, unratified.** Validated before any envelope issues; `envelopes/pre-approved.json` is the enforcement surface |
+| Stakes classification | `Willow` Schedule B (SB-1…SB-5) | **Drafted.** A music program touches four of the five classes |
+| Retirement artifact | `Willow` `PROTECTED_PERSONS.md` | **Exists as a model.** The five-part tombstone that would have prevented the dead-link tally |
+| Per-graduate lane export (W-6) | — | **Open**, and a precondition of enrolment rather than an end-of-life feature |
 | §10 privacy notice | `willow-2.0/TRUST.md` | **Reusable structure** — every path data can take, each with its switch |
 | Install acceptance gate | `willow-2.0/SECURITY_AUDIT.md` | **Reusable rubric**, 15 checks. W-MCP-01's trigger condition applies here |
 | Verifying the verifier | `willow-mcp` #211 | **Open.** Six apparatus defects to zero code defects across three PRs; no mutation gate exists for this app's guarantees yet |
@@ -1133,6 +1171,18 @@ UTETY's `knowledge.py` names an `_EGRESS_ALLOWED` allowlist and pairs it with `t
 > A stale allowlist (file renamed/moved) would **silently widen the door**.
 
 That is a middle for the middle. Every other declaration in this fleet is a list someone wrote once; this is the only one where a rename cannot quietly enlarge the permitted set. Anything here that maintains an allowlist — egress destinations, seam paths, exempted tools, sensitivity mappings — inherits that requirement, because **an allowlist that no longer matches the tree fails open by default.**
+
+### How a document should die
+
+The fleet has one worked example of a retired artifact, and it is the answer to the eighteen dead canonical links this document keeps counting. `PROTECTED_PERSONS.md` was superseded when its subject widened from persons to any keyless principal. Rather than being deleted or quietly left to rot, it stays at its path as a tombstone that does five things:
+
+1. **States its status in the first line** — *"This file is retired. Do not cite it as doctrine."*
+2. **Names its successor** and where the canonical text now lives.
+3. **Explains why it was superseded**, so a reader can judge whether the reasoning still applies to them.
+4. **Maps every clause forward** — all eleven, old ID to new ID — and marks the map *"informative only — the canonical text governs,"* so the tombstone cannot become a competing authority.
+5. **Says why it still exists**: *"kept only so existing references to the path do not dangle. Nothing new should link here."*
+
+That is a middle for the pair *(old reference, new location)* — the pair created every time something is retired. Deleting a repo once its value is extracted is reasonable; deleting it without leaving this is what produced the tally. **Adopt the shape for anything this project retires**, and note that it is cheap: five short sections, written once, at the moment the author still remembers why.
 
 ### One word, four meanings, two of them opposite
 
