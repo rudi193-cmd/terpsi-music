@@ -208,6 +208,14 @@ That second row is the un-passable-parameter discipline again (§6), applied to 
 
 So the relay remains unbuilt, and reusing u2u for it would be a serious error. What u2u *does* supply is the harder half of a mailbox relay — signed identity, verified origin, per-contact consent flags defaulting to False so a newly admitted contact can deliver nothing until granted. A confidentiality layer over that is a smaller job than a relay from scratch.
 
+**And the same app opens a port its manifest says it cannot.** `safe-app-willow-grove` declares `"privacy_tier": "local_only"`, `"local_processing": 1.0`, `"surfaces": ["tui"]`, permissions limited to `lan_listen` / `lan_send`, and its `CLAUDE.md` rule #1 reads:
+
+> **No web ports for the dashboard.** Portless means portless.
+
+`bridge/__main__.py` starts an aiohttp server on `0.0.0.0:8560` — all interfaces — and `bridge/matrix.py` makes outbound POSTs to an arbitrary configured homeserver. `bridge/app.py` opens a UDP socket to `8.8.8.8:80` to discover the local IP. The rule is scoped to *the dashboard*, so it is arguably not violated; a reader of the manifest would still conclude this app cannot open a port, and it can.
+
+Its own `SECURITY_AUDIT.md` knows, and says so honestly: `u2u/` and `bridge/` are *"**Scanned, not Reviewed**… they make the repo's only cryptographic trust decisions and deserve a dedicated pass."* That is a disclosure rather than a defect — but it is **prose in an audit file, not an assertion**, and nothing fails if the bridge grows a new capability tomorrow. Which is §16's distinction exactly: an acknowledged missing middle is still a missing middle.
+
 > **Divergence to fix.** `catalog.json` still advertises encryption that the code does not implement, for two entries. Sibling repo `safe-app-grove`, named as Grove's canonical repository, does not resolve — consistent with the survey finding in #119 that two of four claimed canonical repos 404. Both are `FLEET_SEAMS`-class findings: the declaration and the enforcement disagree, and the declaration is the customer-facing one.
 
 ---
@@ -354,7 +362,9 @@ The middle ring is the one this document originally missed. `safe-app-common` ha
 
 `assert_file_no_egress` proves a module cannot open a socket. **It proves nothing about what that module writes, or where.** Both `willow_bridge.py` implementations write to `~/.willow/signals/*.json` — outside the app's own vault root, into a directory another process reads. That is a cross-app data handoff the AST scan cannot see, because it is not an import.
 
-For this domain that is the gap that matters most. A commentary transcript or a roster export dropped into a shared directory has left the app just as surely as if it had been POSTed, and every guarantee in §6 is silent about it. So the core/seam rule needs a second half: **a seam declares the paths it writes as well as the modules it imports**, and anything outside the app's own store root is an egress event subject to §7.2's export gating.
+For this domain that is the gap that matters most. A commentary transcript or a roster export dropped into a shared directory has left the app just as surely as if it had been POSTed, and every guarantee in §6 is silent about it. So the rule needs a second half: **an outward module declares the paths it writes as well as the modules it imports**, and anything outside the app's own store root is an egress event subject to §7.2's export gating.
+
+One more hole worth closing while here. The shared checker treats `subprocess` as egress and says why — *"an out-of-process shell is egress by another door."* Three of the fleet's bridges use it (`openclaw_discord_bridge.py`, `willow-bot`'s `fleet_bridge.py`, `node9_policy_bridge.py`) and **none of them sits in a repo that runs the checker.** The rule is right and unenforced where it would bite.
 
 UTETY shows what that buys, in a student-data app that is the closest existing analogue to this one. `knowledge.py` is the single place anything leaves the device, deliberately outside `core/`, and its send path takes only a concept-query string. **Student PII cannot be transmitted because it is not a parameter.** That is categorically stronger than gating a call that *could* carry PII: there is no argument to review, no policy to get right, and no way to pass the wrong thing by mistake.
 
@@ -870,6 +880,9 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §15 rendering the scales | `safe-design` | **Exists.** Semantic tokens, lookup-time aliases, structurally guaranteed backend parity, ASCII path |
 | §5 exclusion of family data from the corpus | `willow-compose` | **Exists as stated policy.** This app is a family-data app by its definition |
 | Fifth authorization mechanism | `openclaw-sap-gate` (SAP/1.0) | **Exists**, with a fail-open default fingerprint and revocation-by-deletion |
+| Purity checking, fleet-wide | `safe-app-common` | **Confined.** 7 declaring files across 36 repos; 3 of 27 store apps have a purity test; four major repos have no checker |
+| Write-path declaration | — | **Open.** The AST checker sees imports, not filesystem writes; both `willow_bridge` copies write outside their vault root |
+| Allowlist rot-checking | UTETY `test_allowlist_entries_exist` | **Unique in the fleet.** A stale allowlist silently widens the door |
 | §17 district / equity data | `almanac-data/education-almanac` | **Seeded, not worked.** One UNESCO entry. Five sibling verticals are worked and US-federal-heavy, so the pattern and the machinery both exist |
 | §15 citation decay vocabulary | `almanac-template/schema/catalog-entry.schema.json` | **Solved, adopt wholesale.** Seven decay states, observed-vs-status separation, fingerprint drift, recovery authenticity ladder |
 
@@ -1034,6 +1047,39 @@ That is the whole diagnosis, and the three modes are worth separating because th
 
 A middle that cannot fail is worse than no middle, because it reports success.
 
+### The middles themselves come in pairs, and drift
+
+Three worked examples from the fleet's own bridges, in ascending order of how much they should worry us:
+
+**A middle that covers direction but not content.** `private-ledger` runs six purity tests including `test_willow_bridge_is_pure_injection`, which calls `assert_file_no_egress` on the bridge itself. `oakenscrolls-office` runs two: it enforces that the core does not import the bridge, and **never checks the bridge**. Its docstring promises *"no willow import here, ever"* — a guarantee the test does not keep. The file is clean today; nothing fails if someone adds `import requests` tomorrow.
+
+**A middle duplicated, with neither copy checked.** `nest-seed/bridge.py` connects the local PII zone to the fleet knowledge base, and its docstring states the stake plainly: *"the Nest DB holds a person's legal filings, messages, journals — content that must never leave this machine."* It has a behaviour test and **no purity test**. The same file is vendored into `willow-mcp`, a repo with no checker at all. Canonical and vendored, the middle copied along with the code, and neither instance verified.
+
+**A rule copied by hand, already diverged.** The standalone `oakenscrolls-office` carries its own AST scanner rather than importing `safe-app-common`, with a **narrower forbidden set** than the shared one. Two copies of the same rule, drifted — which is this section's thesis applied to the enforcement layer itself.
+
+### The only declaration in the fleet that is checked for rot
+
+UTETY's `knowledge.py` names an `_EGRESS_ALLOWED` allowlist and pairs it with `test_allowlist_entries_exist`, whose comment carries the lesson:
+
+> A stale allowlist (file renamed/moved) would **silently widen the door**.
+
+That is a middle for the middle. Every other declaration in this fleet is a list someone wrote once; this is the only one where a rename cannot quietly enlarge the permitted set. Anything here that maintains an allowlist — egress destinations, seam paths, exempted tools, sensitivity mappings — inherits that requirement, because **an allowlist that no longer matches the tree fails open by default.**
+
+### One word, four meanings, two of them opposite
+
+`seam` is not used consistently in this fleet, and the ambiguity is not cosmetic:
+
+| Sense | Meaning | Where |
+|---|---|---|
+| 1 | A **declared outward boundary** — the module allowed to face out | `safe-app-common`, `private-ledger`, UTETY |
+| 2 | An **injected abstraction pointing inward** — *"The seam points inward only: nothing here reaches for a socket"* | `marching-arts` `connection.ts`, `almanac_seam.py` (which lives *inside* the no-egress set) |
+| 3 | A **design document** describing an integration surface between two repos | `willow-mcp/docs/design/*-seam.md` |
+| 4 | A **defect** — *"where two Willow components each do half a job and the halves do not meet"* | `willow-grove/FLEET_SEAMS.md` |
+
+Senses 1 and 4 are inverses: in the first a seam is what makes a boundary safe, in the last a seam is the absence of one. Calling a module "a seam" therefore tells a reader neither which direction it points nor whether anything checks it.
+
+**So this document does not adopt the word as a load-bearing term.** UTETY's approach is the one to copy — *name the mechanism, not the shape.* `_EGRESS_ALLOWED` says what it does and can be tested; "seam" says only that something is at an edge.
+
 ### What this obliges here
 
 terpsi-music will create pairs — it cannot avoid them, and mostly should not:
@@ -1055,4 +1101,6 @@ terpsi-music will create pairs — it cannot avoid them, and mostly should not:
 2. **The middle must be mutation-tested.** §10's rule is this rule; a reconciler that has never been shown to fail has not been shown to work.
 3. **The middle must state which property it compares** — spelling or behaviour, reachability or content, presence or equality. #120's lesson is that a differential *cannot tell you which it did*.
 4. **Prefer not creating the pair.** The cheapest middle is the one you do not need. Every vendored copy, every port, every duplicate store is a standing obligation, and this codebase has four such pairs already carrying known drift.
+5. **Check the middle for rot, not just for correctness.** An allowlist that no longer matches the tree fails open. `test_allowlist_entries_exist` is the pattern, and it is currently unique in the fleet.
+6. **Name the mechanism, not the shape.** `_EGRESS_ALLOWED` is testable; "seam" is four things, two of them opposite.
 
