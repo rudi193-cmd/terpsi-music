@@ -325,7 +325,7 @@ For this domain the split falls out naturally: roster, guardianship, consent, he
 
 **By that definition terpsi-music is a family-data app**: minors, medical forms, schedules, names, guardians. So the constraint is not a new one this document is proposing — it is an existing fleet policy that already names this class of application and puts it outside the shared corpus. Record it that way, and note the consequence: nothing from a program's canonical store is ever a candidate for corpus ingestion, promotion, or the knowledge base, however useful the aggregate would be.
 
-That also settles a question §19 might otherwise have gotten wrong. A director's assistant may query the program's own store locally; it may not enrich the fleet corpus with what it learns there.
+That also settles a question §19 of the capability map might otherwise have gotten wrong. A director's assistant may query the program's own store locally; it may not enrich the fleet corpus with what it learns there.
 
 Two things that follow from the vault, and neither is covered yet:
 
@@ -592,7 +592,7 @@ Its trust mapping is the template:
 | Local-AI tools (`query`) | Veteran |
 | `gazelle_save` / `gazelle_commit` — **counted as exports** | Steady, denied below |
 
-Note what that last row does: it classifies *save and commit* as exports rather than writes, and gates them accordingly. That is the read-versus-export principle expressed as a concrete permission table, in an app handling custody matters — the same population this design worries about in §7.1 and §20. Judges and clinicians want the identical shape: read at the guest rung, commentary writes one rung up, export gated hard and announced.
+Note what that last row does: it classifies *save and commit* as exports rather than writes, and gates them accordingly. That is the read-versus-export principle expressed as a concrete permission table, in an app handling custody matters — the same population this design worries about in §7.1 and in §20 of the capability map. Judges and clinicians want the identical shape: read at the guest rung, commentary writes one rung up, export gated hard and announced.
 
 #### A fifth gate exists, and its default fails open
 
