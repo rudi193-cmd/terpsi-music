@@ -18,17 +18,19 @@ A music-program management application holding **minors' education records**: ro
 
 ## Shapes — how things get built here
 
-8. **One lane per student, from the first write.** Separate storage, permissions, audit trail. Sibling lanes sealed by default. **A shared event is two lane entries with one referent** — never one row with a roster column. (§7.4 W-1, W-3)
+8. **One lane per student, from the first write.** Separate storage, permissions, audit trail. Sibling lanes sealed by default. **A shared event is two lane entries with one referent** — never one row with a roster column. (§7.4 W-1, W-3; `docs/LANE-MODEL.md` for the schema)
 9. **Gate the export, narrate the read.** The harm is data leaving, not someone glancing at a schedule. Exports are a distinct permission class and are announced. (§7.2)
 10. **A machine answer is a `draft` until a named human seals it.** Transcripts especially. Record rejections as durably as approvals — an audit trail that logs only agreement is not one. (§8.2, §16)
 11. **The canonical store is read-only to the app.** Agents write sidecars only; promotion to canonical is a human act. (§5)
 12. **Every pair gets a named middle, in the same commit.** Vendored copy, port, duplicate store, declaration-plus-enforcement — name the reconciler when you create the pair, or don't create the pair. (§16)
 13. **Absence surfaces as `unknown`, never as a result.** A rubric that failed to load returns "unavailable," not "no findings." A consent backend that errored returns "unknown," not "no restrictions." (§6)
-14. **Scales never compare as bare integers**, and no scale is encoded by colour alone. `L1–L5` sensitivity, `T0–T4` trust, `P1–P5` provenance — one mapping table, prefixes always. (§15)
+14. **Scales never compare as bare integers**, and no scale is encoded by colour alone. `L1–L5` sensitivity, `T0–T4` trust, `P1–P5` provenance — one mapping table, prefixes always. (§15; `docs/SENSITIVITY.md` for the L-rungs and the crossing)
 15. **Every ask gets a dated disposition.** Fee waivers, absence requests, records inspections. Silence is not an answer, and the timebound is declared at issuance. (§7.4 I-6)
 16. **A student's entries are as durable as entries about them.** No role's authority extends to deleting the record of its own exercise. (§7.4 I-7)
 
 ## Before you claim something
+
+*Worked instances of all four of these, from one session: `docs/CROSSINGS.md`.*
 
 17. **Do not quote a count you did not derive from the tree.** Test counts, row counts, gate counts. This fleet has a documented history of figures in prose the code moved past; four instances in one session.
 18. **Say "enforcement" or "ledger."** A gate that nothing routes through is a ledger. Both are useful; calling one the other is not.
@@ -37,7 +39,7 @@ A music-program management application holding **minors' education records**: ro
 
 ## Working here
 
-- Canonical docs: **`docs/ARCHITECTURE.md`** (17 sections, with a component map at §14 marking what exists versus what is proposed) and **`docs/CAPABILITY-MAP.md`** (the domain surface).
+- Canonical docs: **`docs/ARCHITECTURE.md`** (18 sections, with a component map at §14 marking what exists versus what is proposed), **`docs/CAPABILITY-MAP.md`** (the domain surface), **`docs/SENSITIVITY.md`** (the `L1–L5` rungs, the class-to-rung mapping, and the sensitivity→trust crossing), and **`docs/LANE-MODEL.md`** (the W-1/W-3 schema, with the DDL at `docs/schema/001_lanes.proposed.sql`). The last two are canonical for their own subject and addressed by rung or clause rather than by section number.
 - Read **`§18` first** — the open list, with the four items that block a first commit — then `§14` for what exists versus what is proposed. Most of what this design needs already exists elsewhere in the fleet; the value is in what does not.
 - **`§14`'s "Exists" column is unverified** — assembled from READMEs and PR descriptions, not from reading source. Treat it as a claim to check, not a fact to build on (`§18` item 0).
 - Fleet repos are read through the GitHub API, not cloned. Do not clone the fleet into this workspace.
