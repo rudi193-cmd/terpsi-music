@@ -38,6 +38,8 @@ The largest genuinely untapped surface, and the one that touches students daily.
 
 **Leverage:** practice plans generated *from adjudication and clinician commentary* (§8.1 of the architecture). A judge says something about the low brass at measure 112; every affected student's practice queue updates with that passage, that comment, and the audio of what the judge was reacting to. That closed loop is the single most defensible feature in this document — it makes the commentary primitive pay for itself and it is the thing no existing product does.
 
+**An existing answer to the surveillance problem.** `ask-jeles`'s learning-event capture is off by default *every launch*, is never persisted across launches, and records only the shape of an activity — query class, hit count, citation count, answer length — never the content. Applied to practice logging that resolves most of the tension with UTETY's no-leaderboard rule: duration, passage, and self-rating are the work; a recording's contents and a ranked standing are not. Guardian visibility should be built on the same distinction.
+
 **Physical practice**
 - Practice room booking, occupancy, and utilization analytics
 - Sectional scheduling, attendance, and student-led sectional plans
@@ -60,6 +62,8 @@ The largest genuinely untapped surface, and the one that touches students daily.
 - Multi-year growth arcs — a student from sixth grade to senior year in one view
 - Make-up and retake workflow
 - Progress reporting to guardians
+
+**Question banks have a settled workflow.** `civics-check` keeps authoritative JSON under `data/sources/`, compiles it to a catalog, and states the rule plainly: *never hand-edit the compiled output.* Theory quizzes, sight-reading item sets, and scale requirements all want that shape — edit the source, rebuild, test — rather than a database somebody maintains by hand.
 
 ---
 
@@ -127,6 +131,8 @@ The highest-frequency pain and the highest-frequency source of family conflict.
 - Difficulty calibration against measured ensemble ability
 - Folder assignment, return check, lost-music fees
 - Program notes and composer bios for printed programs
+
+**Digitizing the filing cabinet has a built pipeline.** `nest-seed` walks a folder, extracts text by type (OCR for scans, `pdfplumber` for PDFs), and classifies by *meaning* through a three-tier cascade — regex facts, then local embeddings matched to category centroids where the similarity score *is* the confidence, then a generative model **only on the ambiguous tail**, handed the embedding's top candidates as a constrained choice. Every tier degrades gracefully when its model is absent. For a library of scanned scores and parts on a modest hub, that cost discipline is the difference between a weekend job and an unusable one.
 
 ---
 

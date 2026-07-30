@@ -243,13 +243,35 @@ Any new chained artifact in this system — the disclosure log, the egress log o
 
 | Layer | Lifecycle |
 |---|---|
-| Compute / agents — MCP server, Kart sandbox | ephemeral, replaceable |
+| Compute / agents — MCP server, Kart sandbox (§5.1) | ephemeral, replaceable |
 | Apps — `SAFE/apps/<app_id>/` | replaceable payloads |
 | **The vault** — schemas, KB, DBs, secrets, user files | **persistent, sovereign** |
 
 Secrets are Fernet ciphertext in `vault.db`, meaningless without `vault.key` (mode `0600`, generated locally, never committed). The framing is exactly this document's thesis, arrived at independently: *copy the box's `vault.db` without the key and every secret is unreadable — which turns "agents can't carry it out" from a policy promise into a cryptographic one.* `willow-mcp` fails closed on a keyless vault, and `vault.db` + `vault.key` are written only as an atomic pair.
 
-Two things that follow, and neither is covered yet:
+### 5.1 The sandbox is where anything expensive runs
+
+`kartikeya` is the execution layer under the vault's compute row: a task queue plus a **bubblewrap-sandboxed worker** with an explicit mount, credential, and network policy. Three properties matter here.
+
+**Network-isolated by default.** A task reaches the network only if its stored text carries `# allow_net` — and Kart treats that as a *request*, calling back to the host authorizer, which rechecks capability, consent, lease, signature, task hash, expiry, and a one-use nonce. Kart's own docs are careful to say that who may *write* that directive is the host's call, which is the same boundary willow-mcp names as its residual (§6).
+
+**Credentials reach only network-enabled tasks**, so a purely local job cannot see a secret it has no use for.
+
+**Resource caps are real** — a delegated cgroup parent where available, `prlimit`/`ulimit` inside the sandbox otherwise. That is not a nicety on a single-box hub: commentary transcription and acoustic simulation are the two genuinely expensive things this system will run, and neither may be permitted to starve attendance-taking on a competition morning. Cap them, and make the cap part of install acceptance rather than something discovered under load.
+
+### The canonical store is read-only to the app; apps write sidecars
+
+Two independent builds state this rule, which makes it a fleet convention rather than one app's preference. `law-gazelle`: *Nest SQLite (canonical private data) → Law Gazelle (reads only) → LLM/TUI*, with a separate `gazelle_state.db` taking sidecar writes, and explicitly **agent write path: sidecar only**. `nest-seed`: *the DB is canonical — apps read it, never mutate it*, with fleet promotion as a later, separate layer.
+
+Adopt it here, because it buys three things this design wants and does not otherwise have:
+
+- **An agent cannot corrupt the system of record**, regardless of what it is talked into. The strongest prompt-injection outcome against a read-only canonical store is a bad sidecar.
+- **Restore is meaningful.** A canonical store that only a narrow, audited path writes is one whose backups are trustworthy; a store every feature mutates is one where a bad week is indistinguishable from a bad restore.
+- **The disclosure question stays answerable.** Sidecars carry who-wrote-what-when without polluting the record they annotate.
+
+For this domain the split falls out naturally: roster, guardianship, consent, health, and adjudication results are canonical; practice logs, triage state, drafts, annotations, and anything an agent produces are sidecar until a human promotes them.
+
+Two things that follow from the vault, and neither is covered yet:
 
 - **This seals secrets, not records.** `vault.key` protects the Fernet secret store. A SOIL collection's `store.db` — where a roster, medical notes, and adjudication commentary would live — is not described as encrypted at rest. The per-record DEK hierarchy above is therefore still a proposal, not a restatement. Decide deliberately whether student records need more than filesystem permissions plus a `0700` box, because "the box is sovereign" and "the box is encrypted" are different claims and only the first is currently true.
 - **There is no escrow.** See below; it is the largest remaining gap in this design.
@@ -373,6 +395,12 @@ Given this repo's MCP wiring: an agent with tool access and a network route is a
 - Agent tool-calls are constrained by the same authorization tuples as the human they act for — an agent cannot read what its principal cannot read.
 - Agents knock like anyone else (§7.2), and being the least trusted rung, they are the loudest.
 
+**Put a verified corpus in front of the model.** `jeles` is the pattern: a *nugget* is a human-verified question/answer pair carrying `sources`, `verified_by`, and `verified_at`, and the corpus **sits in front of live search rather than replacing it** — a confident match answers instantly, with citations, no model call at all. Two ask modes with different logging rules: a passive background check never logs a miss; a deliberate ask treats a miss, or a match below threshold, as a real *gap* worth tracking. Local logging is synchronous and the source of truth; any fleet forward is best-effort, never blocks, never raises.
+
+For a director asking questions of their own program, that ordering is the whole design. The recurring questions — when is the fee deadline, who repairs a sousaphone, what is the eligibility rule — should answer from verified content with a citation and a named verifier, deterministically, with no inference involved. The model is the fallback for the tail, not the front door. And the gap log becomes a program artifact in its own right: what this program keeps asking that nobody has answered yet.
+
+`verified_by` / `verified_at` is also the same shape as `rationale`'s human seal (#125) — two components independently deciding that an answer is only trustworthy when a person's name is attached to it.
+
 **The friction floor belongs here too.** `willow-gate`'s sibling module watches a different surface from access: whether the agent has stopped being *other* and started reflecting the user back, smoothed, while the user is escalating. Model-free, deterministic, running outside the model it watches — because a mirror cannot audit itself. It flags for a human and never blocks.
 
 That is not a general-purpose nicety in this domain. The highest-stakes moments in a music program are a student in crisis, a conflict with a parent, a disciplinary decision, and a death in the program. An assistant that agrees fluently with a stressed director in exactly those moments is a real harm vector, and flagging rather than blocking is the correct posture for a detector that will sometimes be wrong.
@@ -450,6 +478,21 @@ Level 0 is refused a session and **still reads**, loudly, by a path the gate nev
 This document was built the other way round — §4 and §7 concentrate on gating reads. The knock's position is better, and it should be adopted: **narrate the read, gate the export.** The realistic harms in a music program are not someone glancing at a schedule; they are the roster on a thumb drive, the spreadsheet mailed to a vendor, the season's medical forms copied off before someone leaves. Concentrating enforcement where data *leaves* produces a system that is simultaneously less obstructive day to day and more honest about where the risk actually sits.
 
 The read side does not become free — refusal indistinguishability (§7), the L-ladder, and the consent predicate all still govern what a read returns. What changes is where the *ceremony* goes: reconciliation and announcement at the boundary, not friction on every glance.
+
+#### `law-gazelle` is the worked example, in a comparable domain
+
+The previous version of this section said the mechanism existed but nothing bound guests to it. That was wrong: `law-gazelle` — a local-first case command center for private legal matter data, including co-parent and family-law matters — already wires the gate in **enforcement** mode. `GAZELLE_GATE=1` routes every `tools/call` through `willow-gate` before dispatch, a denied call never runs, clients check in with a signed 13-field header and check out through the paired call, and **if the gate is enabled but misconfigured the server refuses to start.**
+
+Its trust mapping is the template:
+
+| Operation | Minimum rung |
+|---|---|
+| Read tools | Rookie |
+| Sidecar writes | Steady |
+| Local-AI tools (`query`) | Veteran |
+| `gazelle_save` / `gazelle_commit` — **counted as exports** | Steady, denied below |
+
+Note what that last row does: it classifies *save and commit* as exports rather than writes, and gates them accordingly. That is the read-versus-export principle expressed as a concrete permission table, in an app handling custody matters — the same population this design worries about in §7.1 and §20. Judges and clinicians want the identical shape: read at the guest rung, commentary writes one rung up, export gated hard and announced.
 
 #### Enforcement or ledger — say which
 
@@ -593,7 +636,13 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §6 the un-passable seam | UTETY `knowledge.py` | **Exists** as a proven pattern in a student-data app |
 | §6 perimeter | `willow-gate` | **Exists**, as an agent trust gate rather than a network broker |
 | §7.2 session reconciliation (the knock) | `willow-gate` | **Exists.** 13 fields in, 13 out, diffed; bound trust; louder for the least trusted; budgets tighten as trust rises |
-| §7.2 guest sessions reconciled | — | **Open.** The mechanism exists; binding judges and clinicians to it does not |
+| §7.2 guest sessions reconciled | `law-gazelle` | **Exists as a worked example** in a comparable domain — gate in enforcement mode, trust ladder mapped to operations, save/commit classed as exports, refuses to start if misconfigured |
+| §5 canonical vs sidecar | `law-gazelle`, `nest-seed` | **Convention, stated twice.** Canonical store read-only to the app; agent write path is sidecar only |
+| §5.1 compute isolation | `kartikeya` | **Exists.** Bubblewrap, network-isolated by default, credentials only to net-enabled tasks, cgroup/prlimit caps |
+| §6 verified answers before inference | `jeles` | **Exists.** Nuggets with sources and a named verifier, in front of search; gaps logged local-first |
+| Library digitization | `nest-seed` | **Exists.** Regex → local embeddings → generative only on the ambiguous tail, degrading gracefully |
+| Question banks / assessment | `civics-check` | **Exists as a pattern.** Authoritative sources compiled to a catalog; never hand-edit the output |
+| Consent-scoped activity capture | `ask-jeles` learning events | **Exists.** Off by default every launch, never persisted across launches, records shape not content |
 | Mirror detection near high-stakes decisions | `willow_gate.friction_floor` | **Exists.** Flags for a human, never blocks, runs outside the watched model |
 | §6 destination allowlist | — | **Open**, and smaller than this document implied |
 | §7 authorization + consent | `marching-arts` P1/P2, `libs/subject-consent` | **Exists** |
