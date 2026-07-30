@@ -21,7 +21,12 @@ ROOT = Path(__file__).resolve().parent.parent
 ARCHITECTURE = ROOT / "docs" / "ARCHITECTURE.md"
 CAPABILITY_MAP = ROOT / "docs" / "CAPABILITY-MAP.md"
 SENSITIVITY = ROOT / "docs" / "SENSITIVITY.md"
+LANE_MODEL = ROOT / "docs" / "LANE-MODEL.md"
 CLAUDE = ROOT / "CLAUDE.md"
+
+# Documents that point outward for every §N and declare no numbered sections of
+# their own, so a bare reference in them is unambiguously ARCHITECTURE.md's.
+POINTERS = (SENSITIVITY, LANE_MODEL)
 
 # "## 7. Authorization" / "### 7.4 The Ward Case, adopted" -> 7 / 7.4
 _HEADING = re.compile(r"^#{2,6}\s+(\d+(?:\.\d+)*)[.\s]")
@@ -106,27 +111,33 @@ def test_capability_map_references_resolve():
     assert not bad, "\n".join(bad)
 
 
-def test_sensitivity_references_resolve():
-    """SENSITIVITY.md defines the L-ladder and points outward for everything
-    else, so every §N in it is a reference to ARCHITECTURE.md."""
-    bad = unresolved(SENSITIVITY, default=ARCHITECTURE)
+def test_pointer_document_references_resolve():
+    """SENSITIVITY.md and LANE-MODEL.md are canonical for their own subject and
+    point outward for everything else, so every §N in them is ARCHITECTURE.md's."""
+    bad = []
+    for path in POINTERS:
+        bad += unresolved(path, default=ARCHITECTURE)
     assert not bad, "\n".join(bad)
 
 
-def test_sensitivity_declares_no_numbered_sections():
+def test_pointer_documents_declare_no_numbered_sections():
     """The property that makes the test above safe.
 
-    Default-routing sends a bare §N in SENSITIVITY.md to ARCHITECTURE.md. If
-    SENSITIVITY.md ever grew a "## 3. ..." of its own, a self-reference to §3
-    would silently resolve against ARCHITECTURE.md §3 (Topology) — passing,
-    and pointing at the wrong document. Rungs are addressed as L1–L5 precisely
-    so this collision cannot arise, and this asserts it stays that way."""
-    found = headings(SENSITIVITY)
-    assert not found, (
-        f"SENSITIVITY.md declares numbered sections {sorted(found)} — a bare §N "
-        "in it would now be ambiguous. Address by rung, or teach references() "
-        "to route to it."
-    )
+    Default-routing sends a bare §N in these files to ARCHITECTURE.md. If one
+    ever grew a "## 3. ..." of its own, a self-reference to §3 would silently
+    resolve against ARCHITECTURE.md §3 (Topology) — passing, and pointing at
+    the wrong document. They address by rung and by clause id precisely so the
+    collision cannot arise, and this asserts it stays that way."""
+    bad = []
+    for path in POINTERS:
+        found = headings(path)
+        if found:
+            bad.append(
+                f"{path.name} declares numbered sections {sorted(found)} — a bare "
+                "§N in it is now ambiguous. Address by rung or clause, or teach "
+                "references() to route to it."
+            )
+    assert not bad, "\n".join(bad)
 
 
 def test_the_check_can_actually_fail(tmp_path=None):

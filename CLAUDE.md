@@ -18,7 +18,7 @@ A music-program management application holding **minors' education records**: ro
 
 ## Shapes — how things get built here
 
-8. **One lane per student, from the first write.** Separate storage, permissions, audit trail. Sibling lanes sealed by default. **A shared event is two lane entries with one referent** — never one row with a roster column. (§7.4 W-1, W-3)
+8. **One lane per student, from the first write.** Separate storage, permissions, audit trail. Sibling lanes sealed by default. **A shared event is two lane entries with one referent** — never one row with a roster column. (§7.4 W-1, W-3; `docs/LANE-MODEL.md` for the schema)
 9. **Gate the export, narrate the read.** The harm is data leaving, not someone glancing at a schedule. Exports are a distinct permission class and are announced. (§7.2)
 10. **A machine answer is a `draft` until a named human seals it.** Transcripts especially. Record rejections as durably as approvals — an audit trail that logs only agreement is not one. (§8.2, §16)
 11. **The canonical store is read-only to the app.** Agents write sidecars only; promotion to canonical is a human act. (§5)
@@ -37,7 +37,7 @@ A music-program management application holding **minors' education records**: ro
 
 ## Working here
 
-- Canonical docs: **`docs/ARCHITECTURE.md`** (18 sections, with a component map at §14 marking what exists versus what is proposed), **`docs/CAPABILITY-MAP.md`** (the domain surface), and **`docs/SENSITIVITY.md`** (the `L1–L5` rungs, the class-to-rung mapping, and the sensitivity→trust crossing — canonical for those, and addressed by rung rather than by section number).
+- Canonical docs: **`docs/ARCHITECTURE.md`** (18 sections, with a component map at §14 marking what exists versus what is proposed), **`docs/CAPABILITY-MAP.md`** (the domain surface), **`docs/SENSITIVITY.md`** (the `L1–L5` rungs, the class-to-rung mapping, and the sensitivity→trust crossing), and **`docs/LANE-MODEL.md`** (the W-1/W-3 schema, with the DDL at `docs/schema/001_lanes.proposed.sql`). The last two are canonical for their own subject and addressed by rung or clause rather than by section number.
 - Read **`§18` first** — the open list, with the four items that block a first commit — then `§14` for what exists versus what is proposed. Most of what this design needs already exists elsewhere in the fleet; the value is in what does not.
 - **`§14`'s "Exists" column is unverified** — assembled from READMEs and PR descriptions, not from reading source. Treat it as a claim to check, not a fact to build on (`§18` item 0).
 - Fleet repos are read through the GitHub API, not cloned. Do not clone the fleet into this workspace.

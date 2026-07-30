@@ -677,7 +677,11 @@ Three of the general invariants bear directly and were not in this document:
 
 ## 8. Domain model
 
-Sketch, not schema.
+Sketch, not schema — **and the lane half is now schema.** `docs/LANE-MODEL.md`
+and `docs/schema/001_lanes.proposed.sql` are canonical for `Lane`, `Person`,
+the referent, the entitlement edges, and the grant table; this section is not
+to restate their fields (§16). What follows stays a sketch for everything the
+proposed migration does not reach — inventory, money, ops, performance, comms.
 
 - **Org** → **Program** → **Ensemble** → **Season** → **Event**
 - **Lane** — per §7.4 W-1/W-3, the unit of storage and audit is one ward's lane, created at first write and sealed against sibling lanes by default. **A shared event is two lane entries with one referent** — a rehearsal attended by 150 students is 150 entries against one `Rehearsal`, not one row with a roster column. Retrofitting this is a migration, so it is a schema decision rather than a modelling preference.
@@ -1344,9 +1348,17 @@ The document defines `L1` Open, `L2` Internal, `L3` Attributed, `L4` Restricted,
 **State: blocking. Needs a decision.**
 §17 says "from scratch." Nothing says whether the playground copy is deleted on promotion or kept. This decides whether the first commit is a move or an empty tree — and §16 rule 4 is explicit that leaving two live copies behind a "keep in sync" note is the option with a measured failure rate in this fleet (four pairs, four drifts). If it is kept, it needs a named middle in the same commit; if it is retired, it needs the five-part tombstone.
 
-**3 · No schema for the lane model.**
-**State: blocking. Needs writing.**
-W-1 and W-3 (§7.4) are schema decisions, not modelling preferences: a lane per ward from the first write, and *a shared event is two lane entries with one referent.* §8 is an entity sketch with no fields, keys, or migrations. Migration 001 cannot be written from what is on the page, and retrofitting either clause later is a data migration across every table that references a student.
+**~~3 · No schema for the lane model.~~**
+**State: written 2026-07-30, not adopted. `docs/LANE-MODEL.md` + `docs/schema/001_lanes.proposed.sql`.**
+~~W-1 and W-3 (§7.4) are schema decisions, not modelling preferences: a lane per ward from the first write, and *a shared event is two lane entries with one referent.* §8 is an entity sketch with no fields, keys, or migrations. Migration 001 cannot be written from what is on the page, and retrofitting either clause later is a data migration across every table that references a student.~~
+
+Ten tables. W-1, W-2, W-3 and W-6 are encoded structurally rather than as policy — `lane_entry.lane_id` NOT NULL, a grant table with a single lane column and no join table to put a set in, a `referent` with no participant column, and `exit_terms` NOT NULL with a non-blank CHECK. `access_grant.max_rung` omits `L5` from its CHECK, so the ladder's top rung is unreachable through a grant by construction. §7.1's state/history split is applied: seven tables take `valid_at`/`invalid_at`, three deliberately do not. `tests/test_lane_model.py` asserts all of it against the DDL as text, and is shown to fail on a decoy that softens each clause plausibly.
+
+**This one is struck as *written*, not as *closed*, and the distinction is the point.** Three things still gate adoption:
+
+- **It rests on a paraphrase.** W-1…W-7 exist in `Willow`'s `PROTECTED_AGENTS.md` Part III and were not read at source — the schema encodes CLAUDE.md's one-line gloss of §7.4's summary. §7.4 itself notes the fragment carries a machine register and a human one, and that *"a clause that cannot survive translation between the two registers is not yet a clause."* Encoding the human-register gloss is exactly that translation risk. **Open Part III before this becomes `migrations/001_lanes.sql`.**
+- **Three invariants are stated and unenforced** — I-7's supersession asymmetry, W-3's default deny, and the rung ceiling. All three are predicates over the acting principal, so they belong with the read predicate and not in DDL. Named in `LANE-MODEL.md` rather than left to be discovered.
+- **It is gated on blockers 2 and 4**, which is why the file sits in `docs/schema/` rather than `migrations/`.
 
 **4 · Which surfaces exist.**
 **State: blocking for layout. Needs a decision.**
