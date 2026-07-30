@@ -271,6 +271,16 @@ Adopt it here, because it buys three things this design wants and does not other
 
 For this domain the split falls out naturally: roster, guardianship, consent, health, and adjudication results are canonical; practice logs, triage state, drafts, annotations, and anything an agent produces are sidecar until a human promotes them.
 
+### The fleet already has a rule that covers this data
+
+`willow-compose` — the constellation's own queryable memory, 29,432 code pieces braided with the human and collaboration corpora — states what it deliberately excludes:
+
+> The private layer. Family specifics, medical, legal, schedules, names — surfaced during the assembly, kept out of every durable artifact on purpose. The family-data apps themselves live sovereign and local, outside this corpus by design. **You protect the spec by refusing to expose it.**
+
+**By that definition terpsi-music is a family-data app**: minors, medical forms, schedules, names, guardians. So the constraint is not a new one this document is proposing — it is an existing fleet policy that already names this class of application and puts it outside the shared corpus. Record it that way, and note the consequence: nothing from a program's canonical store is ever a candidate for corpus ingestion, promotion, or the knowledge base, however useful the aggregate would be.
+
+That also settles a question §19 might otherwise have gotten wrong. A director's assistant may query the program's own store locally; it may not enrich the fleet corpus with what it learns there.
+
 Two things that follow from the vault, and neither is covered yet:
 
 - **This seals secrets, not records.** `vault.key` protects the Fernet secret store. A SOIL collection's `store.db` — where a roster, medical notes, and adjudication commentary would live — is not described as encrypted at rest. The per-record DEK hierarchy above is therefore still a proposal, not a restatement. Decide deliberately whether student records need more than filesystem permissions plus a `0700` box, because "the box is sovereign" and "the box is encrypted" are different claims and only the first is currently true.
@@ -502,6 +512,18 @@ Its trust mapping is the template:
 
 Note what that last row does: it classifies *save and commit* as exports rather than writes, and gates them accordingly. That is the read-versus-export principle expressed as a concrete permission table, in an app handling custody matters — the same population this design worries about in §7.1 and §20. Judges and clinicians want the identical shape: read at the guest rung, commentary writes one rung up, export gated hard and announced.
 
+#### A fifth gate exists, and its default fails open
+
+`openclaw-sap-gate` implements SAP/1.0 — SAFE Authorization Protocol for MCP tool calls — as a four-step chain: the SAFE folder exists, `safe-app-manifest.json` is present, its `.sig` is present, and `gpg --verify` passes with the signer matching `SAP_PGP_FINGERPRINT`.
+
+Two properties are worth recording before anything here depends on it.
+
+**`SAP_PGP_FINGERPRINT` defaults to empty, and empty means *any valid signature passes*.** That is a fail-open default in an authorization gate, and it runs directly against the discipline the rest of the fleet holds — willow-mcp reads a missing or unparseable file as *denied* on the principle that **absence is not consent**. Unpinned, SAP authorizes anyone who can produce a well-formed signature with any key. Any install here must pin the fingerprint, and the pin belongs in install acceptance rather than in a setup guide.
+
+**Revocation is deleting the folder or the `.sig`** — which leaves no dated record, and therefore cannot answer *was this app authorized on October 12*. For agent authorization that may be an acceptable trade; for anything touching education records it is the exact failure §7.1 is written against. If SAP ever gates a path that touches student data, revocation needs the `valid_at`/`invalid_at` treatment rather than `rm`.
+
+Counting: `willow-gate`'s HMAC knock, willow-mcp's manifest ACL, the three-key egress chain, `law-gazelle`'s wiring of the first, and now SAP's GPG-signed manifests. Five mechanisms answering overlapping questions with different failure modes. That is a `FLEET_SEAMS` entry waiting to be written, and this design should name which one it depends on rather than inheriting all five.
+
 #### Enforcement or ledger — say which
 
 `willow-gate` prevents only when a harness routes every call through it before the tool runs; un-wired, it is a loud ledger that records and announces but cannot stop what it is never asked about. `bind_tools` is that harness in-process, holding the callables privately so there is no un-gated path to them.
@@ -683,6 +705,10 @@ Written after reading the READMEs of the components below; contents inferred fro
 | Judge calibration | `oakenscrolls-office` | **Exists as an engine** — see §13 and §15 |
 | §15 `P1–P5` provenance | `field-acoustics` (3 rungs), evidence tiers, `jeles`, `oakenscrolls-office` | **Partial and divergent.** Four vocabularies, no mapping; the `Cited` and `Estimated` rungs have nowhere to sit today |
 | §15 scale-direction convention | — | **Open.** `T0–T4` and `L1–L5` already oppose; no prefix rule or mapping table exists yet |
+| §15 rendering the scales | `safe-design` | **Exists.** Semantic tokens, lookup-time aliases, structurally guaranteed backend parity, ASCII path |
+| §5 exclusion of family data from the corpus | `willow-compose` | **Exists as stated policy.** This app is a family-data app by its definition |
+| Fifth authorization mechanism | `openclaw-sap-gate` (SAP/1.0) | **Exists**, with a fail-open default fingerprint and revocation-by-deletion |
+| §17 district / equity data | `almanac-data/education-almanac` | **Not yet.** One national UNESCO entry; the NCES and state coverage the README describes is not in the catalog |
 
 **Read before building:** `willow-grove`'s `FLEET_SEAMS.md` and `DESIGN_CONSTRAINTS.md`. The fleet already maintains a repo whose entire job is recording where two components each do half a job and the halves do not meet, with `file:line` citations and a re-verify command per finding. A new app is exactly the thing that creates a fifth such seam.
 - Is "corporate" the circuit/association, the district, or a vendor? Changes what aggregates mean and who signs off on them.
@@ -756,3 +782,15 @@ Propagates by `min`. A headline is its weakest input, and says so.
 Adjudication, in a single row. A judge's caption score is a **claim**. `oakenscrolls-office` grades claims against outcomes. `field-acoustics` predicts what actually arrived at that judge's seat, carrying its own `P`-rung. So one commentary record can eventually hold the score, the judge's stated confidence, the provenance of the model that corroborates or contradicts it, and — a season later — the resolution.
 
 That join is what makes judge calibration (§13) a measurement rather than a rhetorical position. It is also why these scales have to stay distinct: that row needs all four quantities to mean different things.
+
+### Rendering them
+
+`safe-design` is where these become visible, and it already holds the vocabulary: semantic tokens `grant` / `deny` / `warn` / `meter_fill`, aliased onto `healthy` / `down` / `degraded` / `accent`. Three properties transfer directly:
+
+- **Aliases resolve at lookup, never at definition** — a skin that repaints `healthy` moves `grant` with it, and setting an alias directly is refused with an error naming the canonical token. A `P5 ASSUMED` badge and a denied state can therefore share semantics without either hardcoding the other's color.
+- **Parity is structural.** The Textual and CSS backends resolve every token through the same `xterm256()`, so they cannot disagree — neither converts — and a test exists to catch anyone who breaks it. Six personas across a TUI, a browser, and a printed program need exactly that guarantee.
+- **A skin fills the contract, never extends it.** Every token resolves in every skin, so a consumer can rely on a token existing forever.
+
+The repo also documents the cost of not doing this: twenty-one terminal UIs in `safe-app-store` re-derived the same palette by hand, and `story-timeline/app.py` alone carries sixty hardcoded colors.
+
+**One requirement this document adds.** None of these three scales may be encoded by colour alone. A sensitivity band, a trust rung, and a `P`-rung each need a glyph or a label carrying the same information — for colour-vision deficiency, for the printed program, for a phone in direct sun at a stadium, and for the `TERM=dumb` ASCII path `safe-design` already supports. `field-acoustics` gets this right by writing the word `ASSUMED`; the rule should be general.
