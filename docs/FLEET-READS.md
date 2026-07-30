@@ -591,3 +591,46 @@ the cost of getting that wrong was deterring twelve reads that worked.
 be read from this session. But `kartikeya.resolve_sandbox_config` supplies the
 same shape from a reachable repository — claim plus source, with a named
 sentinel for nothing-supplied-this — so the column is not blocked on it.
+
+---
+
+## Names that do not resolve — the dead-link tally, checked
+
+`list_repos` over the account returned the full set (`has_more: false`), so
+absence here is measured rather than inferred. Ten names this document uses
+were checked; **eight do not exist under `rudi193-cmd`**:
+
+| Name as written | Resolution |
+|---|---|
+| `law-gazelle` | **absent** |
+| `private-ledger` | **absent** |
+| `field-acoustics` | **absent** — and §9 foundation 6 calls it *"the first real capability"* |
+| `story-timeline` | **absent** — cited in `safe-design`'s README as carrying sixty hardcoded colours |
+| `ask-jeles` | **absent** — §18 item 9 leans on its record-the-shape pattern |
+| `civics-check` | **absent** |
+| `the-squirrel` | **absent** |
+| `nest-seed` | **absent** — Tier 2 lists it as *"digitisation, `nest_promote`/`nest_digest`"* |
+| `safe-app-common` | **renamed** → `safe-app-common-package`, read at `2b3d088` |
+| `almanac-template`, `almanac-data` | **exist**, under the `almanac-data` org — unreachable cross-tier |
+
+**This is §15's dead-link tally landing on this document.** It records fifteen
+store manifests naming a repository that does not exist and warns *"bare names
+are used throughout below; expect misses."* The warning was right and the count
+here is eight of ten.
+
+Three of those eight are load-bearing somewhere else and should not be left as
+bare names:
+
+- **`field-acoustics`** is §9's first vertical module — the first thing this
+  repository would build after foundation. If the name is wrong, foundation 6 is
+  pointing at nothing.
+- **`ask-jeles`** carries the pattern §18 item 9 proposes to resolve practice
+  logging with. Item 9 already has a better source in `UTETY`, read at
+  `b953e84`, so the loss is survivable — but the citation is dangling.
+- **`nest-seed`** is the only Tier 2 entry that cannot be read at all.
+
+Whether these are renames, private repositories under another account, or names
+that never existed is **not established here**. What is established is that they
+are not on this account, and a bare name that resolves to nothing is exactly the
+`P2` decay §15 describes. Each needs a resolution or a tombstone; neither is
+this file's to write.

@@ -881,74 +881,97 @@ One caution the same list supplies: its **Delisted** section records sovereignty
 
 Written after reading the READMEs of the components below; contents inferred from those, not from source.
 
+> **Every row claiming existence now says whether anyone looked (2026-07-30).**
+> §18 item 0's complaint was that *"an unverified table and a verified one look
+> identical"*, and §9's phasing rests on this column. So each such row carries
+> exactly one of:
+>
+> - **`VERIFIED <date> at `<commit>`** — the source was opened in a clone at that
+>   commit. The date and the pin are both required: *"we checked it once"* decays
+>   the way §15 says a `P2` claim decays, and a pin makes the check re-runnable
+>   by someone who doubts it.
+> - **`UNVERIFIED`** — nobody has opened it. This is the honest state of most of
+>   the table and is not a defect; it is the thing that used to be invisible.
+>
+> **8 of 40 as of 2026-07-30.** `tests/test_component_map.py` enforces the
+> convention — a row claiming existence with neither token fails the build, as
+> does a `VERIFIED` without a commit. It deliberately does **not** assert a
+> coverage ratio, because a test that demanded more green would be an incentive
+> to mark things verified rather than to read them.
+>
+> The shape is taken from `kartikeya.resolve_sandbox_config`, which solved the
+> identical problem for sandbox policy — *return the value with the source that
+> supplied it* — reduced to what a markdown table can carry. See
+> `docs/FLEET-READS.md`.
+
 | This document | Component | Status |
 |---|---|---|
 | §5 the box / Zone A | `willow-data-vault` | **VERIFIED 2026-07-30** at `b634de0` — three-layer architecture and `vault.key`/Fernet confirmed; nine files, schema and bootstrap only, *"never data"*. **Exists** as a blueprint; there is no at-rest sealing implementation in it, consistent with §9's foundation 3 |
 | §5 at-rest sealing of *records* | — | **Open.** The vault seals secrets; collection stores are not described as encrypted |
 | §5 escrow | — | **Open, and the largest gap.** Single-file key loss is unrecoverable by design |
 | §6 core purity | `safe-app-common.no_egress` | **VERIFIED 2026-07-30** at `2b3d088` — `src/safe_app_common/no_egress.py` present with `tests/test_no_egress_checker.py` beside it. **Exists**, canonical, with the core/seam partition this document lacked |
-| §6 the un-passable seam | UTETY `knowledge.py` | **Exists** as a proven pattern in a student-data app |
-| §6 perimeter | `willow-gate` | **Exists**, as an agent trust gate rather than a network broker |
-| §7.2 session reconciliation (the knock) | `willow-gate` | **Exists.** 13 fields in, 13 out, diffed; bound trust; louder for the least trusted; budgets tighten as trust rises |
-| §7.2 guest sessions reconciled | `law-gazelle` | **Exists as a worked example** in a comparable domain — gate in enforcement mode, trust ladder mapped to operations, save/commit classed as exports, refuses to start if misconfigured |
+| §6 the un-passable seam | UTETY `knowledge.py` | **Exists** as a proven pattern in a student-data app · `UNVERIFIED` |
+| §6 perimeter | `willow-gate` | **Exists**, as an agent trust gate rather than a network broker · `UNVERIFIED` |
+| §7.2 session reconciliation (the knock) | `willow-gate` | **Exists.** 13 fields in, 13 out, diffed; bound trust; louder for the least trusted; budgets tighten as trust rises · `UNVERIFIED` |
+| §7.2 guest sessions reconciled | `law-gazelle` | **Exists as a worked example** in a comparable domain — gate in enforcement mode, trust ladder mapped to operations, save/commit classed as exports, refuses to start if misconfigured · `UNVERIFIED` |
 | §5 canonical vs sidecar | `law-gazelle`, `nest-seed` | **Convention, stated twice.** Canonical store read-only to the app; agent write path is sidecar only |
-| §5.1 compute isolation | `kartikeya` | **Exists.** Bubblewrap, network-isolated by default, credentials only to net-enabled tasks, cgroup/prlimit caps |
-| §6 verified answers before inference | `jeles` | **Exists.** Nuggets with sources and a named verifier, in front of search; gaps logged local-first |
-| Library digitization | `nest-seed` | **Exists.** Regex → local embeddings → generative only on the ambiguous tail, degrading gracefully |
-| Question banks / assessment | `civics-check` | **Exists as a pattern.** Authoritative sources compiled to a catalog; never hand-edit the output |
-| Consent-scoped activity capture | `ask-jeles` learning events | **Exists.** Off by default every launch, never persisted across launches, records shape not content |
-| Mirror detection near high-stakes decisions | `willow_gate.friction_floor` | **Exists.** Flags for a human, never blocks, runs outside the watched model |
+| §5.1 compute isolation | `kartikeya` | **Exists.** Bubblewrap, network-isolated by default, credentials only to net-enabled tasks, cgroup/prlimit caps · `UNVERIFIED` |
+| §6 verified answers before inference | `jeles` | **Exists.** Nuggets with sources and a named verifier, in front of search; gaps logged local-first · `UNVERIFIED` |
+| Library digitization | `nest-seed` | **Exists.** Regex → local embeddings → generative only on the ambiguous tail, degrading gracefully · `UNVERIFIED` |
+| Question banks / assessment | `civics-check` | **Exists as a pattern.** Authoritative sources compiled to a catalog; never hand-edit the output · `UNVERIFIED` |
+| Consent-scoped activity capture | `ask-jeles` learning events | **Exists.** Off by default every launch, never persisted across launches, records shape not content · `UNVERIFIED` |
+| Mirror detection near high-stakes decisions | `willow_gate.friction_floor` | **Exists.** Flags for a human, never blocks, runs outside the watched model · `UNVERIFIED` |
 | §6 destination allowlist | — | **Open**, and smaller than this document implied |
-| §7 authorization + consent | ~~`marching-arts` P1/P2~~ (spike, retires — §18 item 2), `libs/subject-consent` | ~~**Exists**~~ **Spike-evidenced; both paths VERIFIED present 2026-07-30** at `b1825f7`. Nothing inherited; `libs/subject-consent` is the only live source and its placement is item 8. The spike's band scale is **not** this document's L-ladder — see `FLEET-READS.md` |
+| §7 authorization + consent | ~~`marching-arts` P1/P2~~ (spike, retires — §18 item 2), `libs/subject-consent` | ~~**Exists**~~ **Spike-evidenced; both paths VERIFIED present 2026-07-30** at `b1825f7`. Nothing inherited; `libs/subject-consent` is the only live source and its placement is item 8. The spike's band scale is **not** this document's L-ladder — see `FLEET-READS.md` · `UNVERIFIED` |
 | §7.1 dated guardianship | `willow-2.0` `valid_at`/`invalid_at` | **VERIFIED 2026-07-30** at `4147013` — 17 tables counted from `migrations/20260522_bitemporal_all_tables.sql`, append-only audit excluded by name. **Mechanism exists**; binding guardianship to it does not. Note the source carries **no interval-ordering CHECK**; `001_lanes.proposed.sql` adds eight |
 | §7.4 guardianship doctrine | `Willow` `PROTECTED_AGENTS.md` Part III | **VERIFIED 2026-07-30** at `c8c96b4` — read at source, all seven clauses present and faithfully rendered in §7.4. **Exists as charter, unratified.** Seven ward clauses plus twelve invariants; this document had asserted three times there was no precedent |
 | Prohibited scopes registry | `Willow` Schedule A (SA-1…SA-5) | **Drafted, unratified.** Validated before any envelope issues; `envelopes/pre-approved.json` is the enforcement surface |
 | Stakes classification | `Willow` Schedule B (SB-1…SB-5) | **Drafted.** A music program touches four of the five classes |
-| Retirement artifact | `Willow` `PROTECTED_PERSONS.md` | **Exists as a model.** The five-part tombstone that would have prevented the dead-link tally |
+| Retirement artifact | `Willow` `PROTECTED_PERSONS.md` | **Exists as a model.** The five-part tombstone that would have prevented the dead-link tally · `UNVERIFIED` |
 | Shared-edge placement | `Nestor` → `Die-Namic-Systems`, sole occupant | **Decided, and unexecuted — checked 2026-07-30.** The repository is at `rudi193-cmd/nestor`; §17's prose is future tense. The decision stands; the move has not happened, and this row read as a statement about the tree would be wrong |
 | Second shared edge | `libs/subject-consent` | **Unresolved.** Same property as Nestor, still a folder in an app store, already vendored once |
 | Per-graduate lane export (W-6) | — | **Open**, and a precondition of enrolment rather than an end-of-life feature |
 | §10 privacy notice | `willow-2.0/TRUST.md` | **Reusable structure** — every path data can take, each with its switch |
 | Install acceptance gate | `willow-2.0/SECURITY_AUDIT.md` | **Reusable rubric**, 15 checks. W-MCP-01's trigger condition applies here |
-| Verifying the verifier | `willow-mcp` #211 | **Open.** Six apparatus defects to zero code defects across three PRs; no mutation gate exists for this app's guarantees yet |
+| Verifying the verifier | `willow-mcp` #211 | **Open.** Six apparatus defects to zero code defects across three PRs; no mutation gate exists for this app's guarantees yet · `UNVERIFIED` |
 | Allow-side coverage of the resolver | — | **Unknown.** Indistinguishability passes even if the predicate returns nothing to anyone; check the fixture has a principal who can see something |
-| §10 COPPA / under-13 | SAFE `HARD_STOPS`, UTETY ground rule 4 | **Exists** as governance, above app level |
+| §10 COPPA / under-13 | SAFE `HARD_STOPS`, UTETY ground rule 4 | **Exists** as governance, above app level · `UNVERIFIED` |
 | §8.1 commentary primitive | — | **Open** |
 | §1–§2 practice + mastery | UTETY (BKT, item sets, on-device store) | **Adjacent.** Different subject matter, same shape — worth reading before rebuilding |
 | Library vs. learner split | UTETY ↔ Jeles | **Settled pattern.** UTETY holds the learner, Jeles holds the sources — the repertoire library may want the same seam |
-| §6 kill switch | `consent.internet` | **Exists** |
+| §6 kill switch | `consent.internet` | **Exists** · `UNVERIFIED` |
 | §6 three-key egress + envelope | `willow-mcp` | **VERIFIED 2026-07-30** at `3815449` — `confirm-binding` carries *"Do not wire this into an `@mcp.tool()`"*; `compute_email_basis` returns all four values and drift is surfaced, not applied. **Exists**, stronger than proposed |
-| §6 outbound scanning | the redaction funnel | **Exists for credentials.** Needs the student-identifier classes |
-| §3 hardening | `WILLOW_MCP_STRICT_TRUST_ROOT`, severance | **Exists, off by default.** Mandatory here — see §6 residual |
-| §4 staff remote access | `willow-mcp` serve mode (OAuth + confirmed binding) | **Exists** |
+| §6 outbound scanning | the redaction funnel | **Exists for credentials.** Needs the student-identifier classes · `UNVERIFIED` |
+| §3 hardening | `WILLOW_MCP_STRICT_TRUST_ROOT`, severance | **Exists, off by default.** Mandatory here — see §6 residual · `UNVERIFIED` |
+| §4 staff remote access | `willow-mcp` serve mode (OAuth + confirmed binding) | **Exists** · `UNVERIFIED` |
 | §4.1 parent notification + acknowledgment (~95%) | SMS, ideally a local SIM gateway | **Open, but small.** No app, no enrollment, no inbound; constrained by carrier throughput, not cost |
 | §4.2 the transactional relay (~5%) | — | **Open.** Grove's u2u is signed, *not* confidential — reusable identity, missing confidentiality |
-| Criteria for a justified hosted component | `jeles-remote` | **Exists as precedent.** Stateless, scales to zero, corpus absent rather than gated, refuses to start unconfigured |
-| §7 finance module | `private-ledger` | **Exists as a template**, with the injected-`ingest` bridge pattern |
-| §10 / §17 aggregate exports | `nest_promote`, `nest_digest` | **Exists as a pattern.** Promote *structure* — counts, categories, never content; the full digest is local-CLI only, never returned over MCP |
+| Criteria for a justified hosted component | `jeles-remote` | **Exists as precedent.** Stateless, scales to zero, corpus absent rather than gated, refuses to start unconfigured · `UNVERIFIED` |
+| §7 finance module | `private-ledger` | **Exists as a template**, with the injected-`ingest` bridge pattern · `UNVERIFIED` |
+| §10 / §17 aggregate exports | `nest_promote`, `nest_digest` | **Exists as a pattern.** Promote *structure* — counts, categories, never content; the full digest is local-CLI only, never returned over MCP · `UNVERIFIED` |
 | Guardianship / family graph | `the-squirrel` | **Adjacent**, though it serves a web port rather than staying import-pure |
-| Judge calibration | `oakenscrolls-office` | **Exists as an engine** — see §13 and §15 |
+| Judge calibration | `oakenscrolls-office` | **Exists as an engine** — see §13 and §15 · `UNVERIFIED` |
 | §15 `P1–P5` provenance | `field-acoustics` (3 rungs), evidence tiers, `jeles`, `oakenscrolls-office` | **Partial and divergent.** Four vocabularies, no mapping; the `Cited` and `Estimated` rungs have nowhere to sit today |
-| §15 scale-direction convention | — | **Open.** `T0–T4` and `L1–L5` already oppose; no prefix rule or mapping table exists yet |
-| §11.1 exit plan | `awesome-sovereign-software` | **Criterion exists**, five-point test plus a required exit line. No exit line written for this app yet |
+| §15 scale-direction convention | — | **Open.** `T0–T4` and `L1–L5` already oppose; no prefix rule or mapping table exists yet · `UNVERIFIED` |
+| §11.1 exit plan | `awesome-sovereign-software` | **Criterion exists**, five-point test plus a required exit line. No exit line written for this app yet · `UNVERIFIED` |
 | Owner ≠ subject consent | `corpus-lens` (names it unsolved), `marching-arts` P2 | **The fleet's stated hardest gap.** This app is where it closes or ships unsolved |
 | §7.3 sensitivity field vocabulary | `quiet-corner` `session_scope` | **Vocabulary worth taking, enforcement is the known-bad precedent** — declared per-field, enforced nowhere |
 | Dated / staged consent | `DispatchesFromReality` (prose only) | **No code anywhere in the fleet.** `data_streams` retention has two values; must be invented here |
 | §8.1 commentary relations | `story-timeline` (`provenance`, `contradicts_or_tensions_with`) | **Transplantable**, minus time-coding |
 | §8.2 trust state of a transcript | `Nestor` cascade (`sealed`/`draft`/`pending`) | **VERIFIED 2026-07-30** at `111c187` — all three states present. **Exists.** A transcription is a draft until the speaker seals it |
 | §16 declaration vs enforcement, computed | `Nestor` `Curator.servable` / `unverifiable()` | **VERIFIED 2026-07-30** at `111c187` — `curator.py:82` and `:118`. **Exists.** The detector for this document's entire finding class |
-| Roster identity reconciliation | `Nestor` `EntityResolver` | **Exists.** Sealed canonical mapping; sub-threshold returns a suggestion, never a silent merge |
-| Three-way finance reconciliation | `Nestor` `Reconciler` | **Exists.** Sealed baseline, tolerance band, flagged variation, ledgered |
-| §15 `P2` liveness sweep | `almanac-template` (`status` + `observed` + daily reachability job) | **Exists as a pattern**, files an issue when a source rots |
-| Export / publication boundary | `yggdrasil-training-data` | **Pattern exists**, fail-closed on unknown — but carries a trusted-source bypass not to reproduce |
+| Roster identity reconciliation | `Nestor` `EntityResolver` | **Exists.** Sealed canonical mapping; sub-threshold returns a suggestion, never a silent merge · `UNVERIFIED` |
+| Three-way finance reconciliation | `Nestor` `Reconciler` | **Exists.** Sealed baseline, tolerance band, flagged variation, ledgered · `UNVERIFIED` |
+| §15 `P2` liveness sweep | `almanac-template` (`status` + `observed` + daily reachability job) | **Exists as a pattern**, files an issue when a source rots · `UNVERIFIED` |
+| Export / publication boundary | `yggdrasil-training-data` | **Pattern exists**, fail-closed on unknown — but carries a trusted-source bypass not to reproduce · `UNVERIFIED` |
 | Cloud inference fallback | `willow-seed` (Groq/Cerebras/SambaNova) | **Must be disabled, not unused.** Fires exactly when the local model is down |
 | Trust-root placement | `willow-config` + `kart-sandbox.json` | **Half closed.** `mcp_apps/` is ro-bound against sandboxed tasks; still in git, on a remote, and host-writable |
-| Sandbox mount policy | `kart-sandbox.json` | **Exists**, versioned and data-driven — no-network tasks get zero credentials, sovereign data read-only, tmpfs `/tmp` |
+| Sandbox mount policy | `kart-sandbox.json` | **Exists**, versioned and data-driven — no-network tasks get zero credentials, sovereign data read-only, tmpfs `/tmp` · `UNVERIFIED` |
 | Network-isolated local inference | — | **Open.** `allow_localhost` shares the host netns, so a `MEDIA_MINOR` task can reach the network uncredentialed |
-| Contract + sandbox policy | `willow-config` (`willow.md`, `settings.global.json`, `kart-sandbox.json`) | **Exists.** These are the right things to version; the grants are not |
+| Contract + sandbox policy | `willow-config` (`willow.md`, `settings.global.json`, `kart-sandbox.json`) | **Exists.** These are the right things to version; the grants are not · `UNVERIFIED` |
 | §15 rendering the scales | `safe-design` | **VERIFIED 2026-07-30** at `457cb7e` — three backends (`css`, `textual`, `curses`), and parity is **enforced** by `test_css_and_textual_agree_on_every_token`, not merely structural. **Exists.** Semantic tokens, lookup-time aliases, ASCII path |
-| §5 exclusion of family data from the corpus | `willow-compose` | **Exists as stated policy.** This app is a family-data app by its definition |
-| Fifth authorization mechanism | `openclaw-sap-gate` (SAP/1.0) | **Exists**, with a fail-open default fingerprint and revocation-by-deletion |
+| §5 exclusion of family data from the corpus | `willow-compose` | **Exists as stated policy.** This app is a family-data app by its definition · `UNVERIFIED` |
+| Fifth authorization mechanism | `openclaw-sap-gate` (SAP/1.0) | **Exists**, with a fail-open default fingerprint and revocation-by-deletion · `UNVERIFIED` |
 | Purity checking, fleet-wide | `safe-app-common` | **Confined.** 7 declaring files across 36 repos; 3 of 27 store apps have a purity test; four major repos have no checker |
 | Write-path declaration | — | **Open.** The AST checker sees imports, not filesystem writes; both `willow_bridge` copies write outside their vault root |
 | Allowlist rot-checking | UTETY `test_allowlist_entries_exist` | **Unique in the fleet.** A stale allowlist silently widens the door |
