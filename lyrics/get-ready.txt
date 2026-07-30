@@ -39,21 +39,25 @@ RIGHTS
     without permission or attribution. Not legal advice.
 
 
+v2. The first draft is in git history and is not the version — the father
+arrived in verse three, too late for the bridge to land on him; the pre-chorus
+said one thing twice; and the last chorus was a copy of the first.
+
 VERSE 1
     Frost on the lot at six
-    Cold in the valves and the keys
+    Cold in the valves and keys
     Nobody's talking yet
     Just white breath in the trees
 
 VERSE 2
-    Plume in a plastic bag
-    Gloves that were somebody else's
-    Tape on a cracked reed
-    Bus door open, still idling
+    Somebody's father waits
+    Parked where the buses turn
+    Heater on, hazards on
+    Nothing to do but stay
 
 PRE
-    No bars out here, no signal on the hill
-    Nobody's coming for us — nobody will
+    No signal on the hill, no way to phone it in
+    Whatever you forgot, you brought
 
 CHORUS
     Ready on the eight
@@ -62,19 +66,37 @@ CHORUS
     We go on the eight
 
 VERSE 3
-    Hash mark, forty-two
-    Somebody's dad in the stands
-    Camera he can't work
-    Program folded in his hands
+    Plume in a plastic bag
+    Gloves that don't fit right
+    Tape on a cracked reed
+    Hands you can't feel yet
 
-BRIDGE
-    Nine months for eleven minutes
-    Nine months for eleven minutes
-    Every one of us knows the count
-    Nobody says it out loud
+PRE
+    No signal on the hill, no way to phone it in
+    Whatever you forgot, you brought
 
-CHORUS (out)
+CHORUS
     Ready on the eight
     Ready on the eight
     Hands cold, don't wait
     We go on the eight
+
+BRIDGE
+    Nine months for eleven minutes
+    Nine months for eleven minutes
+    Nobody says it out loud
+
+    Your father's still out there parked
+    He'll watch it through the fence
+    Nobody says that either
+
+CHORUS (out)
+    Ready on the eight
+    Ready on the eight
+    Hands warm, don't wait
+    We go on the eight
+
+TAG
+    Eleven minutes
+    Eleven minutes
+    Go
