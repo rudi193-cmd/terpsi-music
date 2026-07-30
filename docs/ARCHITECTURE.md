@@ -401,7 +401,7 @@ For a director asking questions of their own program, that ordering is the whole
 
 `verified_by` / `verified_at` is also the same shape as `rationale`'s human seal (#125) — two components independently deciding that an answer is only trustworthy when a person's name is attached to it.
 
-**Converge the provenance vocabulary before adding a fourth.** The fleet currently expresses "how much should I trust this" four different ways: `field-acoustics` uses `measured | fitted | assumed` propagated by `min()`; `willow-2.0`'s evidence tiers use `hypothesis | observed | validated` plus a 0.0–1.0 confidence; `jeles` uses `verified_by` with citations; `oakenscrolls-office` uses a stated confidence graded against outcomes. Each is right for its own job, and a music program will touch at least three — an acoustic prediction, a verified answer, and a judge's score. Pick the mapping between them deliberately rather than letting a fifth appear.
+**Converge the provenance vocabulary before adding a fourth.** The fleet expresses "how much should I trust this" in several incompatible ways, and a music program touches at least three of them in a single view. §15 settles the scale, its direction, and how it composes.
 
 **The friction floor belongs here too.** `willow-gate`'s sibling module watches a different surface from access: whether the agent has stopped being *other* and started reflecting the user back, smoothed, while the user is escalating. Model-free, deterministic, running outside the model it watches — because a mirror cannot audit itself. It flags for a human and never blocks.
 
@@ -625,6 +625,7 @@ Not legal advice — the state-law column in particular varies enough that the d
 8. **SMS carries signals, never records** (§4.1) — where the transport cannot be made incapable, the payload is made not worth reading. Minimization is the mechanism, and it is what shrinks the parent problem from daily to occasional.
 9. **Sessions declare a purpose and are reconciled against it** (§7.2) — the only check in this design that compares outcome to promise, and the disclosure artifact a regulator actually wants.
 10. **Narrate the read, gate the export** (§7.2) — the harm is in data leaving, not in someone glancing at a schedule. Concentrating ceremony at the boundary is both less obstructive and more honest.
+11. **Ordinal scales never compare as raw integers, and provenance never gates** (§15) — two existing five-level scales already run in opposite directions; a third arrives only with prefixes and a single mapping table.
 
 ## 13. Open questions
 
@@ -679,10 +680,79 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §7 finance module | `private-ledger` | **Exists as a template**, with the injected-`ingest` bridge pattern |
 | §10 / §17 aggregate exports | `nest_promote`, `nest_digest` | **Exists as a pattern.** Promote *structure* — counts, categories, never content; the full digest is local-CLI only, never returned over MCP |
 | Guardianship / family graph | `the-squirrel` | **Adjacent**, though it serves a web port rather than staying import-pure |
-| Judge calibration | `oakenscrolls-office` | **Exists as an engine** — see §13 |
+| Judge calibration | `oakenscrolls-office` | **Exists as an engine** — see §13 and §15 |
+| §15 `P1–P5` provenance | `field-acoustics` (3 rungs), evidence tiers, `jeles`, `oakenscrolls-office` | **Partial and divergent.** Four vocabularies, no mapping; the `Cited` and `Estimated` rungs have nowhere to sit today |
+| §15 scale-direction convention | — | **Open.** `T0–T4` and `L1–L5` already oppose; no prefix rule or mapping table exists yet |
 
 **Read before building:** `willow-grove`'s `FLEET_SEAMS.md` and `DESIGN_CONSTRAINTS.md`. The fleet already maintains a repo whose entire job is recording where two components each do half a job and the halves do not meet, with `file:line` citations and a re-verify command per finding. A new app is exactly the thing that creates a fifth such seam.
 - Is "corporate" the circuit/association, the district, or a vendor? Changes what aggregates mean and who signs off on them.
 - Does the org control its own hardware, or is the hub a district-managed VM? Changes the physical-trust assumption underneath Zone A.
 - Are agents an implementation detail of the build, or a user-facing feature (a director querying their program in plain language)? The latter needs a local model of real capability inside Zone A.
 - Single program, or does this eventually serve several under one hub? Deferred above, but it constrains the tenancy model if it's ever a yes.
+
+---
+
+## 15. Ordinal scales, and how they must not be confused
+
+Three ordinal scales run through this system. A fourth quantity looks like one and is not.
+
+### The direction hazard, first
+
+Two five-level scales already exist and **they run in opposite directions**:
+
+| Scale | Range | Higher means | Owner |
+|---|---|---|---|
+| Trust rung | 0 Exiled → 4 Elder | **more privileged** | `willow-gate` |
+| Sensitivity | L1 → L5 | **more restricted** — L5 never served to anyone | `marching-arts` |
+
+Both are small integers, both are called "level," and they point opposite ways. `if level >= 3` is correct against one and catastrophic against the other, and it reads perfectly in review either way. Adding a third five without settling this makes that collision near-certain.
+
+The resolution is *not* to force them into agreement — sensitivity and privilege genuinely oppose, and bending one to match would make its own semantics worse. Instead:
+
+- **Never compare raw integers across scales.** A single mapping — which trust rung a given sensitivity requires — lives in one place, and every gate calls it. `law-gazelle`'s permission table (§7.2) is that mapping, written out.
+- **Prefix every rung so a bare integer cannot travel**: `L1–L5` sensitivity, `T0–T4` trust, `P1–P5` provenance.
+- **Composition differs per scale**, which is the strongest reason they can never be merged:
+
+| Scale | Composes by | Because |
+|---|---|---|
+| Sensitivity | `max` | a record holding one L5 field is L5 |
+| Trust | `min(claimed, registered ceiling)` | trust is capped, never asserted |
+| Provenance | `min` | a result is worth its weakest input |
+
+If two scales do not compose the same way, folding them together loses information.
+
+### Provenance is epistemic, not authorization
+
+Trust and sensitivity **gate** — they decide what happens. Provenance does not gate anything; it qualifies an answer that is being served regardless. `field-acoustics` already has this right and it should be stated as the principle: the headline reads `ASSUMED`, **loudly**, rather than the result being withheld.
+
+Low provenance is not a permission problem. Withholding a weakly-sourced number is the error; showing it with its weakness attached is the point. **Provenance is a label that travels with a value, never a condition on serving it.**
+
+### `P1–P5`
+
+The fleet's `measured | fitted | assumed` with the two rungs it currently collapses pulled out:
+
+| | Rung | Means |
+|---|---|---|
+| **P1** | Measured | Instrumented here — this ensemble, this event, this instrument |
+| **P2** | Cited | Someone else measured it; resolvable reference, named publisher, pinned version |
+| **P3** | Fitted | Derived from local data by a stated model |
+| **P4** | Estimated | Extrapolated from analogous cases, not this one |
+| **P5** | Assumed | Asserted, no evidentiary basis, and declared as such |
+
+**Cited** is doing real work that has nowhere to sit today: `oakenscrolls-office` pins resolution evidence to a source *and the git commit of the catalog that vouched for it*, and `jeles` pins `verified_by` with citations. Both are stronger than an assumption and weaker than a local measurement.
+
+**Estimated** matters because extrapolating from a different ensemble at a different venue is a categorically different claim than fitting to this one — and in this domain that distinction is the difference between a defensible design decision and a guess wearing a number.
+
+Propagates by `min`. A headline is its weakest input, and says so.
+
+### Confidence is not a rung
+
+`oakenscrolls-office`'s 50–99% is **continuous**, and it is a claim about the future graded against an outcome. That is what makes calibration possible at all; collapsing it into five ordinal rungs would destroy the only thing it is for.
+
+`willow-2.0`'s evidence-tiers migration already has the right pattern — `tier` **and** `confidence` as two columns side by side, one ordinal and one continuous, neither pretending to be the other. Copy that shape: carry `provenance` and `confidence` together, and only populate `confidence` where a resolution mechanism actually exists to grade it against.
+
+### Where all of it collides
+
+Adjudication, in a single row. A judge's caption score is a **claim**. `oakenscrolls-office` grades claims against outcomes. `field-acoustics` predicts what actually arrived at that judge's seat, carrying its own `P`-rung. So one commentary record can eventually hold the score, the judge's stated confidence, the provenance of the model that corroborates or contradicts it, and — a season later — the resolution.
+
+That join is what makes judge calibration (§13) a measurement rather than a rhetorical position. It is also why these scales have to stay distinct: that row needs all four quantities to mean different things.
