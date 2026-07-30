@@ -3,7 +3,7 @@
 **Status:** plan. Governs nothing; `docs/ARCHITECTURE.md` governs. No numbered
 sections — a `§N` here is always the architecture's.
 
-**One page on purpose.** There are 14,193 lines under `docs/` at time of
+**One page on purpose.** There are 14,274 lines under `docs/` at time of
 writing, this file included — derived, not quoted (#17). If this file
 grows past two screens it has stopped being a plan and become another thing to
 read. Everything here is a pointer to a decision or a task, never a restatement.
@@ -81,6 +81,7 @@ Short, and the shortness is the finding rather than an oversight.
 |---|---|---|
 | C1 | Extend `craft/` | nothing — text-only, no student data, no network, no model |
 | C2 | Sweep `docs/survey/*.md` for `§N` | nothing — needs the routing decision in `scout-25` part 5 first |
+| C3 | A rule-13 acceptance test | nothing. `willow-grove`'s constraint 1 supplies the shape: point a reader at an unreachable source in CI and assert no surface reports health. Rule 13 has **no test in this repository** |
 
 That is the honest list. **This repository is decision-blocked, not
 effort-blocked.**

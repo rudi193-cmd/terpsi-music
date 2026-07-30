@@ -286,3 +286,84 @@ repository declares, *this repository's own CI* validates them.
 
 `DESIGN_CONSTRAINTS.md` carries a *"What to carry over"* section that has not
 been read yet. It is the highest-value unread file found so far.
+
+---
+
+## `willow-grove/DESIGN_CONSTRAINTS.md` — read in full, `9b8ed75`
+
+Seven constraints, written for a *fresh build* of Willow Grove. This repository
+is a fresh build of a different app in the same fleet, and five of the seven
+transfer without translation. Its own framing is the reason to take it
+seriously: **"a constraint without a test is a preference"** — rule 19, arrived
+at independently — and every constraint carries a *how to check you complied*.
+
+It also carries an explicit confidence caveat: constraints 2–5 rest on an
+automated survey *"that has not been independently re-verified."* Treated
+accordingly below.
+
+| | Constraint | Maps to | What this repository does not have |
+|---|---|---|---|
+| 1 | **Never render absence as assurance** | rule 13 | **the test, and the type** |
+| 2 | Do not create schema you do not own | §16 | — (owns its schema) |
+| 3 | Decide the human-queue question out loud | rule 13, applied to *scope* | the labelling half |
+| 4 | Ship a manifest that something actually validates | §18 item 4 | already filed |
+| 5 | Do not become the third fork | §18 item 2 | — (spike retires) |
+| 6 | Keep the bus contract single-valued | §15 | — (no bus yet) |
+| 7 | Do not add a fifth Grove name | fleet-noun rule | — |
+
+**Constraint 1 is the one to take.** It is rule 13 with two things rule 13 does
+not have:
+
+- **A type, not a discipline.** *"A reader function returns `Result[list] |
+  Unreachable`, not `list`. The renderer must be unable to display 'clear'
+  without having actually received an answer."* Rule 13 says absence surfaces as
+  `unknown`; this says make the alternative unrepresentable.
+- **A runnable acceptance test.** *"Point the app at an unreachable DSN in CI
+  and assert no surface reports health."* Rule 13 currently has no test in this
+  repository at all — it is a declaration, which by §7.2's own distinction makes
+  it a ledger.
+
+Its evidence is worth reading before this repository builds any surface: the
+same fail-soft appears **18 times** in one file, and the pane whose stated
+purpose is that automation pauses until a human acts renders a dead database as
+`✓ queue clear` — *a green check on the failure.*
+
+**Constraint 3 adds a half rule 13 is missing.** Absence of *reachability* is
+covered here; absence of *scope* is not. A pane that shows a real answer from
+one of two sources, unlabelled, is not unreachable and is still misleading. The
+check is behavioural and good: *"ask someone who has not read this file — does
+this pane show everything the fleet has escalated? If they cannot answer from
+the UI, it fails."*
+
+**Constraint 2 supplies the sharpest concrete instance of §16 in the fleet.**
+`willow.routing_decisions` is created by both `willow-2.0/core/grove_reader.py`
+and `safe-app-willow-grove/schema.sql`, different shapes, both `IF NOT EXISTS`
+— so **boot order silently decides the schema and the loser no-ops.** No error
+at create, none at boot; the failure arrives later, in a query, on someone
+else's machine. §16 argues this abstractly; this is the worked example.
+
+### Two things to carry that this repository has not written down
+
+- **No surface may widen its own permissions.** From
+  `willow-mcp/manifest_admin.py:4-9`, quoted in *What to carry over*: manifest
+  writes are CLI-only and forbidden from being an MCP tool, because *"an agent
+  could otherwise grant itself whatever it was just denied."* That is W-4 —
+  *a ward may request, never authorize* — pointed at the software rather than at
+  the student, and `CLAUDE.md` has no rule for it. **Proposed, not added:
+  writing a new refusal is the maintainer's call.**
+- **Fail-closed is a per-call-site decision, not an inherited posture.**
+  `willow-mcp/gate.py:13` denies on a missing manifest; Grove's reads fail soft.
+  The constraint's point is that reads and grants *may* legitimately differ —
+  what is not acceptable is inheriting one by copy-paste. Rule 13 currently
+  reads as uniform.
+
+### And one line that indicts this session's own output
+
+> *"When a constraint stops being relevant, delete it and say why in the commit
+> message — **a stale constraint is worse than none, because it trains people to
+> skip the list.**"*
+
+`BUILD-PLAN.md` is accumulating struck text under the tombstone discipline while
+opening with a rule that it must stay one page. Those two disciplines are in
+tension, the tension is real, and this sentence is the argument for resolving it
+toward deletion-with-a-reason rather than toward accumulation.
