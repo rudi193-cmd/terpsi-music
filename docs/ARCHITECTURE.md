@@ -107,6 +107,8 @@ Small N, technically capable, org-issued or org-enrolled devices. WireGuard via 
 **Clinicians and judges → ephemeral scoped grants.**
 On-site, event-bound. Either a kiosk device the org owns and wipes, or their own device on a guest SSID reaching the hub directly. The grant is a time-boxed relationship edge (`judge_at :: Event_X`, valid for the event window plus a commentary grace period) that expires on its own without anyone remembering to revoke it. Their scores and timecoded commentary are written locally; transmission to a circuit is a deliberate, reviewed export (§6), not a live integration.
 
+This is the persona the knock (§7.2) is for: a declared purpose on entry, reconciled on exit, announced loudly because the trust level is low. A grant says what a guest *may* do; the reconciliation says what they *did*.
+
 **Corporate / circuit / district → never connects.**
 No accounts on this system. They receive signed, minimized, aggregated exports pushed through the egress gate with human approval. If they need individual-level data, that is a disclosure decision a human makes and the log records — not a query they run.
 
@@ -323,7 +325,9 @@ The load-bearing sentence is *an agent may request egress and may never grant it
 
 `consent.internet` is the kill switch this document asked for, already built — `{"consent": {"internet": false}}` stops network tasks immediately without editing a manifest. And the reading discipline is the right one everywhere: a missing file, an unparseable file, a non-boolean (`"true"`, `1`), an expired lease, a deadline with no timezone, or a lease naming a different app than the file it sits in all read as denied. **Absence is not consent, and a name is not an identity.**
 
-Destination and purpose still want expressing for the genuinely outward traffic — payment tokenization, circuit submissions, the drop — but as adapters in the integration ledger, where the rule is already *earned, not scaffolded*: four adapters live, six declared stubs that refuse fail-closed and name what would earn them.
+Destination still wants expressing for the genuinely outward traffic — payment tokenization, circuit submissions, the drop — but as adapters in the integration ledger, where the rule is already *earned, not scaffolded*: four adapters live, six declared stubs that refuse fail-closed and name what would earn them.
+
+**Purpose is not a field on a call; it is a property of a session, and §7.2 is where it lives.** Declared on entry, reconciled on exit.
 
 ### The redaction funnel exists; it does not know about students
 
@@ -367,6 +371,11 @@ Given this repo's MCP wiring: an agent with tool access and a network route is a
 - Anything touching `PII_*`, `HEALTH`, or `MEDIA_MINOR` is served by a **local** model inside Zone A. No exceptions, no "just this once for the summary." This explicitly includes commentary transcription (§8.2), which is where the pressure to make an exception will actually come from.
 - External model APIs are a destination like any other: allowlisted for `PUBLIC` / `DERIVED_ANON` only, gated, logged.
 - Agent tool-calls are constrained by the same authorization tuples as the human they act for — an agent cannot read what its principal cannot read.
+- Agents knock like anyone else (§7.2), and being the least trusted rung, they are the loudest.
+
+**The friction floor belongs here too.** `willow-gate`'s sibling module watches a different surface from access: whether the agent has stopped being *other* and started reflecting the user back, smoothed, while the user is escalating. Model-free, deterministic, running outside the model it watches — because a mirror cannot audit itself. It flags for a human and never blocks.
+
+That is not a general-purpose nicety in this domain. The highest-stakes moments in a music program are a student in crisis, a conflict with a parent, a disciplinary decision, and a death in the program. An assistant that agrees fluently with a stressed director in exactly those moments is a real harm vector, and flagging rather than blocking is the correct posture for a detector that will sometimes be wrong.
 
 ---
 
@@ -416,6 +425,37 @@ If a terminated guardianship is a `DELETE` while majority is a predicate, the tw
 The recommendation is that guardianship carry `effective_from` / `effective_until` and terminate by **setting a date, never by removing the edge**, so that revocation-by-order and revocation-by-majority are the same mechanism with different sources. Erasure of a guardianship record remains available separately, under §5's per-subject partitioning, as a distinct act with its own authority.
 
 This is the one place in this domain where the failure is a safety failure rather than a bug, and it is worth having the mechanism before the case arrives — because when it arrives it will arrive urgently.
+
+### 7.2 The knock — sessions are reconciled, not merely authorized
+
+`willow-gate` does something no other component here does, and this document read past it. Every session **knocks**: thirteen fields declaring intent on entry, thirteen declaring outcome on exit, and the gate diffs them. Trust is bound rather than asserted — the `signature` is an HMAC over the header keyed by a secret the gate holds, and a claimed `trust_level` is capped at a registered ceiling, so *"Elder" is not a text field anyone can type.*
+
+**Everything else in this design gates the attempt. This is the only thing that checks the result against the promise.** A permission check asks *may you?*; the knock asks *may you, and did you do what you said you would?*
+
+#### It is the purpose mechanism §6 was missing
+
+§6 asks for a destination × data class × **purpose** triple and never says where purpose lives or what enforces it. It lives here. A session declares what it is for; a session that did something else produces a diff, whether or not the permission system would have allowed it.
+
+That matters most for exactly the personas that made this domain hard. **A judge arriving on-site is a session knocking**: declares Event 42, these captions, this window; exits having read three sheets, written twelve commentary rows, and exported nothing. A guest who declared *score ensemble 7* and touched forty members' medical records generates a reconciliation failure **even if the grant technically permitted it**. For transient outsiders whose behaviour cannot be fully constrained in advance, detection is the half that actually protects anyone.
+
+#### Two inversions, both correct and both counter-instinctive
+
+- **Announcement is loudest for the least trusted.** Most systems log administrators exhaustively and guests barely. This does the reverse. The judge on a borrowed tablet for one evening is precisely the session worth narrating.
+- **Drift and fail budgets *tighten* as trust rises** — the most powerful rung held to the strictest tolerances, not the loosest. The director has the most access and therefore the least slack, because the director's compromise is the catastrophic one. Every instinct says trusted users earn less scrutiny; the compromise math says the opposite.
+
+#### Read is universal; export is the gated act
+
+Level 0 is refused a session and **still reads**, loudly, by a path the gate never claimed to mediate. What it cannot do is take information anywhere else: export and exfiltration are what the gate holds.
+
+This document was built the other way round — §4 and §7 concentrate on gating reads. The knock's position is better, and it should be adopted: **narrate the read, gate the export.** The realistic harms in a music program are not someone glancing at a schedule; they are the roster on a thumb drive, the spreadsheet mailed to a vendor, the season's medical forms copied off before someone leaves. Concentrating enforcement where data *leaves* produces a system that is simultaneously less obstructive day to day and more honest about where the risk actually sits.
+
+The read side does not become free — refusal indistinguishability (§7), the L-ladder, and the consent predicate all still govern what a read returns. What changes is where the *ceremony* goes: reconciliation and announcement at the boundary, not friction on every glance.
+
+#### Enforcement or ledger — say which
+
+`willow-gate` prevents only when a harness routes every call through it before the tool runs; un-wired, it is a loud ledger that records and announces but cannot stop what it is never asked about. `bind_tools` is that harness in-process, holding the callables privately so there is no un-gated path to them.
+
+**Every claim in this document that something is "gated" must name which of the two it is.** A ledger is a legitimate and useful thing to have; a ledger described as a gate is not.
 
 ---
 
@@ -492,7 +532,7 @@ The ordering principle: build the things that are expensive to retrofit first, r
 
 | Regime | Applies to | Where it lands |
 |---|---|---|
-| FERPA | Education records | Disclosure log = egress log (§6); guardian access rights; retention/purge |
+| FERPA | Education records | Disclosure record = reconciled sessions (§7.2), not merely an event log; guardian access rights; retention/purge |
 | COPPA | Students under 13 | School-consent pathway; no third-party trackers, ever |
 | State student-privacy laws (NY Ed Law 2-d, CA SOPIPA, etc.) | Varies | Data inventory + no-sale/no-ads posture; parent-facing privacy notice |
 | PCI-DSS | Payments | Tokenized only; stay SAQ-A by never touching card data |
@@ -524,6 +564,8 @@ Not legal advice — the state-law column in particular varies enough that the d
 6. **Commentary is the adjudication primitive; captions and ratings are projections over it** (§8.1) — the difference between supporting symphonic festival as a configuration and rebuilding for it later.
 7. **Revocation is a dated predicate, never a deletion** (§7.1) — majority already works this way; guardianship termination by court order must work the same way, and it must derive the send list as well as the read.
 8. **SMS carries signals, never records** (§4.1) — where the transport cannot be made incapable, the payload is made not worth reading. Minimization is the mechanism, and it is what shrinks the parent problem from daily to occasional.
+9. **Sessions declare a purpose and are reconciled against it** (§7.2) — the only check in this design that compares outcome to promise, and the disclosure artifact a regulator actually wants.
+10. **Narrate the read, gate the export** (§7.2) — the harm is in data leaving, not in someone glancing at a schedule. Concentrating ceremony at the boundary is both less obstructive and more honest.
 
 ## 13. Open questions
 
@@ -550,6 +592,9 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §6 core purity | `safe-app-common.no_egress` | **Exists**, canonical, with the core/seam partition this document lacked |
 | §6 the un-passable seam | UTETY `knowledge.py` | **Exists** as a proven pattern in a student-data app |
 | §6 perimeter | `willow-gate` | **Exists**, as an agent trust gate rather than a network broker |
+| §7.2 session reconciliation (the knock) | `willow-gate` | **Exists.** 13 fields in, 13 out, diffed; bound trust; louder for the least trusted; budgets tighten as trust rises |
+| §7.2 guest sessions reconciled | — | **Open.** The mechanism exists; binding judges and clinicians to it does not |
+| Mirror detection near high-stakes decisions | `willow_gate.friction_floor` | **Exists.** Flags for a human, never blocks, runs outside the watched model |
 | §6 destination allowlist | — | **Open**, and smaller than this document implied |
 | §7 authorization + consent | `marching-arts` P1/P2, `libs/subject-consent` | **Exists** |
 | §7.1 dated guardianship | — | **Open** |
