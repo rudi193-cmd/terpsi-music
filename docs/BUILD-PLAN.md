@@ -22,6 +22,14 @@ is where it belongs.
 **No. The decisions largely are; the build is not, and one item blocks
 outright.**
 
+### The item upstream of the rest
+
+**Item 15 — who witnesses the anchor.** This repository exists because
+institutions do not follow their own rules and nobody can prove it. Every other
+mechanism assumes a record that is **believable later**, and a record its author
+controls is weak evidence. The mechanism is built; the counterparty is not
+chosen, and until it is, the rest is a very careful diary.
+
 ### Blocking the first commit
 
 | | | |
@@ -119,6 +127,7 @@ those.
 | ~~C4~~ | ~~The crossing-envelope table~~ | **Built 2026-07-30** — `records/crossing.py`, wired into `serve()`. W-3's permission is representable at last |
 | ~~C5~~ | ~~The disclosure log, seal cascade, dispositions, W-6 exit~~ | **Built 2026-07-30** |
 | ~~C6~~ | ~~Route `voice.guard()`~~ | **Built 2026-07-30** — `records/dispatch.py`. `voice.py` is a gate rather than a ledger, and routing it found `no_rung` checking the wrong scale |
+| ~~C7~~ | ~~Anchoring — where the anchor lives~~ | **Built 2026-07-30** — `records/witness.py`. §5 specified the anchor and never its custody. **§18 item 15** is the decision: who witnesses it |
 
 Short, and the shortness is the finding. **This repository is decision-blocked,
 not effort-blocked** — and the instinct to build C in parallel should be

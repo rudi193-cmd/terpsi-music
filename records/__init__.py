@@ -5,6 +5,8 @@ this package reaches the network, loads a model, or opens a store: it decides,
 and the caller supplies the rows.
 """
 
+from .witness import (Anchor, Evidence, Independence, Receipt, Standing as WitnessStanding,
+                      anchor_for, missing, schedule, standing)
 from .crossing import Envelope, permits
 from .dispatch import Dispatch, dispatch
 from .exit import Lane, Threshold, open_lane, transfer
@@ -27,4 +29,6 @@ __all__ = [
     "Request", "Disposition", "ask", "answer", "state_at", "extend",
     "Lane", "Threshold", "open_lane", "transfer",
     "Envelope", "permits", "Dispatch", "dispatch",
+    "Anchor", "Receipt", "Evidence", "Independence", "WitnessStanding",
+    "anchor_for", "schedule", "missing", "standing",
 ]

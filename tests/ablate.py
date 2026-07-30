@@ -91,6 +91,17 @@ MUTATIONS = [
      "voice gate blocks dispatch", "tests/test_dispatch.py"),
     ("records/dispatch.py", "if decision.outcome in (Outcome.REFUSED, Outcome.UNKNOWN):",
      "if False:", "predicate blocks before render", "tests/test_dispatch.py"),
+    ("records/witness.py", "if not evidentiary:", "if False:",
+     "unwitnessed is not evidence", "tests/test_witness.py"),
+    ("records/witness.py", "if r.independence is Independence.EVIDENTIARY",
+     "if True", "a test double counts as a witness", "tests/test_witness.py"),
+    ("records/witness.py", "if len(log.entries) < r.anchor.count:", "if False:",
+     "truncation after witnessing", "tests/test_witness.py"),
+    ("records/witness.py", "if gaps:", "if False:",
+     "a gapped cadence", "tests/test_witness.py"),
+    ("records/witness.py", "kinds = len({r.witness_kind for r in evidentiary})",
+     "kinds = len(evidentiary)",
+     "corroboration counts witnesses", "tests/test_witness.py"),
 ]
 
 
@@ -119,7 +130,8 @@ def main() -> int:
     healthy = all(run(s) for s in (
         "tests/test_serving.py", "tests/test_sending.py", "tests/test_classify.py",
         "tests/test_disclosure.py", "tests/test_sealing.py", "tests/test_dispositions.py",
-        "tests/test_exit.py", "tests/test_crossing.py", "tests/test_dispatch.py"))
+        "tests/test_exit.py", "tests/test_crossing.py", "tests/test_dispatch.py",
+        "tests/test_witness.py"))
     print("green" if healthy else "RED — every result below is meaningless")
     if not healthy:
         return 1

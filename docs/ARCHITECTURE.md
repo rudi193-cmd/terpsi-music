@@ -266,6 +266,8 @@ Two consequences worth carrying into anything else that chains:
 - **Partitioning breaks rules that match chain names exactly.** Migration 003's guardian trigger matched `chain = 'consent'`; the moment the name gained a suffix the rule stopped firing and a minor could self-consent with nothing raised. The fix matches both the partitions and the bare name — the bare one still matters, because a writer reaching past the module straight to SQL could otherwise insert under the old name and dodge the rule entirely.
 - **Emptied is not absent** (#121). A chain whose rows were deleted must not read as one that never existed, or the strongest attack is also the simplest. The head anchor carries a `count` as well as a hash, and a surviving anchor beside missing rows reads as *tampered*, not *absent* — including on the write path, where a guard written as `if existing and not verify(...)` silently skips on an empty list.
 
+  > **And the anchor's custody was never specified — corrected 2026-07-30.** *"A **surviving** anchor"* — surviving where? An anchor held in the same vault as the chain dies with it, and one act makes the log read as never-written. This clause designs the data structure and skips the counterparty, which is the whole evidentiary question. `records/witness.py` supplies the mechanism; **§18 item 15** is the decision about who holds it.
+
 Any new chained artifact in this system — the disclosure log, the egress log of §6, adjudication commentary — inherits all three requirements: per-subject partitioning, fail-closed on unscoped access, and an anchor that distinguishes emptied from never-written.
 
 ### What the vault already provides
@@ -1526,6 +1528,26 @@ Both now have tests in `tests/test_sending.py`. The item stands until the plan i
 The fail-open is not theoretical: a count is exactly the shape that re-identifies. *"One student in this section carries an auto-injector"* names nobody and identifies a child if the section has three members — and §17's small-cell suppression exists because this fleet already knows that.
 
 Step 2a added. `records/classify.py` implements it, and a derived field now inherits `max` of its inputs until the check passes.
+
+**15 · Who witnesses the anchor.**
+**State: open, and upstream of everything else this repository does. Needs a decision.**
+The purpose of this system is provability — an institution that does not follow its own rules, and no way to show it. Every mechanism below rests on a record being **believable later**, and a record its author controls is weak evidence. The institution's response to an inconvenient log is not to dispute an entry; it is to say the log is yours, you built it, you can make it say anything.
+
+§5 specifies a `(head, count)` anchor and never says where it lives. `records/witness.py` now supplies the shape — anchors carry a digest, a count and a time and **nothing else**, which is why publishing one may cross the egress boundary at all; cadence is derived from the calendar rather than from activity, because an anchor series that tracks activity is `corpus-lens`'s shape-of-a-week leak; and an unwitnessed log reads as `UNWITNESSED`, never as fine.
+
+**What is not decided is the counterparty.** Candidates, with what each actually survives:
+
+| | mechanism | trusts | note |
+|---|---|---|---|
+| 1 | **OpenTimestamps** — Merkle-aggregated, committed to a public chain | nobody | free, no account, one call carrying 32 bytes |
+| 2 | **RFC 3161 timestamp authority** | the TSA | legally legible; may not outlive the vendor |
+| 3 | **Public append-only publication** — the anchor committed to a public repository | the host | cheap, matches how this fleet already works; arguably still yours |
+| 4 | **Certified mail to self, or annual deposit with an attorney** | the postal service, a lawyer | a jury understands it without being taught what a hash is |
+| 5 | **Guardian receipts** — each guardian holds a receipt for entries about their own child | nobody | the only counterparty whose interest is genuinely adverse to the institution's, and it falls out of the lane model |
+
+**They fail differently, so the answer is probably not one of them.** A dispute two years out uses whichever survived. The shape worth arguing about is cheap-and-frequent plus legible-and-rare plus adverse-interest: 1 weekly, 4 annually, 5 continuously.
+
+**And the limit no witness removes**, recorded here rather than discovered later: anchoring proves what was written existed. It cannot prove everything was written. Selective recording defeats every scheme, because an anchor attests to what a log contained and never to what the world contained. The partial mitigations are real and are not proof — recording happens at the predicate rather than by a human choosing to type, and refusals are logged as durably as disclosures so a gap is anomalous. `tests/test_witness.py` asserts the limitation by name so nobody mistakes `WITNESSED` for *complete*.
 
 ### The three to state, which do not block day one
 
