@@ -24,6 +24,13 @@ CLAUDE = ROOT / "CLAUDE.md"
 SURVEY = ROOT / "docs" / "OPEN-SOURCE-SURVEY.md"
 EXTERNAL_ARM = ROOT / "docs" / "EXTERNAL-ARM.md"
 SURVEY_DIR = ROOT / "docs" / "survey"
+DOCS_DIR = ROOT / "docs"
+
+#: Docs whose references are checked by a test of their own above. Everything
+#: else in `docs/` is swept by `test_other_docs_references_resolve`, so a new
+#: document cannot arrive as a pointer nobody verifies -- which is the failure
+#: this file exists to prevent, applied to itself.
+SEPARATELY_CHECKED = {ARCHITECTURE, CAPABILITY_MAP, SURVEY}
 
 # "`scout-07-audio-score.md`" in the survey's index table.
 _SCOUT_FILE = re.compile(r"`(scout-\d{2}-[a-z0-9-]+\.md)`")
@@ -123,6 +130,31 @@ def test_survey_references_resolve():
     "part 4" / "finding 1.2", so that one sigil keeps one meaning (§16)."""
     bad = unresolved(SURVEY, default=ARCHITECTURE)
     assert not bad, "\n".join(bad)
+
+
+def other_docs() -> list[Path]:
+    return sorted(p for p in DOCS_DIR.glob("*.md") if p not in SEPARATELY_CHECKED)
+
+
+def test_other_docs_references_resolve():
+    """Any other document in `docs/` is held to the same terms.
+
+    Without this, adding a file with §-references creates exactly the pair
+    ARCHITECTURE.md §16 warns about: a pointer and a canonical document with
+    nothing reconciling them. The sweep is the middle."""
+    bad = []
+    for path in other_docs():
+        bad.extend(unresolved(path, default=ARCHITECTURE))
+    assert not bad, "\n".join(bad)
+
+
+def test_the_docs_sweep_is_not_vacuous():
+    """A glob that matched nothing would pass the test above for the wrong
+    reason -- the same trap `test_architecture_has_numbered_sections` guards."""
+    found = other_docs()
+    assert found, "no other docs found -- glob broken, or the sweep is decorative"
+    cited = sum(len(references(p, default=ARCHITECTURE)) for p in found)
+    assert cited, f"{len(found)} docs swept and not one reference among them"
 
 
 def test_survey_index_matches_the_tree_in_both_directions():
