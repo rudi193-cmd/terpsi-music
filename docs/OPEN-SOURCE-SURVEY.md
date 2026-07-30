@@ -338,7 +338,9 @@ Listed so that absence reads as `unknown` rather than as a result (rule 13). Eac
 
 ## 12. Scout index
 
-Twenty-four reports under `docs/survey/`. Machine-produced, `draft`, non-authoritative — cited here so that this survey's `P2` claims have a local source that survives the originals being reclaimed (§15).
+Twenty-five reports under `docs/survey/`. Machine-produced, `draft`, non-authoritative — cited here so that this survey's `P2` claims have a local source that survives the originals being reclaimed (§15).
+
+**Scout 25 post-dates this survey and is not summarised by it.** Parts 1–11 above were assembled from scouts 01–24; nothing in them accounts for 25. It is indexed here because the index is checked against the tree in both directions and an unindexed file would fail that check — which is the correct outcome, and is why the index says twenty-five while part 13 still says twenty-four.
 
 | # | File | Slice |
 |---|---|---|
@@ -366,6 +368,7 @@ Twenty-four reports under `docs/survey/`. Machine-produced, `draft`, non-authori
 | 22 | `scout-22-drill-spatial.md` | Drill, coordinates, propagation, spatial |
 | 23 | `scout-23-identity-interop.md` | Identity resolution, interop, small-cell suppression |
 | 24 | `scout-24-wildcard.md` | Deliberately oblique; governance as a checked artifact |
+| 25 | `scout-25-protected-categories.md` | Protected-category vocabulary; §18 item 11's rung. **Search summaries only — no source opened** |
 
 `tests/test_section_refs.py` asserts that every file named here exists and that this document's section pointers resolve. A survey index nobody checks is an allowlist that fails open (§16).
 
@@ -374,6 +377,8 @@ Twenty-four reports under `docs/survey/`. Machine-produced, `draft`, non-authori
 ## 13. The pair this document creates, and its middle
 
 Per rule 12, named in the same commit. This survey is a **summary** of 24 reports that remain beside it — the canonical/vendored shape §16 warns about, with this file as the lossy copy.
+
+> **Twenty-four is right here and twenty-five is right in part 12, and the gap is the point.** `scout-25-protected-categories.md` sits in the directory and is *not* summarised above. Reconciling the two numbers by editing this one would assert a summarisation that was never performed — the drift rule 17 exists to catch, committed to conceal a smaller one. The pair's middle is weaker by exactly one report until someone folds 25 in.
 
 Its middle is partial and should be said so plainly:
 
