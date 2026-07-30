@@ -41,9 +41,15 @@ Consequences, as originally stated — the first is withdrawn, the others stand:
   as a structural fact. Anything written remotely rests on the summary.~~
   **Withdrawn.** Rows can be verified remotely and four now have been. See
   *Reads performed* below.
-- **`Nestor` may be unreachable even locally-authorised.** §17 flags it: it is
+- ~~**`Nestor` may be unreachable even locally-authorised.** §17 flags it: it is
   the sole occupant of `Die-Namic-Systems`, and *"`add_repo` refuses cross-tier
-  and a session can hold one owner's repos or another's, not both."*
+  and a session can hold one owner's repos or another's, not both."*~~
+  **False, 2026-07-30 — and false in the same family as this section's main
+  premise.** `Nestor` is at `rudi193-cmd/nestor` and cloned with no cross-tier
+  obstacle. §17's placement reads *"is going to be the only repo under
+  `Die-Namic-Systems`"* — future tense, a decision not yet executed. This bullet
+  turned an unexecuted plan into a present-tense access barrier, which would
+  have deterred exactly the read that disproved it.
 - **Some of these names are known dead.** §15 records fifteen store manifests
   naming a `repository` that does not exist — `safe-app-private-ledger`,
   `safe-app-the-squirrel`, `safe-app-utety-chat`, `safe-app-ask-jeles` among
@@ -162,6 +168,9 @@ opened in a clone at the named commit, not summarised.
 | `safe-app-willow-grove` | `a2e11b3` | `safe-app-manifest.json`, `bridge/`, `grove/`, `CLAUDE.md` | **§4.3's claim CONFIRMED and understated.** Two listeners, not one; the outbound probe is outside the bridge; no purity test |
 | `willow-mcp` | `3815449` | `manifest_admin.py`, `identity_binding.py` | **CONFIRMED.** `confirm-binding` carries *"Do not wire this into an `@mcp.tool()`"*; all four `email_basis` values present with drift surfaced, not silently applied |
 | `willow-grove` | `9b8ed75` | `DESIGN_CONSTRAINTS.md`, `CODE_REVIEW.md` | **CONFIRMED**, and it contains something this repository needs — see below |
+| `Nestor` | `111c187` | `nestor/curator.py`, seal states | **CONFIRMED.** `Curator.servable` at `curator.py:82`, `unverifiable()` at `:118`, cascade `sealed`/`draft`/`pending` all present. **But it is at `rudi193-cmd/nestor`, not `Die-Namic-Systems`** |
+| `willow-gate` | `3092de5` | `src/willow_gate/friction_floor.py` | **CONFIRMED**, and it is a sibling of this repository's `voice.py` — see below |
+| `willow-data-vault` | `b634de0` | `README.md`, `schema/` | **CONFIRMED.** Three-layer architecture, `vault.key` + Fernet. Nine files: schemas and bootstrap only, *"never data"* |
 
 ### The divergence, and why it is the most important thing here
 
@@ -367,3 +376,51 @@ else's machine. §16 argues this abstractly; this is the worked example.
 opening with a rule that it must stay one page. Those two disciplines are in
 tension, the tension is real, and this sentence is the argument for resolving it
 toward deletion-with-a-reason rather than toward accumulation.
+
+
+## Tier 2, first three — and one pair this repository created without noticing
+
+**`Nestor`'s placement is decided and unexecuted, and §14 does not distinguish
+those.** The row reads *"`Nestor` → `Die-Namic-Systems`, sole occupant —
+**Decided**"*. §17's prose is future tense, so "Decided" is accurate about the
+*decision*; the repository is still `rudi193-cmd/nestor`. A reader taking the
+row as a statement about the tree would be wrong, which is item 0's whole
+complaint applied to a row that is *technically* right. Its three functional
+claims all verify.
+
+**`willow-gate/friction_floor.py` is `voice.py`'s `mirroring` rule, built
+first.** This repository shipped a friction detector as a `FLAG`-not-`REFUSE`
+rule and argued the position from scratch. `friction_floor.py` states the same
+four properties in its docstring:
+
+| `friction_floor.py` | `voice.py` |
+|---|---|
+| *"a SIGNAL, not a verdict"* | `FLAG` rather than `REFUSE` for `mirroring` |
+| *"will false-positive… and false-negative"* | `KNOWN_MISSES`, `NEAR_BOUNDARY` |
+| *"lexicons are deliberately small and are NOT claimed to be complete"* | the honesty list, with a test that it stays honest |
+| *"it fails loud, not open"* | `refuses()` treats a raise as a refusal |
+
+**That is a pair, and rule 12 says name the middle or do not create it.** The
+two are not identical — `friction_floor` watches the agent↔user relationship for
+sycophancy, `voice.py`'s rule watches whether the assistant is mirroring a
+stressed staff member — but they are the same mechanism against the same class
+of harm, and this repository built its own without knowing.
+
+And `friction_floor` carries an argument this repository's version does not, on
+a point `voice.py` explicitly defers:
+
+> *"It is DETERMINISTIC and MODEL-FREE on purpose. It never calls an LLM,
+> because **a mirror cannot audit itself** — the model that is smoothing you is
+> the last thing you'd trust to notice it is smoothing you."*
+
+`voice.py` records that its rule tier is *"the fastest and weakest"* and that
+*"the tier above is a classifier."* This says the tier above must not be the
+same model that produced the text. That is a constraint on refusal 1's local
+model, not just on where it runs, and it is not written down here.
+
+**`willow-data-vault` is a blueprint, and the tiering assumed otherwise.**
+Nine files — schema and `bootstrap/provision.sh`, explicitly *"never data."*
+§14's row verifies. But Tier 2 above lists it as *"Zone A sealing"*, and there is
+no sealing implementation in it to read. That is consistent with §9 foundation 3
+already saying at-rest sealing across the Zone A boundary is **not** built; the
+reading order was wrong, not the component map.

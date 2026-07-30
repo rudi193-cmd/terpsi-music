@@ -883,7 +883,7 @@ Written after reading the READMEs of the components below; contents inferred fro
 
 | This document | Component | Status |
 |---|---|---|
-| §5 the box / Zone A | `willow-data-vault` | **Exists.** Three-layer lifecycle, `vault.key` + Fernet, fail-closed on a keyless vault |
+| §5 the box / Zone A | `willow-data-vault` | **VERIFIED 2026-07-30** at `b634de0` — three-layer architecture and `vault.key`/Fernet confirmed; nine files, schema and bootstrap only, *"never data"*. **Exists** as a blueprint; there is no at-rest sealing implementation in it, consistent with §9's foundation 3 |
 | §5 at-rest sealing of *records* | — | **Open.** The vault seals secrets; collection stores are not described as encrypted |
 | §5 escrow | — | **Open, and the largest gap.** Single-file key loss is unrecoverable by design |
 | §6 core purity | `safe-app-common.no_egress` | **VERIFIED 2026-07-30** at `2b3d088` — `src/safe_app_common/no_egress.py` present with `tests/test_no_egress_checker.py` beside it. **Exists**, canonical, with the core/seam partition this document lacked |
@@ -905,7 +905,7 @@ Written after reading the READMEs of the components below; contents inferred fro
 | Prohibited scopes registry | `Willow` Schedule A (SA-1…SA-5) | **Drafted, unratified.** Validated before any envelope issues; `envelopes/pre-approved.json` is the enforcement surface |
 | Stakes classification | `Willow` Schedule B (SB-1…SB-5) | **Drafted.** A music program touches four of the five classes |
 | Retirement artifact | `Willow` `PROTECTED_PERSONS.md` | **Exists as a model.** The five-part tombstone that would have prevented the dead-link tally |
-| Shared-edge placement | `Nestor` → `Die-Namic-Systems`, sole occupant | **Decided.** The fleet's single named cross-face dependency (§17) |
+| Shared-edge placement | `Nestor` → `Die-Namic-Systems`, sole occupant | **Decided, and unexecuted — checked 2026-07-30.** The repository is at `rudi193-cmd/nestor`; §17's prose is future tense. The decision stands; the move has not happened, and this row read as a statement about the tree would be wrong |
 | Second shared edge | `libs/subject-consent` | **Unresolved.** Same property as Nestor, still a folder in an app store, already vendored once |
 | Per-graduate lane export (W-6) | — | **Open**, and a precondition of enrolment rather than an end-of-life feature |
 | §10 privacy notice | `willow-2.0/TRUST.md` | **Reusable structure** — every path data can take, each with its switch |
@@ -935,8 +935,8 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §7.3 sensitivity field vocabulary | `quiet-corner` `session_scope` | **Vocabulary worth taking, enforcement is the known-bad precedent** — declared per-field, enforced nowhere |
 | Dated / staged consent | `DispatchesFromReality` (prose only) | **No code anywhere in the fleet.** `data_streams` retention has two values; must be invented here |
 | §8.1 commentary relations | `story-timeline` (`provenance`, `contradicts_or_tensions_with`) | **Transplantable**, minus time-coding |
-| §8.2 trust state of a transcript | `Nestor` cascade (`sealed`/`draft`/`pending`) | **Exists.** A transcription is a draft until the speaker seals it |
-| §16 declaration vs enforcement, computed | `Nestor` `Curator.servable` / `unverifiable()` | **Exists.** The detector for this document's entire finding class |
+| §8.2 trust state of a transcript | `Nestor` cascade (`sealed`/`draft`/`pending`) | **VERIFIED 2026-07-30** at `111c187` — all three states present. **Exists.** A transcription is a draft until the speaker seals it |
+| §16 declaration vs enforcement, computed | `Nestor` `Curator.servable` / `unverifiable()` | **VERIFIED 2026-07-30** at `111c187` — `curator.py:82` and `:118`. **Exists.** The detector for this document's entire finding class |
 | Roster identity reconciliation | `Nestor` `EntityResolver` | **Exists.** Sealed canonical mapping; sub-threshold returns a suggestion, never a silent merge |
 | Three-way finance reconciliation | `Nestor` `Reconciler` | **Exists.** Sealed baseline, tolerance band, flagged variation, ledgered |
 | §15 `P2` liveness sweep | `almanac-template` (`status` + `observed` + daily reachability job) | **Exists as a pattern**, files an issue when a source rots |
@@ -1329,7 +1329,7 @@ Everything above argues about design. This section is the short list of things t
 
 ### 0 · Read §14 as a claim, not as ground truth
 
-**State: standing caveat, and its stated obstacle was false — corrected 2026-07-30.** `docs/FLEET-READS.md` said the pass could not be run remotely because there was no organisation to read the repositories from. They are on GitHub under the same account as this one, several of them public; three have now been cloned and read from a remote session, and four rows are verified. The pass is open, not blocked — **nine repositories read and six §14 rows verified as of 2026-07-30**, including one verified *negative* (`willow-tech-manual` does not carry the L-ladder, so `SENSITIVITY.md` was correctly written from scratch). Twenty-seven remain. §14's component map was assembled from READMEs and merged pull-request descriptions — **not from reading or running source.** Every row asserting that something exists is a `P2 Cited` claim (§15) whose source was read and never executed.
+**State: standing caveat, and its stated obstacle was false — corrected 2026-07-30.** `docs/FLEET-READS.md` said the pass could not be run remotely because there was no organisation to read the repositories from. They are on GitHub under the same account as this one, several of them public; three have now been cloned and read from a remote session, and four rows are verified. The pass is open, not blocked — **twelve repositories read and ten §14 rows verified as of 2026-07-30**, including one verified *negative* (`willow-tech-manual` does not carry the L-ladder, so `SENSITIVITY.md` was correctly written from scratch). Twenty-four remain. §14's component map was assembled from READMEs and merged pull-request descriptions — **not from reading or running source.** Every row asserting that something exists is a `P2 Cited` claim (§15) whose source was read and never executed.
 
 That is the exact defect #124 named: *a figure carried from a summary rather than from the thing that produced it.* Before anything is built on the strength of that table, one pass should open the code behind each **Exists** row and either confirm it or downgrade it — and the pass itself should leave a record, because an unverified table and a verified one look identical.
 
