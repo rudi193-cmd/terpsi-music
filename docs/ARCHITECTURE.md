@@ -102,7 +102,7 @@ School network to hub, no relay involved. Fastest path, no external dependency, 
 **Off-site staff and director → mesh VPN.**
 Small N, technically capable, org-issued or org-enrolled devices. WireGuard via Tailscale, or Headscale if the coordination plane must also be self-hosted. ACLs restrict the tailnet to the app port. This population can absorb a VPN client; parents cannot.
 
-**Parents → the drop.** See §4.1, the hard case.
+**Parents → SMS for almost everything, the drop for the rest.** See §4.1 and §4.2.
 
 **Clinicians and judges → ephemeral scoped grants.**
 On-site, event-bound. Either a kiosk device the org owns and wipes, or their own device on a guest SSID reaching the hub directly. The grant is a time-boxed relationship edge (`judge_at :: Event_X`, valid for the event window plus a commentary grace period) that expires on its own without anyone remembering to revoke it. Their scores and timecoded commentary are written locally; transmission to a circuit is a deliberate, reviewed export (§6), not a live integration.
@@ -110,9 +110,55 @@ On-site, event-bound. Either a kiosk device the org owns and wipes, or their own
 **Corporate / circuit / district → never connects.**
 No accounts on this system. They receive signed, minimized, aggregated exports pushed through the egress gate with human approval. If they need individual-level data, that is a disclosure decision a human makes and the log records — not a query they run.
 
-### 4.1 The parent problem
+### 4.1 The traffic split, and why SMS collapses the problem
 
-Ranked options, with what each actually costs:
+This document treated "parents need access" as one requirement. It is three, and they have wildly different weights:
+
+| Class | Share of interactions | What it is |
+|---|---|---|
+| **Notification** | ~80% | Rehearsal moved. Bus is thirty minutes out. Lightning hold. Call time is now 5:15. |
+| **Acknowledgment** | ~15% | Got it. He'll be there. She's sick tonight. |
+| **Transactional** | ~5% | Pay a fee, sign a form, view a balance, upload a physical. |
+
+**SMS handles the first two completely** — no app, no enrollment, no passkey, no VPN, no browser, no account. It works on a flip phone and it works for the grandparent listed as an emergency contact. And it is *push*: the hub dials out to a gateway and nothing on the school network ever listens, so the zero-inbound posture is preserved without building anything.
+
+That leaves the relay serving only the transactional 5% — occasional, low-volume, and for a population that tolerates more friction at four interactions a year than at four a day. **This is a different and much smaller engineering problem than the one §4.2 was solving**, and the ranked options there should be read in that light.
+
+#### The rule: SMS carries signals, never records
+
+SMS is plaintext at the carrier, retained by the SMSC, rendered on a lock screen, and synced into iCloud and Google backups and onto whatever laptop is paired. `PII_MINOR`, `HEALTH`, `FINANCIAL`, and disciplinary content cannot go on it. *"Ben's insulin authorization expires Friday"* is a disclosure — to a carrier, and to whoever is holding the phone.
+
+So the security model here is not encryption, it is **minimization**, and that is a coherent position rather than a concession. The envelope thesis says *make the relay incapable of reading anything*; a carrier cannot be made incapable, so instead the payload is made not worth reading. "Call time is 5:15" leaks nothing in plaintext. Anything sensitive becomes a one-time link into the local surface, or is not sent.
+
+#### The gateway is a trust decision, and the local one is available
+
+A hosted SMS vendor would hold a roster of every guardian's phone number alongside every message body — a Zone-B-class trust decision smuggled in as a convenience, and the largest hole available in this posture. The sovereign alternative is real: a cellular modem on the hub, or a dedicated Android handset in the band room acting as a gateway. No third party, no message contents leaving the organization.
+
+Its honest constraint is **throughput**. A person-to-person SIM sending three hundred messages in ninety seconds looks exactly like spam and will be filtered or blocked. That constraint, not cost, decides the design:
+
+- Tier aggressively so a genuine all-call is a rare event, not a daily one
+- Stagger sends rather than fanning out at once
+- If one message class truly needs guaranteed mass delivery — emergency, and only emergency — that is the single justified case for an A2P route, with everything else staying local
+
+#### SMS also fixes enrollment, but must not become the credential
+
+§4.2's enrollment story assumed parents attend the meeting where the invite is handed out. Many do not. SMS *is* the enrollment channel: text a one-time link, they tap it, they bind a passkey, done — no help desk, no meeting, no QR code.
+
+It must stop there. **SMS OTP is the weakest widely-deployed second factor** — SIM swap and SS7 interception are not theoretical — and this credential governs access to a minor's records. SMS delivers the enrollment link; the passkey holds the identity. It bootstraps authentication rather than being authentication.
+
+#### Three things it drags in
+
+- **The send list is an access-control surface.** A guardian under a contact restriction must not receive *"Ben will be at the away game in Dayton until 10pm"* — a live location disclosure about a minor, pushed to a device, unrecallable. The dated-guardianship predicate of §7.1 must gate **who is messaged**, not only what can be read. This is the sharpest argument in this document for building §7.1 early.
+- **The audience is whoever holds the phone**, including the student, on a lock screen, with no authentication. Another reason content stays minimal.
+- **Consent to be texted is separate from consent to the data.** A guardian may be fully entitled to a record and never have agreed to be messaged. Opt-in and `STOP` handling are their own state, and 10DLC registration applies if any A2P route is used.
+
+#### What SMS does not solve
+
+Payments, signatures, capacity-limited signups, balance history, anything involving a document. Those stay on the interactive surface — which has just gone from load-bearing for every family every day to occasional.
+
+### 4.2 The transactional remainder
+
+Ranked options for the 5% that SMS cannot carry:
 
 | Option | Network posture | Parent UX | Verdict |
 |---|---|---|---|
@@ -129,7 +175,7 @@ Under (b), compromise of the drop yields: which mailboxes talked, when, and roug
 
 **Honest caveat.** A browser-delivered decryptor (the fallback for parents who won't install anything) means the code doing the decryption is served by the thing you don't trust. That is a real weakening. Keep it for low-sensitivity content only — the public performance schedule, a general announcement — and require the installed client for anything protected.
 
-### 4.2 What exists, and what the relay is not
+### 4.3 What exists, and what the relay is not
 
 **`willow-mcp` serve mode is a real remote-access path.** HTTP with OAuth 2.0 + PKCE against Google or Apple, then a separate, operator-confirmed **identity binding** mapping that identity to an `app_id` before any permission applies. `confirm-binding` is deliberately not an MCP tool — a remote caller must never confirm its own binding — and an authenticated-but-unbound caller is denied exactly like an unmanifested one. It also tracks `email_basis` (`asserted` / `first_auth_only` / `relay` / `unavailable`) rather than trusting an IdP email uniformly, and annotates `email_drift` instead of silently updating.
 
@@ -137,7 +183,7 @@ Two things follow for the parent problem. Google as IdP is *convenient* in a dis
 
 **Grove is not the drop.** The catalog describes Grove as *encrypted peer-to-peer* and Willow Grove as carrying *encrypted u2u direct messages*. The implementation's own README corrects this: u2u is **authenticated, not confidential** — `json.dumps(packet)` onto a plain TCP socket, with `cryptography` used only for Ed25519 signing. Origin and integrity are verified; the body is plaintext on the wire, readable by anyone on the LAN segment. Adding confidentiality is described as an open decision, not a shipped feature.
 
-So the §4.1 relay remains unbuilt, and reusing u2u for it would be a serious error. What u2u *does* supply is the harder half of a mailbox relay — signed identity, verified origin, per-contact consent flags defaulting to False so a newly admitted contact can deliver nothing until granted. A confidentiality layer over that is a smaller job than a relay from scratch.
+So the relay remains unbuilt, and reusing u2u for it would be a serious error. What u2u *does* supply is the harder half of a mailbox relay — signed identity, verified origin, per-contact consent flags defaulting to False so a newly admitted contact can deliver nothing until granted. A confidentiality layer over that is a smaller job than a relay from scratch.
 
 > **Divergence to fix.** `catalog.json` still advertises encryption that the code does not implement, for two entries. Sibling repo `safe-app-grove`, named as Grove's canonical repository, does not resolve — consistent with the survey finding in #119 that two of four claimed canonical repos 404. Both are `FLEET_SEAMS`-class findings: the declaration and the enforcement disagree, and the declaration is the customer-facing one.
 
@@ -363,6 +409,7 @@ Majority expiry works because the end date is computable from a birthdate the re
 If a terminated guardianship is a `DELETE` while majority is a predicate, the two behave differently in exactly the ways that matter:
 
 - A deleted edge leaves no dated record, so "who could see this on October 12, and why" becomes unanswerable for the one case where a court may actually ask.
+- **The predicate must gate outbound sends, not only reads.** A restricted guardian still on the SMS list receives a live location disclosure about a minor, pushed to a device, with no way to recall it (§4.1). A read gate that does not also derive the send list is not protecting the thing that actually leaves.
 - A restriction that must take effect at a future date has nowhere to live until it does.
 - Reinstatement — orders get modified — has to reconstruct what deletion discarded.
 
@@ -475,7 +522,8 @@ Not legal advice — the state-law column in particular varies enough that the d
 4. **Classification at schema-definition time** — the one thing that is genuinely miserable to retrofit.
 5. **Egress inexpressible in the core, gated at the perimeter** — import purity first, network policy only where the world must genuinely be reached.
 6. **Commentary is the adjudication primitive; captions and ratings are projections over it** (§8.1) — the difference between supporting symphonic festival as a configuration and rebuilding for it later.
-7. **Revocation is a dated predicate, never a deletion** (§7.1) — majority already works this way; guardianship termination by court order must work the same way.
+7. **Revocation is a dated predicate, never a deletion** (§7.1) — majority already works this way; guardianship termination by court order must work the same way, and it must derive the send list as well as the read.
+8. **SMS carries signals, never records** (§4.1) — where the transport cannot be made incapable, the payload is made not worth reading. Minimization is the mechanism, and it is what shrinks the parent problem from daily to occasional.
 
 ## 13. Open questions
 
@@ -514,7 +562,8 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §6 outbound scanning | the redaction funnel | **Exists for credentials.** Needs the student-identifier classes |
 | §3 hardening | `WILLOW_MCP_STRICT_TRUST_ROOT`, severance | **Exists, off by default.** Mandatory here — see §6 residual |
 | §4 staff remote access | `willow-mcp` serve mode (OAuth + confirmed binding) | **Exists** |
-| §4.1 the parent relay | — | **Open.** Grove's u2u is signed, *not* confidential — reusable identity, missing confidentiality |
+| §4.1 parent notification + acknowledgment (~95%) | SMS, ideally a local SIM gateway | **Open, but small.** No app, no enrollment, no inbound; constrained by carrier throughput, not cost |
+| §4.2 the transactional relay (~5%) | — | **Open.** Grove's u2u is signed, *not* confidential — reusable identity, missing confidentiality |
 | §7 finance module | `private-ledger` | **Exists as a template**, with the injected-`ingest` bridge pattern |
 | §10 / §17 aggregate exports | `nest_promote`, `nest_digest` | **Exists as a pattern.** Promote *structure* — counts, categories, never content; the full digest is local-CLI only, never returned over MCP |
 | Guardianship / family graph | `the-squirrel` | **Adjacent**, though it serves a web port rather than staying import-pure |
