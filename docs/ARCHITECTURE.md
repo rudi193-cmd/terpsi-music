@@ -520,6 +520,8 @@ Two properties are worth recording before anything here depends on it.
 
 **`SAP_PGP_FINGERPRINT` defaults to empty, and empty means *any valid signature passes*.** That is a fail-open default in an authorization gate, and it runs directly against the discipline the rest of the fleet holds — willow-mcp reads a missing or unparseable file as *denied* on the principle that **absence is not consent**. Unpinned, SAP authorizes anyone who can produce a well-formed signature with any key. Any install here must pin the fingerprint, and the pin belongs in install acceptance rather than in a setup guide.
 
+**The protocol it implements is no longer published.** The README cites an SAP/1.0 RFC and an enforcement skill, neither of which resolves — the repos were retired once their content had been absorbed. The consequence is narrow but real: SAP/1.0 now exists only as its implementation, so the empty-fingerprint default cannot be classified. If the spec required a pin, that default is a defect; if the spec was silent, it is a gap in the protocol. Same symptom, different fix, and no artifact left to distinguish them. Anything here that depends on SAP should first restate the four-step chain as a local, versioned contract it can test against.
+
 **Revocation is deleting the folder or the `.sig`** — which leaves no dated record, and therefore cannot answer *was this app authorized on October 12*. For agent authorization that may be an acceptable trade; for anything touching education records it is the exact failure §7.1 is written against. If SAP ever gates a path that touches student data, revocation needs the `valid_at`/`invalid_at` treatment rather than `rm`.
 
 Counting: `willow-gate`'s HMAC knock, willow-mcp's manifest ACL, the three-key egress chain, `law-gazelle`'s wiring of the first, and now SAP's GPG-signed manifests. Five mechanisms answering overlapping questions with different failure modes. That is a `FLEET_SEAMS` entry waiting to be written, and this design should name which one it depends on rather than inheriting all five.
@@ -766,6 +768,12 @@ The fleet's `measured | fitted | assumed` with the two rungs it currently collap
 | **P5** | Assumed | Asserted, no evidentiary basis, and declared as such |
 
 **Cited** is doing real work that has nowhere to sit today: `oakenscrolls-office` pins resolution evidence to a source *and the git commit of the catalog that vouched for it*, and `jeles` pins `verified_by` with citations. Both are stronger than an assumption and weaker than a local measurement.
+
+> **P2 decays silently, and nothing currently detects it.** A citation whose source has been deleted is a `P5` assumption still wearing a `P2` label — the rung does not fall on its own. This is not hypothetical in this fleet: `openclaw-sap-gate` ships on PyPI citing an SAP/1.0 RFC that no longer resolves, `catalog.json` names a canonical Grove repository that 404s, and #119 found two of four claimed canonical repos already gone. Repos get deleted once their value is extracted, which is reasonable; the citations pointing at them do not update, which is the problem.
+>
+> So `P2` requires storing enough to survive its source disappearing: not a URL, but a resolved content hash, a pinned commit, or the quoted claim itself. `oakenscrolls-office` is closest — a pinned catalog commit at least records *what was read* even when it can no longer be re-fetched. **"Catalog, don't host" has exactly this vulnerability**, and a program relying on a cited eligibility rule or a licensing term three seasons later will meet it.
+>
+> Minimum viable check: a periodic liveness pass that demotes an unresolvable `P2` to `P5` **loudly**, rather than letting it keep the higher rung by inertia.
 
 **Estimated** matters because extrapolating from a different ensemble at a different venue is a categorically different claim than fitting to this one — and in this domain that distinction is the difference between a defensible design decision and a guess wearing a number.
 
