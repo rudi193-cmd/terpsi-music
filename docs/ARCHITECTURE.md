@@ -652,7 +652,7 @@ Counting: `willow-gate`'s HMAC knock, willow-mcp's manifest ACL, the three-key e
 Sketch, not schema.
 
 - **Org** → **Program** → **Ensemble** → **Season** → **Event**
-- **Person** (+ `Student` / `Guardian` / `Staff` / `Guest` facets — one human, many roles, never duplicated rows)
+- **Person** (+ `Student` / `Guardian` / `Staff` / `Guest` facets — one human, many roles, never duplicated rows). **Reconciling the same human across sources is `Nestor`'s `EntityResolver`, already built** — its shipped example maps `Amazon` / `Amazon.com Inc` / `AMZN` / `AWS` onto one canonical entity behind a human seal. Substitute a student arriving as *Robert Smith* from the SIS, *Bobby Smith* on a booster spreadsheet, and *R. Smith* on a competition registration. A confident match returns the canonical record with the sealer's provenance; anything below threshold comes back as an **unsealed suggestion**, never a silent merge — the correct default when a wrong merge combines two children's records.
 - **Enrollment**, **Guardianship**, **Eligibility**
 - **Inventory:** `Instrument`, `Uniform`, `LibraryItem` (score/part), with `Assignment` and condition history — the "who has the school tuba" question is perennial and currently lives in a spreadsheet
 - **Money:** `FeeSchedule`, `Charge`, `Payment`, `FundraisingCredit`, `TripAccount`
@@ -820,7 +820,8 @@ One caution the same list supplies: its **Delisted** section records sovereignty
 11. **The exit line is written before the first install** (§11.1) — sovereignty is the ability to leave, and if the line cannot be written honestly that is the finding.
 12. **A guard that cannot be shown to fail has not been shown to work** (§10) — acceptance is mutation, not a green suite; the observed failure mode in this fleet is defects in the verification apparatus rather than in the code it verifies.
 13. **Ordinal scales never compare as raw integers, and provenance never gates** (§15)
-14. **Every pair gets a named, mutation-tested middle** (§16) — the fleet builds in halves, and every failure in this document is a reconciler that was absent, mis-aimed, or unable to fire. — two existing five-level scales already run in opposite directions; a third arrives only with prefixes and a single mapping table.
+14. **A machine answer is a draft until a named human seals it** (§16, §8.2) — and rejection is recorded as durably as approval, because an audit trail that records only agreement is not one.
+15. **Every pair gets a named, mutation-tested middle** (§16) — the fleet builds in halves, and every failure in this document is a reconciler that was absent, mis-aimed, or unable to fire. — two existing five-level scales already run in opposite directions; a third arrives only with prefixes and a single mapping table.
 
 ## 13. Open questions
 
@@ -886,6 +887,10 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §7.3 sensitivity field vocabulary | `quiet-corner` `session_scope` | **Vocabulary worth taking, enforcement is the known-bad precedent** — declared per-field, enforced nowhere |
 | Dated / staged consent | `DispatchesFromReality` (prose only) | **No code anywhere in the fleet.** `data_streams` retention has two values; must be invented here |
 | §8.1 commentary relations | `story-timeline` (`provenance`, `contradicts_or_tensions_with`) | **Transplantable**, minus time-coding |
+| §8.2 trust state of a transcript | `Nestor` cascade (`sealed`/`draft`/`pending`) | **Exists.** A transcription is a draft until the speaker seals it |
+| §16 declaration vs enforcement, computed | `Nestor` `Curator.servable` / `unverifiable()` | **Exists.** The detector for this document's entire finding class |
+| Roster identity reconciliation | `Nestor` `EntityResolver` | **Exists.** Sealed canonical mapping; sub-threshold returns a suggestion, never a silent merge |
+| Three-way finance reconciliation | `Nestor` `Reconciler` | **Exists.** Sealed baseline, tolerance band, flagged variation, ledgered |
 | §15 `P2` liveness sweep | `almanac-template` (`status` + `observed` + daily reachability job) | **Exists as a pattern**, files an issue when a source rots |
 | Export / publication boundary | `yggdrasil-training-data` | **Pattern exists**, fail-closed on unknown — but carries a trusted-source bypass not to reproduce |
 | Cloud inference fallback | `willow-seed` (Groq/Cerebras/SambaNova) | **Must be disabled, not unused.** Fires exactly when the local model is down |
