@@ -214,6 +214,8 @@ So the relay remains unbuilt, and reusing u2u for it would be a serious error. W
 
 `bridge/__main__.py` starts an aiohttp server on `0.0.0.0:8560` — all interfaces — and `bridge/matrix.py` makes outbound POSTs to an arbitrary configured homeserver. `bridge/app.py` opens a UDP socket to `8.8.8.8:80` to discover the local IP. The rule is scoped to *the dashboard*, so it is arguably not violated; a reader of the manifest would still conclude this app cannot open a port, and it can.
 
+> **VERIFIED 2026-07-30 at `a2e11b3`, and this paragraph understates it three ways.** There are **two** all-interface listeners (`bridge/app.py:137` and `:214`), not one. The `8.8.8.8` probe is opened in **`grove/mcp_local.py:317`** as well as `bridge/app.py:60` — outside the bridge, in the app's own namespace, so the *"scoped to the dashboard"* defence above does not hold for it. And the app carries **no purity test at all**. See `docs/FLEET-READS.md`.
+
 Its own `SECURITY_AUDIT.md` knows, and says so honestly: `u2u/` and `bridge/` are *"**Scanned, not Reviewed**… they make the repo's only cryptographic trust decisions and deserve a dedicated pass."* That is a disclosure rather than a defect — but it is **prose in an audit file, not an assertion**, and nothing fails if the bridge grows a new capability tomorrow. Which is §16's distinction exactly: an acknowledged missing middle is still a missing middle.
 
 > **Divergence to fix.** `catalog.json` still advertises encryption that the code does not implement, for two entries. Sibling repo `safe-app-grove`, named as Grove's canonical repository, does not resolve — consistent with the survey finding in #119 that two of four claimed canonical repos 404. Both are `FLEET_SEAMS`-class findings: the declaration and the enforcement disagree, and the declaration is the customer-facing one.
@@ -915,7 +917,7 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §1–§2 practice + mastery | UTETY (BKT, item sets, on-device store) | **Adjacent.** Different subject matter, same shape — worth reading before rebuilding |
 | Library vs. learner split | UTETY ↔ Jeles | **Settled pattern.** UTETY holds the learner, Jeles holds the sources — the repertoire library may want the same seam |
 | §6 kill switch | `consent.internet` | **Exists** |
-| §6 three-key egress + envelope | `willow-mcp` | **Exists**, stronger than proposed |
+| §6 three-key egress + envelope | `willow-mcp` | **VERIFIED 2026-07-30** at `3815449` — `confirm-binding` carries *"Do not wire this into an `@mcp.tool()`"*; `compute_email_basis` returns all four values and drift is surfaced, not applied. **Exists**, stronger than proposed |
 | §6 outbound scanning | the redaction funnel | **Exists for credentials.** Needs the student-identifier classes |
 | §3 hardening | `WILLOW_MCP_STRICT_TRUST_ROOT`, severance | **Exists, off by default.** Mandatory here — see §6 residual |
 | §4 staff remote access | `willow-mcp` serve mode (OAuth + confirmed binding) | **Exists** |
@@ -1327,7 +1329,7 @@ Everything above argues about design. This section is the short list of things t
 
 ### 0 · Read §14 as a claim, not as ground truth
 
-**State: standing caveat, and its stated obstacle was false — corrected 2026-07-30.** `docs/FLEET-READS.md` said the pass could not be run remotely because there was no organisation to read the repositories from. They are on GitHub under the same account as this one, several of them public; three have now been cloned and read from a remote session, and four rows are verified. The pass is open, not blocked — **six repositories read and six rows verified as of 2026-07-30**, including one verified *negative* (`willow-tech-manual` does not carry the L-ladder, so `SENSITIVITY.md` was correctly written from scratch). Thirty remain. §14's component map was assembled from READMEs and merged pull-request descriptions — **not from reading or running source.** Every row asserting that something exists is a `P2 Cited` claim (§15) whose source was read and never executed.
+**State: standing caveat, and its stated obstacle was false — corrected 2026-07-30.** `docs/FLEET-READS.md` said the pass could not be run remotely because there was no organisation to read the repositories from. They are on GitHub under the same account as this one, several of them public; three have now been cloned and read from a remote session, and four rows are verified. The pass is open, not blocked — **nine repositories read and six §14 rows verified as of 2026-07-30**, including one verified *negative* (`willow-tech-manual` does not carry the L-ladder, so `SENSITIVITY.md` was correctly written from scratch). Twenty-seven remain. §14's component map was assembled from READMEs and merged pull-request descriptions — **not from reading or running source.** Every row asserting that something exists is a `P2 Cited` claim (§15) whose source was read and never executed.
 
 That is the exact defect #124 named: *a figure carried from a summary rather than from the thing that produced it.* Before anything is built on the strength of that table, one pass should open the code behind each **Exists** row and either confirm it or downgrade it — and the pass itself should leave a record, because an unverified table and a verified one look identical.
 
@@ -1406,7 +1408,19 @@ Six personas (§4), `safe-design` ready with tokens and structurally-parity back
 > restricted mode of the same one.
 >
 > **(ii) `surfaces` is a manifest field, and this fleet's precedent for it
-> failed.** §4.3 records `safe-app-willow-grove` declaring `"surfaces":
+> failed — and the mechanism of that failure is now read at source.**
+> `willow-grove/DESIGN_CONSTRAINTS.md` (*"Design constraints for the fresh
+> build"* — which is this repository) carries the same requirement as its
+> constraint 4, *"Ship a manifest that something actually validates"*, reached
+> from a code review rather than from this discussion. It supplies what was
+> missing here: **the store's lint skips by construction.**
+> `safe-app-store/tools/catalog_lint.py:71-73` errors on a missing manifest
+> only when the catalog entry carries a local `path`, and the enforcing ACL
+> lives in `willow-mcp` `gate.py` rather than in the store — so an
+> external-repo app falls between the declaration surface and the enforcement
+> surface. That is a middle that exists and **cannot fire for a whole class of
+> entries**, and it is the argument for this repository validating its own
+> manifest in its own CI rather than relying on the store's. §4.3 records `safe-app-willow-grove` declaring `"surfaces":
 > ["tui"]` with `lan_listen`/`lan_send` and *"portless means portless"*, while
 > `bridge/__main__.py` starts an aiohttp server on `0.0.0.0:8560`. Whatever is
 > decided here becomes a declaration of the same kind, for an app with more

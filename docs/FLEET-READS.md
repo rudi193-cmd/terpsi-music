@@ -159,6 +159,9 @@ opened in a clone at the named commit, not summarised.
 | `willow-tech-manual` | `5cff7cd` | whole tree, 68 files | **Negative claim CONFIRMED.** Zero occurrences of `sensitiv` and zero `L1`–`L5` tokens in any file. §18 was right that it does not carry the ladder, so `SENSITIVITY.md` was correctly written from scratch |
 | `willow-2.0` | `4147013` | `migrations/20260522_bitemporal_all_tables.sql` | **"17 tables" CONFIRMED exactly** — counted from the migration. And this repository is *stricter* than what it adopted; see below |
 | `safe-design` | `457cb7e` | `src/safe_design/backends/`, `tests/` | **Three backends** — `css`, `textual`, `curses_backend`. Parity is **enforced, not claimed** |
+| `safe-app-willow-grove` | `a2e11b3` | `safe-app-manifest.json`, `bridge/`, `grove/`, `CLAUDE.md` | **§4.3's claim CONFIRMED and understated.** Two listeners, not one; the outbound probe is outside the bridge; no purity test |
+| `willow-mcp` | `3815449` | `manifest_admin.py`, `identity_binding.py` | **CONFIRMED.** `confirm-binding` carries *"Do not wire this into an `@mcp.tool()`"*; all four `email_basis` values present with drift surfaced, not silently applied |
+| `willow-grove` | `9b8ed75` | `DESIGN_CONSTRAINTS.md`, `CODE_REVIEW.md` | **CONFIRMED**, and it contains something this repository needs — see below |
 
 ### The divergence, and why it is the most important thing here
 
@@ -242,3 +245,44 @@ surfaces named in that item's correction have a backend already.
 (`curses_backend` is not in the parity test. It consumes palette indices
 directly rather than converting them, so the drift the test guards cannot arise
 the same way — noted so its absence reads as a fact rather than a gap.)
+
+
+### Third batch — one claim understated, and one document that should be adopted
+
+**§4.3 understated `safe-app-willow-grove`, in this repository's favour.** Every
+element checked out at `a2e11b3`: `"surfaces": ["tui"]`, `privacy_tier
+local_only`, `local_processing 1.0`, permissions capped at `lan_listen` /
+`lan_send`, and `CLAUDE.md` rule 1 *"No web ports for the dashboard. Portless
+means portless."* Against `bridge/app.py:214` binding `0.0.0.0`. Three details
+§4.3 does not have:
+
+- **Two all-interface listeners, not one** — `bridge/app.py:137` and `:214`.
+- **The outbound probe is not confined to the seam.** §4.3 defends the app by
+  noting the rule is scoped to *the dashboard*. But `8.8.8.8:80` is opened in
+  `grove/mcp_local.py:317` as well as `bridge/app.py:60` — `grove/` is the app's
+  own namespace, not the declared bridge. The scoping defence is weaker than
+  §4.3 allows.
+- **The app has no purity test at all.** No `test_no_egress.py`, consistent with
+  §6's tally of three across twenty-seven store apps.
+
+**`willow-grove/DESIGN_CONSTRAINTS.md` is titled *"Design constraints for the
+fresh build"* — and this repository is the fresh build.** Seven constraints.
+Number 4 is *"Ship a manifest that something actually validates"*, which is
+independently the correction filed against §18 item 4 on the same day, reached
+here from the B3 discussion and there from a code review.
+
+It also supplies the mechanism behind the failure, which neither §4.3 nor item 4
+had: **the store's manifest lint skips by construction.**
+`safe-app-store/tools/catalog_lint.py:71-73` only errors on a missing manifest
+when the catalog entry carries a local `path`, and `willow-grove`'s entry has
+none. So the declaration surface and the enforcement surface are in different
+repositories — the constraint notes the enforcing ACL lives in `willow-mcp`
+`gate.py`, not in the store — and an external-repo app falls between them.
+
+That is a **middle that exists and cannot fire for a whole class of entries**,
+which is §16's third failure mode with a named line number. It is the strongest
+available argument for item 4's requirement that whatever surfaces this
+repository declares, *this repository's own CI* validates them.
+
+`DESIGN_CONSTRAINTS.md` carries a *"What to carry over"* section that has not
+been read yet. It is the highest-value unread file found so far.
