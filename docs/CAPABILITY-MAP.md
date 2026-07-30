@@ -647,7 +647,25 @@ The constraints:
 
 **Note what closed this door.** §8.2 of the architecture was written about a judge confirming a transcript, W-5 about a guardian signing for a ward. Neither was drafted with a model reviewing its own song in mind. They hold anyway, without amendment, which is usually the sign a clause was drawn at the right level.
 
-**Most of the substrate exists and is open.** `music21` for symbolic analysis, ChoCo for harmony, WASABI and LyricSense for lyric corpora, Essentia and `librosa` for audio. The pedagogy is formalized — Pattison's prosody and object writing have been taught at Berklee since the 1970s — and the cognition has a research program in Huron's ITPRA model of expectation. What is missing is the wiring: the taught rule has never been connected to the corpus that could check it, and the generation tools went from blank page to finished track without stopping to build the critic. **This is the part that does not exist yet, which is the only reason it is worth building here.**
+### What can be built first
+
+Thirty-seven checks, derived from the lists above. They do not all cost the same, and the split is sharp enough to plan against:
+
+| Group | Checks | Needs |
+|---|---|---|
+| Lyric diagnosis | 6 | text only |
+| Revision / draft diff | 2 | text only |
+| Melody | 6 | a symbolic score |
+| Harmony | 6 | a symbolic score |
+| Rhythm, meter, form | 4 | a symbolic score |
+| Arrangement | 6 | a score **and** measured ensemble ability |
+| The seam | 7 | both, aligned |
+
+**Eight need nothing but text**, and are built: `craft/`, stdlib-only, no network. **Seven are blocked** on score-position anchoring (§18 item 7 of the architecture), which is the awkward part — the highest-value checks are the only ones that cannot be started.
+
+It multiplies by rung less than it looks. Nearly all thirty-seven are checks on a student's artifact; what extends up the tree is one feedback-craft scaffold applied to ten different made things, not 370 checks.
+
+**Most of the substrate exists and is open.** `music21` for symbolic analysis, ChoCo for harmony, WASABI and LyricSense for lyric corpora, Essentia and `librosa` for audio. The pedagogy is formalized — Pattison's prosody and object writing have been taught at Berklee since the 1970s — and the cognition has a research program in Huron's ITPRA model of expectation. What is missing is the wiring: the taught rule has never been connected to the corpus that could check it, and the generation tools went from blank page to finished track without stopping to build the critic. **This is the part that does not exist yet, which is the only reason it is worth building here** — and that claim is an absence inferred from four web searches, which `docs/CRAFT-SOURCES.md` records at its true strength rather than this one's.
 
 ---
 

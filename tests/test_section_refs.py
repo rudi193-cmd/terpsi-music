@@ -23,11 +23,22 @@ CAPABILITY_MAP = ROOT / "docs" / "CAPABILITY-MAP.md"
 SENSITIVITY = ROOT / "docs" / "SENSITIVITY.md"
 LANE_MODEL = ROOT / "docs" / "LANE-MODEL.md"
 CROSSINGS = ROOT / "docs" / "CROSSINGS.md"
+FLEET_READS = ROOT / "docs" / "FLEET-READS.md"
+CRAFT_SOURCES = ROOT / "docs" / "CRAFT-SOURCES.md"
 CLAUDE = ROOT / "CLAUDE.md"
 
-# Documents that point outward for every §N and declare no numbered sections of
-# their own, so a bare reference in them is unambiguously ARCHITECTURE.md's.
-POINTERS = (SENSITIVITY, LANE_MODEL, CROSSINGS)
+# Documents that declare no numbered sections of their own, paired with the
+# document a bare §N in them refers to. The default is not uniform: most point
+# at the architecture, but CRAFT-SOURCES.md is *about* §24 of the capability
+# map and would otherwise resolve every reference against the wrong file —
+# caught by this guard when the document was added.
+POINTERS = (
+    (SENSITIVITY, ARCHITECTURE),
+    (LANE_MODEL, ARCHITECTURE),
+    (CROSSINGS, ARCHITECTURE),
+    (FLEET_READS, ARCHITECTURE),
+    (CRAFT_SOURCES, CAPABILITY_MAP),
+)
 
 # "## 7. Authorization" / "### 7.4 The Ward Case, adopted" -> 7 / 7.4
 _HEADING = re.compile(r"^#{2,6}\s+(\d+(?:\.\d+)*)[.\s]")
@@ -116,8 +127,8 @@ def test_pointer_document_references_resolve():
     """SENSITIVITY.md and LANE-MODEL.md are canonical for their own subject and
     point outward for everything else, so every §N in them is ARCHITECTURE.md's."""
     bad = []
-    for path in POINTERS:
-        bad += unresolved(path, default=ARCHITECTURE)
+    for path, default in POINTERS:
+        bad += unresolved(path, default=default)
     assert not bad, "\n".join(bad)
 
 
@@ -130,7 +141,7 @@ def test_pointer_documents_declare_no_numbered_sections():
     the wrong document. They address by rung and by clause id precisely so the
     collision cannot arise, and this asserts it stays that way."""
     bad = []
-    for path in POINTERS:
+    for path, _default in POINTERS:
         found = headings(path)
         if found:
             bad.append(
