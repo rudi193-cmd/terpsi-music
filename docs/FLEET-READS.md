@@ -173,6 +173,8 @@ opened in a clone at the named commit, not summarised.
 | `willow-data-vault` | `b634de0` | `README.md`, `schema/` | **CONFIRMED.** Three-layer architecture, `vault.key` + Fernet. Nine files: schemas and bootstrap only, *"never data"* |
 | `quiet-corner` | `1230e96` | `qc-data.js`, `docs/backend-architecture.md` | **§7.3 CONFIRMED exactly.** Eight `*_visible` fields; the source itself states *"API does not enforce them in Tier 1/2"* |
 | `corpus-lens` | `0c2a124` | `README.md`, `tests/test_wall.py` | **§4.2 CONFIRMED verbatim**, both halves including the test |
+| `UTETY` | `b953e84` | `README.md`, `docs/build-plan.md` | **CONFIRMED**, and the rule is sharper than §18 item 9 records |
+| `kartikeya` | `de77d67` | `src/kartikeya/sandbox.py`, `execute.py` | **CONFIRMED.** bwrap isolation, fails closed. **And it contains item 0's fix** |
 
 ### The divergence, and why it is the most important thing here
 
@@ -473,3 +475,64 @@ is a *limitation* rather than a guarantee, named so it cannot be mistaken for a
 failing assertion and quietly "fixed." `voice.py`'s `KNOWN_MISSES` is the same
 idea and `corpus-lens` got there first; the naming convention is better and is
 free to adopt.
+
+## `kartikeya.resolve_sandbox_config` — item 0's own problem, already solved
+
+The single most transplantable thing found in this pass. Its docstring is §18
+item 0's sentence, arrived at independently, about sandbox policy rather than
+about a component map:
+
+> *"The fallback used to be silent: a fleet worker started without
+> `$KART_SANDBOX_CONFIG` ran on the vendored default indefinitely, producing a
+> reduced mount set that is **indistinguishable — from the task result alone —
+> from the fleet policy.** Callers that know a fleet policy is expected can now
+> detect the drift instead of inferring it from which paths happen to be
+> missing."*
+
+Item 0 says *"an unverified table and a verified one look identical."* This says
+a defaulted config and a fleet config look identical. **Same defect, same fix:**
+`resolve_sandbox_config(root) -> tuple[dict, str]`, documented as *"resolve the
+bwrap mount policy AND report which candidate supplied it."*
+
+**Return the value with its provenance, and give the not-found case a name**
+(`_NO_CONFIG_SOURCE`) rather than letting it wear the default's clothes. That is
+rule 13 as a return type — the shape `willow-grove`'s constraint 1 asks for
+(`Result[list] | Unreachable`), already built and in use.
+
+It settles how §14 should carry verification state: not a column of prose, but
+**claim plus source**, with an explicit sentinel for "nothing supplied this."
+Take this together with `almanac-template`'s `status_source ∈ auto · curator`
+and the §14 requirement is fully specified by existing fleet work.
+
+Also confirmed: bwrap isolation is real and **fails closed** — `execute.py:111`
+returns `failed` with *"bwrap not found — install bubblewrap"* rather than
+running unsandboxed.
+
+**The two `kart-sandbox.json` copies are a pair with a middle, not a drift.**
+`kartikeya`'s (2519 bytes) is the product-neutral default and its own
+`description` names the override path; `willow-2.0`'s (5452 bytes) is the
+fleet-specific override, adding `GROVE_`, `SAFE_` and `DISCORD_` prefixes and
+different binds. Reported as designed rather than as drift, because the default
+file declares the mechanism. Worth noting anyway that the override only ever
+**widens** a sandbox, and nothing observed constrains how far.
+
+## `UTETY` — item 9's line is already drawn, and with evidence
+
+§18 item 9 reads *"practice logging against UTETY's no-leaderboard rule… the
+line has to be drawn by someone."* It has been drawn, and it is not the blanket
+ban the item implies. `README.md` ground rule 2:
+
+> *"**Feedback is about the work, never the learner** — no 'you're smart', no
+> leaderboards."*
+
+`docs/build-plan.md` carries the citation and the sharper form: Kluger & DeNisi,
+*~⅓ of feedback interventions make performance worse, and self-directed feedback
+is the harmful mode.* So the line is **work-focused versus learner-focused**,
+not metric versus no-metric. The build plan's operative wording is *"no
+leaderboards shown to struggling students"*, and its research brief weighs where
+points and badges do help.
+
+That is the same line this repository draws in refusals 4 and 6 — no standing
+cross-context score, never a priority between two students — reached from
+education research rather than from authority doctrine. **Item 9 is closer to a
+citation than to a decision**, and the choice it asks for may already be made.
