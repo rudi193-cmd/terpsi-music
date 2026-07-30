@@ -494,6 +494,44 @@ The section that separates software written by someone who has run a program fro
 
 ---
 
+## 24. Composition and Craft Feedback
+
+> **Numbered last, placed here on purpose.** It belongs beside §2, and inserting it there would renumber twenty-one sections and break every reference in three documents. Appended rather than inserted; the number records when it arrived, not where it sits.
+
+The twenty-three sections above are about **performing** music. None is about writing it. That is a third of the domain missing — Create, alongside Perform and Respond — and it covers AP Theory composition assignments, arranging, the student who writes the pep-band chart, and the kid with a notebook of lyrics nobody has ever given feedback on.
+
+**The capability is a critic, not a generator.** It reads a draft and says where the craft is off. It does not write the song, and it does not grade it.
+
+**Lyric diagnosis**
+- Prosody: where natural speech stress lands on a weak beat, which is the single most common defect and the least visible to the writer
+- Structure: section lengths, how long the hook is withheld, whether the final chorus varies or repeats
+- Line-count parity — even groups resolve, odd groups propel — and whether that matches the section's intent
+- Rhyme scheme and rhyme *type*: perfect closes a section, slant leaves it open, and all-perfect reads as nursery rhyme
+- Concreteness: the ratio of sensory detail to stated abstraction, per section
+- Singability: closed vowels on long or high notes, consonant clusters at speed
+
+**Music diagnosis**
+- Melodic contour: range, where the peak sits, whether it is approached or stumbled into
+- Motivic development — one idea examined from several angles, or four unrelated ideas
+- Voice leading in a student's harmonization, which is the skill nobody notices until it is wrong
+- Repetition analysis: state, restate, depart
+- Tension placement against the sections that are supposed to carry it
+
+**Revision is the actual product**
+- Draft-to-draft diff, because the revision is where the craft lives and the first draft never is
+- "What changed and did it help" — the question a teacher asks and has no time to ask thirty times
+
+**Hard constraints, all of them already specified elsewhere**
+- **Diagnose, never score.** *"Line 3's stress falls on a weak beat"* is checkable and true whether or not the song is any good. A quality score is the thing with a documented record of failing at scale, and it would be poison in a classroom regardless.
+- A craft note is **commentary anchored to a position** — §8.1 of the architecture already models this, and a measure number or a line number is the same primitive as a judge's remark at bar 112.
+- A machine critique is a **`draft` until a named human seals it** (§8.2 of the architecture). It may inform a teacher; it is never shown to a student as a teacher's judgment.
+- **No comparison between two students, ever.** W-7 in §7.4 of the architecture: the system presents, a human decides. No ranking of whose song is better, in any surface, under any grant.
+- Local inference only. A student's unfinished song is `MEDIA_MINOR` and `PII_MINOR` at once.
+
+**Most of the substrate exists and is open.** `music21` for symbolic analysis, ChoCo for harmony, WASABI and LyricSense for lyric corpora, Essentia and `librosa` for audio. The pedagogy is formalized — Pattison's prosody and object writing have been taught at Berklee since the 1970s — and the cognition has a research program in Huron's ITPRA model of expectation. What is missing is the wiring: the taught rule has never been connected to the corpus that could check it, and the generation tools went from blank page to finished track without stopping to build the critic. **This is the part that does not exist yet, which is the only reason it is worth building here.**
+
+---
+
 ## 21. Persona index
 
 | Domain | Student | Guardian | Staff/Tech | Director | Clinician/Judge | Admin/District |
