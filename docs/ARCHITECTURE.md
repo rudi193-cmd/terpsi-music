@@ -1386,6 +1386,8 @@ Three ways to close it, and this is the decision: add classes to §6's vocabular
 
 **7 · Score-position anchoring is unchosen** (§13) — stored-score alignment, judge-driven tap-to-mark, or both. It determines how much of the music library must be machine-readable, which is a large and separable body of work.
 
+> **Reclassified 2026-07-30: still not day-one, no longer separable.** §24 of the capability map's craft-feedback capability rests on seven checks at the lyric/music seam — stress against meter, vowel against pitch, breath against phrase — and every one anchors to a position in *both* the text and the score. None can be built without this. It remains outside the first commit; it stops being a body of work that can be deferred indefinitely without deciding what it blocks. Left in this list rather than moved up, with the change recorded here.
+
 ### The three that need a choice, not research
 
 **8 · `libs/subject-consent`'s placement** (§17) — the second cross-face dependency, still a folder in an app store.
