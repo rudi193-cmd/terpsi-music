@@ -32,7 +32,8 @@ SENSITIVITY = ROOT / "docs" / "SENSITIVITY.md"
 
 # State takes the bitemporal pair; history must not (§7.1's exclusion list).
 STATE_TABLES = (
-    "person", "lane", "referent", "lane_entry", "edge", "access_grant", "declination",
+    "person", "lane", "referent", "lane_entry", "scope_object", "edge",
+    "access_grant", "declination",
 )
 HISTORY_TABLES = ("disclosure_log", "consent_chain", "reconciled_session")
 
@@ -49,6 +50,27 @@ FLAG_SHAPED = ("is_minor", "is_adult", "minor_flag", "adult_flag")
 _TABLE = re.compile(r"CREATE TABLE (\w+)\s*\((.*?)\n\);", re.DOTALL)
 _NOT_A_COLUMN = ("constraint", "primary", "unique", "check", "foreign", "exclude")
 
+# "CREATE TRIGGER x BEFORE UPDATE OR DELETE ON disclosure_log"
+_TRIGGER = re.compile(
+    r"CREATE TRIGGER\s+\w+\s+BEFORE\s+(.*?)\s+ON\s+(\w+)", re.IGNORECASE | re.DOTALL
+)
+
+# "    ('lane_entry','payload','HEALTH','L4'),"
+_CLASSIFIED = re.compile(r"\(\s*'(\w+)'\s*,\s*'(\w+)'\s*,\s*'([A-Z_]+)'\s*,\s*'(L[1-5])'\s*\)")
+
+
+def append_only_triggers(sql: str) -> dict[str, str]:
+    """{table: the events its BEFORE trigger fires on}."""
+    return {m.group(2): m.group(1).upper() for m in _TRIGGER.finditer(strip_comments(sql))}
+
+
+def classified(sql: str) -> dict[tuple[str, str], tuple[str, str]]:
+    """{(table, column): (class, rung)} from the classification seed."""
+    return {
+        (m.group(1), m.group(2)): (m.group(3), m.group(4))
+        for m in _CLASSIFIED.finditer(strip_comments(sql))
+    }
+
 
 def strip_comments(sql: str) -> str:
     """`--` to end of line. No string literal in this file contains `--`; a
@@ -61,14 +83,22 @@ def tables(sql: str) -> dict[str, str]:
 
 
 def columns(body: str) -> dict[str, str]:
-    """{column name: the rest of its definition}."""
-    out = {}
+    """{column name: the rest of its definition}.
+
+    Paren-aware. A line-based reader treats the continuation lines of a
+    multi-line CHECK as columns — `edge_kind`'s value list yields a phantom
+    column named `'guardian_of',` and another named `))`. Harmless while
+    nothing iterated the column set; wrong the moment something did."""
+    out, depth = {}, 0
     for line in body.splitlines():
-        line = line.strip().rstrip(",")
-        if not line or line.split()[0].lower() in _NOT_A_COLUMN:
-            continue
-        name, _, rest = line.partition(" ")
-        out[name] = rest.strip()
+        s = line.strip()
+        candidate = s.rstrip(",")
+        if depth == 0 and candidate:
+            first = candidate.split()[0]
+            if first.lower() not in _NOT_A_COLUMN and first.isidentifier():
+                name, _, rest = candidate.partition(" ")
+                out[name] = rest.strip()
+        depth = max(0, depth + s.count("(") - s.count(")"))
     return out
 
 
@@ -187,6 +217,36 @@ def problems(sql: str) -> list[str]:
                 bad.append(f"§7: {tname}.{cname} is a minority flag — a flag stays "
                            "true until somebody runs the job that clears it")
 
+    # --- append-only means a trigger, not a comment -----------------------
+    #
+    # Omitting valid_at/invalid_at does not stop an UPDATE. Confirmed the hard
+    # way: against a live instance, UPDATE then DELETE on disclosure_log both
+    # succeeded, silently rewriting the FERPA §99.32 disclosure record.
+    triggers = append_only_triggers(sql)
+    for name in HISTORY_TABLES:
+        if name not in t:
+            continue
+        events = triggers.get(name, "")
+        if "UPDATE" not in events or "DELETE" not in events:
+            bad.append(
+                f"append-only: {name} has no BEFORE UPDATE OR DELETE trigger — "
+                "the label is a claim and this is the enforcement (§7.2)"
+            )
+
+    # --- every column is classified ---------------------------------------
+    #
+    # SENSITIVITY.md: an unclassified field is a build failure, not a default.
+    # This is that build failure.
+    seed = classified(sql)
+    for tname, body in sorted(t.items()):
+        for cname in columns(body):
+            if (tname, cname) not in seed:
+                bad.append(f"unclassified: {tname}.{cname} has no field_classification row")
+    declared = {(tn, cn) for tn, body in t.items() for cn in columns(body)}
+    for key in sorted(seed):
+        if key not in declared:
+            bad.append(f"stale classification: {key[0]}.{key[1]} is classified but not declared")
+
     return bad
 
 
@@ -203,6 +263,38 @@ def test_the_parser_finds_the_tables():
     assert len(t) == len(STATE_TABLES) + len(HISTORY_TABLES) + 1, sorted(t)
     assert "lane_entry" in t and "access_grant" in t
     assert len(columns(t["lane_entry"])) >= 10, columns(t["lane_entry"])
+    assert len(append_only_triggers(_sql())) == len(HISTORY_TABLES)
+    assert len(classified(_sql())) > 80, len(classified(_sql()))
+
+
+def test_the_edge_target_has_referential_integrity():
+    """The first draft carried a polymorphic (target_kind, target_id) pair with
+    no foreign key. A live instance accepted a target_id pointing at nothing and
+    a target_kind of 'Sandwich'. Both columns must now be real references, with
+    exactly one populated."""
+    e = columns(tables(_sql())["edge"])
+    assert "target_kind" not in e, "free-text target kind is back"
+    assert "REFERENCES lane" in e.get("target_lane_id", "")
+    assert "REFERENCES scope_object" in e.get("target_scope_id", "")
+    assert "num_nonnulls" in constraints(tables(_sql())["edge"])
+
+
+def test_a_multiline_check_yields_no_phantom_columns():
+    """Regression. `edge`'s kind CHECK spans three lines; a line-based column
+    reader turned its value list into columns named `'guardian_of',` and `))`,
+    which then failed the classification-coverage check for a schema that was
+    in fact fully classified."""
+    cols = columns(
+        """
+    edge_id uuid PRIMARY KEY,
+    kind    text NOT NULL,
+    CONSTRAINT edge_kind CHECK (kind IN (
+        'guardian_of', 'staff_of', 'director_of'
+    )),
+    CONSTRAINT edge_dates CHECK (invalid_at IS NULL OR invalid_at >= valid_at)
+"""
+    )
+    assert set(cols) == {"edge_id", "kind"}, cols
 
 
 def test_comments_are_stripped_before_matching():
@@ -285,8 +377,40 @@ CREATE TABLE person (
         "ladder: access_grant.max_rung admits L5",
         "carries valid_at",
         "person.is_minor is a minority flag",
+        "append-only: disclosure_log has no BEFORE UPDATE OR DELETE trigger",
+        "unclassified: person.is_minor",
     ):
         assert expected in joined, f"missed {expected!r} in:\n{joined}"
+
+
+def test_an_update_only_trigger_is_not_enough():
+    """A trigger firing on UPDATE but not DELETE leaves the log deletable, and
+    reads as protection at a glance."""
+    decoy = """
+CREATE TABLE disclosure_log (
+    seq bigserial PRIMARY KEY
+);
+CREATE TRIGGER disclosure_log_append_only
+    BEFORE UPDATE ON disclosure_log
+    FOR EACH ROW EXECUTE FUNCTION refuse_mutation();
+"""
+    assert any("BEFORE UPDATE OR DELETE" in p for p in problems(decoy)), problems(decoy)
+
+
+def test_a_stale_classification_is_caught():
+    """A column classified but no longer declared means the registry is
+    describing a schema that has moved. Silent, and the same defect class as
+    §15's decayed citation."""
+    decoy = """
+CREATE TABLE person (
+    person_id uuid PRIMARY KEY
+);
+INSERT INTO field_classification (table_name, column_name, data_class, rung) VALUES
+    ('person','person_id','PII_MINOR','L3'),
+    ('person','favourite_colour','INTERNAL','L2');
+"""
+    assert any("stale classification: person.favourite_colour" in p
+               for p in problems(decoy)), problems(decoy)
 
 
 def test_a_blank_exit_is_caught_even_when_not_null():

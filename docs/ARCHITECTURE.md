@@ -1352,7 +1352,11 @@ The document defines `L1` Open, `L2` Internal, `L3` Attributed, `L4` Restricted,
 **State: written 2026-07-30, not adopted. `docs/LANE-MODEL.md` + `docs/schema/001_lanes.proposed.sql`.**
 ~~W-1 and W-3 (§7.4) are schema decisions, not modelling preferences: a lane per ward from the first write, and *a shared event is two lane entries with one referent.* §8 is an entity sketch with no fields, keys, or migrations. Migration 001 cannot be written from what is on the page, and retrofitting either clause later is a data migration across every table that references a student.~~
 
-Ten tables. W-1, W-2, W-3 and W-6 are encoded structurally rather than as policy — `lane_entry.lane_id` NOT NULL, a grant table with a single lane column and no join table to put a set in, a `referent` with no participant column, and `exit_terms` NOT NULL with a non-blank CHECK. `access_grant.max_rung` omits `L5` from its CHECK, so the ladder's top rung is unreachable through a grant by construction. §7.1's state/history split is applied: seven tables take `valid_at`/`invalid_at`, three deliberately do not. `tests/test_lane_model.py` asserts all of it against the DDL as text, and is shown to fail on a decoy that softens each clause plausibly.
+Twelve tables. W-1, W-2, W-3 and W-6 are encoded structurally rather than as policy — `lane_entry.lane_id` NOT NULL, a grant table with a single lane column and no join table to put a set in, a `referent` with no participant column, and `exit_terms` NOT NULL with a non-blank CHECK. `access_grant.max_rung` omits `L5` from its CHECK, so the ladder's top rung is unreachable through a grant by construction. §7.1's state/history split is applied: eight tables take `valid_at`/`invalid_at`, three deliberately do not, and the three carry a `BEFORE UPDATE OR DELETE` trigger because omitting the pair does not stop an `UPDATE`. All 93 columns are classified in a seeded registry.
+
+> **The count above was wrong in this document's first version of this entry — it said ten, and the tree said twelve.** That is rule 17's defect, committed in the same session that corrected an instance of it in CLAUDE.md. Recorded rather than quietly amended, because the useful part of a tally of these is that it keeps growing.
+
+The DDL has been **executed** against PostgreSQL 16 and every constraint attacked directly: eight forbidden acts refused, legitimate writes still landing. `tests/test_lane_model.py` guards the same invariants as text with no database, and `.github/workflows/tests.yml` runs both on every push — the suite existed for one commit before anything ran it automatically, which made it a ledger.
 
 **This one is struck as *written*, not as *closed*, and the distinction is the point.** Three things still gate adoption:
 
@@ -1363,6 +1367,16 @@ Ten tables. W-1, W-2, W-3 and W-6 are encoded structurally rather than as policy
 **4 · Which surfaces exist.**
 **State: blocking for layout. Needs a decision.**
 Six personas (§4), `safe-design` ready with tokens and structurally-parity backends, and nothing recorded about whether this is a TUI, a browser application, both, or a TUI plus the parent PWA of §4.2. The answer sets the first directory layout and determines which of `safe-design`'s backends is load-bearing.
+
+**11 · The class vocabulary does not cover the categories §20 of the capability map names.**
+**State: open. Needs a decision, and it is larger than it looks.**
+§6's eight classes were mapped onto the ladder in `docs/SENSITIVITY.md` faithfully, and the mapping is sound for what the classes describe. The problem is what they omit. §20 of the capability map lists **confidential address programs (Safe at Home), McKinney-Vento housing status, undocumented families, foster placement changes, and chosen name distinct from the SIS legal record.** None has a class. Every one lands at `PII_MINOR` or `PII_GUARDIAN`, and therefore at `L3` — the rung whose rule is *served in full to any principal holding a current edge*.
+
+That is wrong by at least one rung in every case and dangerously wrong in two. A Safe at Home address exists because disclosing it can get someone killed; `L3` serves it to every staff member with a roster edge. A legal name served to the program-printing path is the outing that §20 of the capability map asks to be handled deliberately. And §18 of the capability map's *"fee waivers that are structurally invisible to peers"* is already load-bearing on `L5`'s rule 3, which arrived from a different direction and covers only the refusal, not the status.
+
+Three ways to close it, and this is the decision: add classes to §6's vocabulary; add a per-field rung override that outranks the class mapping; or treat "protected status" as a fourth `L5` trigger alongside the existing three. The third is cheapest and probably wrong, because these must be *served* to somebody — a chaperone needs the accommodation even when nobody may see the status. That points at `L4` with a declared purpose, which means new classes.
+
+**Nothing should classify a field in these categories until this closes.** The ladder is right; the vocabulary feeding it has a hole in exactly the population the program is most obliged to protect.
 
 ### The three to state, which do not block day one
 

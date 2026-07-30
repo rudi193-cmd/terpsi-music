@@ -133,7 +133,33 @@ The case §7.1 is written against, traced through the schema.
 
 ---
 
-## What the DDL cannot enforce
+## What running it found
+
+The DDL was executed against PostgreSQL 16 and each constraint attacked. The
+first draft passed eight mutation tests and failed four things no amount of
+reading would have caught:
+
+| Defect | Fix |
+|---|---|
+| `UPDATE` and `DELETE` both succeeded on `disclosure_log` — the FERPA §99.32 record was silently rewritable | `BEFORE UPDATE OR DELETE` trigger on all three history tables |
+| `edge.target_id` had no foreign key; a UUID referring to nothing was accepted | `scope_object` table; two nullable FKs with `num_nonnulls(...) = 1` |
+| `edge.target_kind` had no CHECK — `'Sandwich'` was accepted | Column removed; which FK is set *is* the kind |
+| `field_classification` held 0 rows against 87 columns | All 93 columns seeded, coverage asserted in the suite and in CI |
+
+**Three of the four were declarations without enforcement**, written into a
+migration whose own document names that defect — "append-only" in a comment
+above three tables that were not, and a set of allowed target kinds in a
+comment above a column that accepted anything. §7.2's rule is the one that
+catches this: *say which*. A label is a ledger.
+
+The fourth is worse in kind, because the empty registry made the ladder
+decorative. `docs/SENSITIVITY.md` says an unclassified field is a build
+failure; there was no build failure, because there was nothing to check
+against.
+
+---
+
+## What the DDL still cannot enforce
 
 Three invariants are stated in the schema's comments and are **not** constraints.
 Naming them here is the §16 discipline: a declaration without an enforcement is
@@ -152,10 +178,18 @@ stays in its lane. Enforcement is one predicate, compiled once, funnelled
 through the single read method — §7's resolver shape, with #127's
 authenticate-at-the-read so a fourth read added later inherits the gate.
 
-**The rung ceiling.** `access_grant.max_rung` records the ceiling; something has
-to apply it at serving time by looking up each column in
-`field_classification`. Until that exists, the classification registry is a
-ledger and not a gate, and §7.2's rule applies — say which.
+**The rung ceiling.** `access_grant.max_rung` records the ceiling and the
+registry is now populated for all 93 columns, so the lookup has something to
+resolve against. What is missing is the code that performs it at serving time.
+Until that exists the registry is **a ledger and not a gate**, and §7.2's rule
+applies — say which. This is the largest remaining piece of the ladder.
+
+**The hash chain.** `disclosure_log`, `consent_chain` and `reconciled_session`
+each carry `prev_hash` and `hash`. Nothing computes either, and nothing
+verifies the chain. The trigger makes the rows immutable in place; it does not
+detect a chain that was never linked, and §6's *count-anchor truncation
+defence* has no implementation here at all. Columns for a mechanism are not the
+mechanism.
 
 ---
 

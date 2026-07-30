@@ -113,29 +113,60 @@ CREATE TABLE lane_entry (
         CHECK (invalid_at IS NULL OR invalid_at >= valid_at)
 );
 
+-- ------------------------------------------------------------ scope_object
+--
+-- The non-lane things an edge can point at: §8's Org -> Program -> Ensemble
+-- -> Season -> Event spine. Holds no participants, for the same reason
+-- `referent` does not.
+--
+-- This table exists because the first draft of `edge` carried a polymorphic
+-- (target_kind, target_id) pair with no foreign key, which accepted a UUID
+-- referring to nothing and a target_kind of 'Sandwich'. Both were confirmed
+-- against a live PostgreSQL 16 instance before this table was added.
+
+CREATE TABLE scope_object (
+    scope_id   uuid PRIMARY KEY,
+    kind       text        NOT NULL,
+    label      text        NOT NULL,
+    created_at timestamptz NOT NULL,
+    valid_at   timestamptz NOT NULL,
+    invalid_at timestamptz,
+    CONSTRAINT scope_object_kind CHECK (kind IN (
+        'Org', 'Program', 'Ensemble', 'Season', 'Event', 'Session'
+    )),
+    CONSTRAINT scope_object_dates CHECK (invalid_at IS NULL OR invalid_at >= valid_at)
+);
+
 -- -------------------------------------------------------------------- edge
 --
 -- Relational facts (§7). An edge may point at a scope object -- an ensemble,
 -- an event -- because "Chris is staff of the drumline" is true and worth
 -- recording. An edge authorizes nothing on its own; see access_grant.
 --
+-- The target is two nullable foreign keys with exactly one populated, rather
+-- than a (kind, id) pair. That buys real referential integrity in both
+-- directions and removes the free-text kind column entirely: which column is
+-- set *is* the kind, so it cannot disagree with the row it points at.
+--
 -- Termination is by setting invalid_at, never by DELETE (§7.1). A court order
 -- arriving mid-season is the case that proves it, and a deleted edge cannot
 -- answer "who could see this on October 12, and why."
 
 CREATE TABLE edge (
-    edge_id     uuid PRIMARY KEY,
-    kind        text        NOT NULL,
-    holder_id   uuid        NOT NULL REFERENCES person(person_id),
-    target_kind text        NOT NULL,   -- Lane | Ensemble | Event | Session | Program
-    target_id   uuid        NOT NULL,
-    source      text        NOT NULL,   -- how this became true; never blank
-    created_at  timestamptz NOT NULL,
-    valid_at    timestamptz NOT NULL,
-    invalid_at  timestamptz,
+    edge_id         uuid PRIMARY KEY,
+    kind            text        NOT NULL,
+    holder_id       uuid        NOT NULL REFERENCES person(person_id),
+    target_lane_id  uuid        REFERENCES lane(lane_id),
+    target_scope_id uuid        REFERENCES scope_object(scope_id),
+    source          text        NOT NULL,   -- how this became true; never blank
+    created_at      timestamptz NOT NULL,
+    valid_at        timestamptz NOT NULL,
+    invalid_at      timestamptz,
     CONSTRAINT edge_kind CHECK (kind IN (
         'guardian_of', 'staff_of', 'director_of', 'judge_at', 'clinician_for'
     )),
+    CONSTRAINT edge_exactly_one_target
+        CHECK (num_nonnulls(target_lane_id, target_scope_id) = 1),
     CONSTRAINT edge_source_present CHECK (length(btrim(source)) > 0),
     CONSTRAINT edge_dates CHECK (invalid_at IS NULL OR invalid_at >= valid_at)
 );
@@ -225,7 +256,28 @@ CREATE TABLE field_classification (
 -- because a historical fact is not mutable state. The same split applies here.
 -- These three tables deliberately carry NO valid_at / invalid_at pair, and
 -- tests/test_lane_model.py asserts they never grow one.
+--
+-- Omitting the pair is NOT what makes a table append-only. The first draft of
+-- this file said "append-only" in this comment and did nothing else, and an
+-- UPDATE followed by a DELETE against disclosure_log on a live instance both
+-- succeeded -- silently rewriting the FERPA §99.32 record of disclosures. A
+-- label is not an enforcement (§7.2: say which). The trigger below is the
+-- enforcement.
+--
+-- It is not proof against a superuser, who can drop it; nothing in a schema
+-- is. It is proof against ordinary application code, an ORM's cascade, and a
+-- migration written in a hurry, which is where this would actually happen.
+-- Revoking UPDATE and DELETE from the application role belongs in the install
+-- (§11) and is the other half.
 -- ============================================================================
+
+CREATE FUNCTION refuse_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    RAISE EXCEPTION
+        'append-only: % on % is refused; history is not mutable state (§7.1)',
+        TG_OP, TG_TABLE_NAME;
+END;
+$$;
 
 CREATE TABLE disclosure_log (
     seq          bigserial PRIMARY KEY,
@@ -262,5 +314,153 @@ CREATE TABLE reconciled_session (
     prev_hash    bytea,
     hash         bytea       NOT NULL
 );
+
+CREATE TRIGGER disclosure_log_append_only
+    BEFORE UPDATE OR DELETE ON disclosure_log
+    FOR EACH ROW EXECUTE FUNCTION refuse_mutation();
+
+CREATE TRIGGER consent_chain_append_only
+    BEFORE UPDATE OR DELETE ON consent_chain
+    FOR EACH ROW EXECUTE FUNCTION refuse_mutation();
+
+CREATE TRIGGER reconciled_session_append_only
+    BEFORE UPDATE OR DELETE ON reconciled_session
+    FOR EACH ROW EXECUTE FUNCTION refuse_mutation();
+
+-- ============================================================================
+-- CLASSIFICATION SEED
+--
+-- docs/SENSITIVITY.md: "an unclassified field is a build failure, not a
+-- default." That rule needs a populated registry to check against, and the
+-- first draft of this file shipped the table empty -- 87 columns, 0 rows,
+-- nothing requiring them. Declaration without enforcement, in the migration
+-- whose own document names that defect.
+--
+-- Every column below is classified twice, per §6: a data class governing
+-- egress and retention, and a rung governing serving. Neither is derivable
+-- from the other. tests/test_lane_model.py asserts the registry covers every
+-- column the DDL declares, so adding a column without classifying it fails.
+--
+-- Judgement calls worth naming, because a reader should disagree with them
+-- explicitly rather than inherit them silently:
+--
+--   * Surrogate primary keys of person-bearing rows are L3, not L2. A stable
+--     pseudonymous identifier for a minor is an identifier.
+--   * lane_entry.kind is L3. "medical_note" discloses without its payload.
+--   * consent_chain.disposition is L5 by SENSITIVITY.md's rule 3 -- a
+--     disposition is where a refusal lives, and rendering it re-creates the
+--     signal §7's indistinguishability guarantee suppresses.
+--   * Every column of `declination` is L5 for the same reason, including its
+--     timestamps: when someone declined is nearly as disclosing as that they
+--     did.
+--   * lane_entry.payload is HEALTH/L4 because composition is by max and that
+--     column can hold anything. Per-kind columns would let it fall.
+-- ============================================================================
+
+INSERT INTO field_classification (table_name, column_name, data_class, rung) VALUES
+    ('person','person_id','PII_MINOR','L3'),
+    ('person','birthdate','PII_MINOR','L3'),
+    ('person','created_at','INTERNAL','L2'),
+    ('person','valid_at','INTERNAL','L2'),
+    ('person','invalid_at','INTERNAL','L2'),
+
+    ('lane','lane_id','PII_MINOR','L3'),
+    ('lane','subject_id','PII_MINOR','L3'),
+    ('lane','exit_terms','PII_MINOR','L3'),
+    ('lane','opened_at','INTERNAL','L2'),
+    ('lane','created_at','INTERNAL','L2'),
+    ('lane','valid_at','INTERNAL','L2'),
+    ('lane','invalid_at','INTERNAL','L2'),
+
+    ('referent','referent_id','INTERNAL','L2'),
+    ('referent','kind','INTERNAL','L2'),
+    ('referent','occurs_at','PUBLIC','L1'),
+    ('referent','label','PUBLIC','L1'),
+    ('referent','created_at','INTERNAL','L2'),
+    ('referent','valid_at','INTERNAL','L2'),
+    ('referent','invalid_at','INTERNAL','L2'),
+
+    ('lane_entry','entry_id','PII_MINOR','L3'),
+    ('lane_entry','lane_id','PII_MINOR','L3'),
+    ('lane_entry','referent_id','INTERNAL','L2'),
+    ('lane_entry','kind','PII_MINOR','L3'),
+    ('lane_entry','payload','HEALTH','L4'),
+    ('lane_entry','author_id','PII_MINOR','L3'),
+    ('lane_entry','seal_state','INTERNAL','L2'),
+    ('lane_entry','sealed_by','PII_MINOR','L3'),
+    ('lane_entry','created_at','INTERNAL','L2'),
+    ('lane_entry','valid_at','INTERNAL','L2'),
+    ('lane_entry','invalid_at','INTERNAL','L2'),
+
+    ('scope_object','scope_id','INTERNAL','L2'),
+    ('scope_object','kind','INTERNAL','L2'),
+    ('scope_object','label','PUBLIC','L1'),
+    ('scope_object','created_at','INTERNAL','L2'),
+    ('scope_object','valid_at','INTERNAL','L2'),
+    ('scope_object','invalid_at','INTERNAL','L2'),
+
+    ('edge','edge_id','PII_GUARDIAN','L3'),
+    ('edge','kind','PII_GUARDIAN','L3'),
+    ('edge','holder_id','PII_GUARDIAN','L3'),
+    ('edge','target_lane_id','PII_MINOR','L3'),
+    ('edge','target_scope_id','INTERNAL','L2'),
+    ('edge','source','PII_GUARDIAN','L3'),
+    ('edge','created_at','INTERNAL','L2'),
+    ('edge','valid_at','INTERNAL','L2'),
+    ('edge','invalid_at','INTERNAL','L2'),
+
+    ('access_grant','grant_id','PII_MINOR','L3'),
+    ('access_grant','holder_id','PII_GUARDIAN','L3'),
+    ('access_grant','lane_id','PII_MINOR','L3'),
+    ('access_grant','basis_edge_id','PII_GUARDIAN','L3'),
+    ('access_grant','max_rung','INTERNAL','L2'),
+    ('access_grant','purpose','HEALTH','L4'),
+    ('access_grant','signer_id','PII_GUARDIAN','L3'),
+    ('access_grant','expires_at','INTERNAL','L2'),
+    ('access_grant','created_at','INTERNAL','L2'),
+    ('access_grant','valid_at','INTERNAL','L2'),
+    ('access_grant','invalid_at','INTERNAL','L2'),
+
+    ('declination','declination_id','PII_MINOR','L5'),
+    ('declination','lane_id','PII_MINOR','L5'),
+    ('declination','subject_matter','PII_MINOR','L5'),
+    ('declination','created_at','PII_MINOR','L5'),
+    ('declination','valid_at','PII_MINOR','L5'),
+    ('declination','invalid_at','PII_MINOR','L5'),
+
+    ('field_classification','table_name','INTERNAL','L2'),
+    ('field_classification','column_name','INTERNAL','L2'),
+    ('field_classification','data_class','INTERNAL','L2'),
+    ('field_classification','rung','INTERNAL','L2'),
+
+    ('disclosure_log','seq','INTERNAL','L2'),
+    ('disclosure_log','occurred_at','PII_MINOR','L3'),
+    ('disclosure_log','principal_id','PII_GUARDIAN','L3'),
+    ('disclosure_log','lane_id','PII_MINOR','L3'),
+    ('disclosure_log','what','PII_MINOR','L3'),
+    ('disclosure_log','recipient','PII_MINOR','L3'),
+    ('disclosure_log','authority','PII_MINOR','L3'),
+    ('disclosure_log','prev_hash','INTERNAL','L2'),
+    ('disclosure_log','hash','INTERNAL','L2'),
+
+    ('consent_chain','seq','INTERNAL','L2'),
+    ('consent_chain','occurred_at','PII_MINOR','L3'),
+    ('consent_chain','lane_id','PII_MINOR','L3'),
+    ('consent_chain','asked_by','PII_GUARDIAN','L3'),
+    ('consent_chain','answered_by','PII_GUARDIAN','L3'),
+    ('consent_chain','disposition','PII_MINOR','L5'),
+    ('consent_chain','timebound','INTERNAL','L2'),
+    ('consent_chain','prev_hash','INTERNAL','L2'),
+    ('consent_chain','hash','INTERNAL','L2'),
+
+    ('reconciled_session','seq','INTERNAL','L2'),
+    ('reconciled_session','opened_at','INTERNAL','L2'),
+    ('reconciled_session','closed_at','INTERNAL','L2'),
+    ('reconciled_session','principal_id','PII_GUARDIAN','L3'),
+    ('reconciled_session','declared','PII_MINOR','L4'),
+    ('reconciled_session','observed','PII_MINOR','L4'),
+    ('reconciled_session','diff','PII_MINOR','L4'),
+    ('reconciled_session','prev_hash','INTERNAL','L2'),
+    ('reconciled_session','hash','INTERNAL','L2');
 
 COMMIT;
