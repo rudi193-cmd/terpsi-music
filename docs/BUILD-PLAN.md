@@ -3,133 +3,119 @@
 **Status:** plan. Governs nothing; `docs/ARCHITECTURE.md` governs. No numbered
 sections — a `§N` here is always the architecture's.
 
-**One page on purpose.** There are 14,730 lines under `docs/` at time of
-writing, this file included — derived, not quoted (#17). If this file
-grows past two screens it has stopped being a plan and become another thing to
-read. Everything here is a pointer to a decision or a task, never a restatement.
+**One page on purpose.** If this file grows past two screens it has stopped
+being a plan and become another thing to read. Everything here points at a
+decision or a task; it never restates a mechanism.
+
+**Pruned 2026-07-30.** Earlier revisions accumulated struck blocks under the
+tombstone discipline until the file argued against its own first rule.
+`willow-grove/DESIGN_CONSTRAINTS.md` settles the tension: *"when a constraint
+stops being relevant, delete it and say why in the commit message — a stale
+constraint is worse than none, because it trains people to skip the list."* The
+removed material is in `docs/FLEET-READS.md` and in §18's own tombstones, which
+is where it belongs.
 
 ---
 
-## The fact that orders everything else
+## Are the ducks in a row
 
-> **This section was built on a false premise and is struck, 2026-07-30.** It
-> read `FLEET-READS.md`'s claim that the repositories were unreachable
-> remotely, concluded that no remote session could ever verify §14, and split
-> the entire plan around that. The repositories are on GitHub under the same
-> account as this one, several public. Three were cloned from a remote session
-> and four §14 rows are now verified. **The check was one tool call, and this
-> plan re-organised a project rather than make it.**
->
-> Kept struck rather than rewritten, because the shape of the error is the
-> useful part: an infrastructure claim nobody tested became the organising
-> principle of the work. That is the same failure as a claim sourced to a
-> spike, one level up.
+**No. The decisions largely are; the build is not, and one item blocks
+outright.**
 
-**What actually orders the work.** §9's foundation labels are still wrong —
-items 1 and 2 rest on a spike that retires — but that is a correction anyone
-can make from here, not a constraint. The real ordering principle is what is
-*decided* versus what is *observed*, and the session that closed items 1a, 2
-and 11 established that several things filed as reads were decisions nobody had
-taken. Track A is now a working queue rather than a locked door.
+### Blocking the first commit
 
----
-
-## Track A — reads (no longer blocked)
-
-Three reads. **All three are now performable from here**, and two are done.
-
-| | task | closes | output |
-|---|---|---|---|
-| A1 | Open the 36 repos; confirm or downgrade every *Exists* row | item 0 | **2026-07-30** — 28 repos read, 8 of §14's 40 exists-rows verified at source plus one verified *negative*. Tier 1 complete; the remainder either read, absent, or unreachable cross-tier. §14 now carries `VERIFIED`/`UNVERIFIED` per row, enforced by `tests/test_component_map.py`. Rows carry `VERIFIED <date> at <commit>` |
-| ~~A2~~ | ~~Open `Willow`'s `PROTECTED_AGENTS.md` Part III~~ | item 3 | **Done 2026-07-30** at `c8c96b4`. §7.4 renders all seven clauses faithfully. Found: the DDL encodes W-3's prohibition and drops its permission — no crossing-envelope table |
-| ~~A3~~ | ~~Read the `L3`+ NULL rule in `apps/marching-arts`~~ | item 1a | **Closed 2026-07-30 — scoped, decided not inherited.** It was never a read |
-
-**A3 was not a Track A item and that is the lesson worth keeping.** It was
-filed as the highest-value read in the item-0 pass because #112 was taken for
-an implementation to consult. `marching-arts` was a spike, so opening the file
-would have established what a prototype happened to do — a different question
-from what the rule should be. **A claim sourced to a spike is a decision nobody
-has taken yet, wearing the costume of a fact.** Worth carrying into A1: some of
-the other 34 `Exists` rows are the same shape, and reading them will not fix
-them.
-
-## Track B — needs a human, not a keyboard
-
-Three decisions. Each is a paragraph of judgment, not a project.
-
-| | decision | notes |
+| | | |
 |---|---|---|
-| ~~B1~~ | ~~Item 11 — the rung for protected categories~~ | **Closed 2026-07-30.** Step 3's clause governs; the four examples are illustrative. `SENSITIVITY.md` *Protected status* is canonical |
-| ~~B2~~ | ~~Item 2 — disposition of `apps/marching-arts`~~ | **Closed 2026-07-30.** Spike; it retires. Findings carry forward, code does not. First commit is an empty tree |
-| B3 | Item 4 — which surfaces exist | **Deferred 2026-07-30** — worked in a separate session, not unanswered. Still gates layout and any dispatcher |
+| **B3** | item 4 — which surfaces exist | **Deferred, in hand elsewhere.** Nothing about the first commit's layout is decidable until it lands. This is the only item that blocks rather than merely waits |
+| **item 3** | the lane DDL leaves `docs/schema/` | One gate cleared, one opened — see below |
+| **item 5** | the exit line | §11.1 requires it **before the first install**. It does not exist |
 
-**B1's hold is lifted.** Fields in those categories may now be classified, at
-`L4`. Neither this plan's earlier suggestion nor item 11's own conclusion
-survived the discussion: `L5` is unservable and would strand the liaison the
-status exists to help, and new classes were never needed because the route into
-the ladder was the defect, not the vocabulary. **Chosen name left the list** —
-its harm is non-use, and the protected half is the SIS legal record.
+**Item 3 moved sideways rather than forward.** Reading Part III at source
+cleared the *"rests on a paraphrase"* gate — and opened a new one. W-3 requires
+*"a guardian-signed envelope naming both lanes, purpose, and expiry"*, and no
+such table exists among the twelve. The prohibition is encoded; the permission
+is not, so a legitimate sibling crossing is **unrepresentable**, not merely
+ungated. A thirteenth table is needed before promotion, and item 4 still gates
+it either way.
 
-One residual, carried into `SENSITIVITY.md` rather than here: **what checks a
-general clause.** A lookup table is verifiable; a clause is a judgment (#19).
+### Two things that got worse on 2026-07-30, not better
 
-## Track C — buildable now
+- **The foundation is emptier than §9 claimed.** Items 1 and 2 were marked
+  *built* on the spike's authority. The spike retires and nothing is inherited,
+  so both are **to build**.
+- **`field-acoustics` does not exist.** §9 foundation 6 calls it *"the first
+  real capability"* — the first thing built after foundation — and the name
+  resolves to nothing on the account. One of eight such names; see
+  `docs/FLEET-READS.md`.
 
-Short, and the shortness is the finding rather than an oversight.
+### One live hazard with no answer yet
+
+Refusal 1 forbids a cloud inference fallback. That chain now has a face: **no
+off-switch was found**, the implementation is spread across at least six files
+in `willow-2.0`, it is documented in a *different* repository under the words
+*"Local-first"*, and the only dispatch located tries cloud first with no local
+step at all. **"We will not use `willow-seed`" is not sufficient**, because the
+code is not in `willow-seed`. How this repository avoids inheriting it is
+undecided.
+
+### Where the tree actually stands
+
+```
+migrations/   ABSENT — the DDL is still in docs/schema/
+surface dir   none
+craft/        text-only: no student data, no network, no model
+voice.py      enforcement-ready, routed through nothing
+```
+
+Nothing here touches student data yet. That is correct for this stage, and it
+means *ready for the build* should be read as **ready to start it**.
+
+---
+
+## What is settled
+
+Four §18 items closed 2026-07-30 — 1, 1a, 2 and 11 — each struck in place with
+its resolution. `docs/SENSITIVITY.md` is canonical for the ladder, *Protected
+status*, and the scoped `L3`+ NULL reading. §14 carries a per-row
+`VERIFIED`/`UNVERIFIED` state enforced by `tests/test_component_map.py`, and 28
+repositories have been read.
+
+**The lesson worth carrying out of that pass**, because it will recur: item 1a
+was filed as the highest-value *read* in the item-0 sweep and was not a read at
+all. It was sourced to a spike, and **a claim sourced to a spike is a decision
+nobody has taken yet, wearing the costume of a fact.** Some of §14's thirty
+remaining `UNVERIFIED` rows are the same shape; opening the files will not fix
+those.
+
+## Buildable today
 
 | | task | depends on |
 |---|---|---|
 | C1 | Extend `craft/` | nothing — text-only, no student data, no network, no model |
-| C2 | Sweep `docs/survey/*.md` for `§N` | nothing — needs the routing decision in `scout-25` part 5 first |
-| C3 | A rule-13 acceptance test | nothing. `willow-grove`'s constraint 1 supplies the shape: point a reader at an unreachable source in CI and assert no surface reports health. Rule 13 has **no test in this repository** |
+| C2 | Sweep `docs/survey/*.md` for `§N` | needs the routing decision in `scout-25` part 5 first |
+| C3 | A rule-13 acceptance test | nothing. `willow-grove`'s constraint 1 supplies the shape — point a reader at an unreachable source in CI and assert no surface reports health. Rule 13 has **no test here** |
+| C4 | The crossing-envelope table | nothing blocks *designing* it; adoption still waits on item 4 |
 
-That is the honest list. **This repository is decision-blocked, not
-effort-blocked.**
-
----
-
-## What that means for sequencing
-
-The instinct is to build C in parallel while A and B resolve. Resist it. Three
-of the four things worth building next — the guardianship predicate, the
-dispatcher `voice.guard()` needs, the promotion of the lane DDL to
-`migrations/` — are each gated on a Track A read or a Track B decision, and
-building them first means building against a guess.
-
-`docs/PLAN-GUARDIANSHIP.md` is the worked example: eleven acceptance gates,
-fully specified, and unbuildable until B3 says what a surface is and A2 says
-what W-3 actually requires.
-
-**A1 remains; B3 is deferred rather than open.** B1, B2, 1a and A2 all closed on
-2026-07-30 — three by deciding, one by reading.
-
-**Nothing on the critical path is blocked.** A1 is a queue of 33 unread
-repositories, and it can be worked from here. Two findings on B3 landed while it
-was discussed and are recorded at §18 item 4: its enumeration omits the guest
-surface clinicians and judges need, and `surfaces` is a manifest field whose
-fleet precedent shipped a declaration nothing enforced.
-
-**One open design question came out of A2's read** and is recorded in
-`SENSITIVITY.md` rather than here: the spike serves an `L4` payload only to the
-data subject, where `L4` allows an entitled principal with a declared purpose.
-Stricter-at-source versus deliberate-improvement, unresolved.
-
----
+Short, and the shortness is the finding. **This repository is decision-blocked,
+not effort-blocked** — and the instinct to build C in parallel should be
+resisted for anything downstream of layout. `docs/PLAN-GUARDIANSHIP.md` is the
+worked example: eleven acceptance gates, fully specified, unbuildable until B3
+says what a surface is.
 
 ## Order
 
-1. ~~**A3**, **B1**, **B2**~~ — all closed 2026-07-30.
-2. ~~**A2**~~ — done 2026-07-30. The lane model's paraphrase is now checked against the clause, and one gap found.
-3. **B3** — deferred, in hand elsewhere. It gates layout and any dispatcher, so nothing downstream of layout starts before it lands.
-4. **A1** — largely done; see `FLEET-READS.md`. Eight names do not resolve at all. Expect some rows to need deciding rather than reading, per A3; expect scale mismatches, per the band/rung divergence; and expect this repository to be *stricter* than its sources as often as looser, per `willow-2.0`'s missing interval CHECK.
-5. Then, and only then, §9's list in its existing order — noting foundation 1 and 2 are now **to build**, not built.
+1. **B3** — surfaces. Everything about layout waits on it.
+2. **The crossing-envelope table**, then item 4 clears the DDL into `migrations/`.
+3. **The exit line**, before anything installs.
+4. **Decide the refusal-1 inheritance question** before any inference path is written.
+5. Then §9's list in its existing order — noting foundations 1 and 2 are **to build**.
 
 ## What this plan deliberately does not do
 
-- **Does not re-order §9.** §9's ordering principle — expensive-to-retrofit
-  first — is sound and is not the problem. What is unverified is its *status
-  labels*, which is item 0, which is A1.
-- **Does not schedule.** No dates, because the remaining critical items are
-  someone else's keystrokes and estimating them here would be fiction.
+- **Does not re-order §9.** Its ordering principle — expensive-to-retrofit first
+  — is sound. What was wrong is its *status labels*, and those are corrected in
+  place.
+- **Does not schedule.** No dates: the blocking item is someone else's
+  keystrokes and estimating it here would be fiction.
 - **Does not restate a mechanism.** Every row points at the document that owns
-  it. If a mechanism appears to be described here, that is a defect (§16).
+  it. If a mechanism appears described here, that is a defect (§16).
