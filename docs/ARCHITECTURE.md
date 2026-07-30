@@ -171,7 +171,15 @@ Ranked options for the 5% that SMS cannot carry:
 
 **Recommendation: build (b), ship (a) first if you must — but put the envelope and data classification in from day one** so that moving from (a) to (b) is a transport change, not a data migration. That single sequencing decision is the difference between a weekend and a rewrite.
 
-Under (b), compromise of the drop yields: which mailboxes talked, when, and roughly how much. It does not yield names, students, schedules, medical notes, addresses, or balances. If the metadata itself matters — a mailbox suddenly going quiet, or a burst of traffic before a competition — pad blobs to size buckets and flush on a fixed schedule rather than on demand.
+Under (b), compromise of the drop yields: which mailboxes talked, when, and roughly how much. It does not yield names, students, schedules, medical notes, addresses, or balances.
+
+**The metadata matters more than that paragraph originally allowed, and this fleet has the precedent.** `corpus-lens` is built around a single observed fact: *a custody schedule was once reconstructed from keystroke timing alone — content redaction does not scrub the shape of a week.*
+
+Apply that here and it is not hypothetical. A guardian mailbox that receives traffic on alternating weekends. Attendance check-ins that cluster Tuesday and Thursday. A notification stream that goes quiet for a fortnight each month. **Timing alone reconstructs a custody arrangement**, in a system that holds custody-sensitive records and is explicitly designed to protect them (§7.1). The content being sealed does not help.
+
+So padding to size buckets and flushing on a fixed schedule is not an optional hardening for the paranoid — it is the control for the disclosure this design most needs to prevent. Same for SMS: a per-guardian send that fires on exactly the days one parent has the student is a disclosure to the carrier and to anyone reading a phone bill. Send to both guardians on the same cadence, or send on a schedule uncorrelated with the event.
+
+`corpus-lens` also models the honest way to state this: its README documents what the wall does *not* hide — weekly cadence survives, and there is a test asserting that it does. A limit you have measured and disclosed is a different artifact from one you have not looked for.
 
 **Enrollment without a help desk.** Passkeys, not passwords and not VPN profiles. The director issues an invite (QR at a parent meeting, or a code in an existing communication channel); the parent registers a device-bound passkey. This is phishing-resistant, non-shareable, survives the parent who reuses one password everywhere, and — critically — is a workflow a non-technical guardian completes in under a minute. Multiple guardians per student each get their own credential; households split and custody arrangements change, so guardianship must be modeled as a set of independently revocable edges, never as one shared family login.
 
@@ -402,6 +410,7 @@ Given this repo's MCP wiring: an agent with tool access and a network route is a
 
 - Anything touching `PII_*`, `HEALTH`, or `MEDIA_MINOR` is served by a **local** model inside Zone A. No exceptions, no "just this once for the summary." This explicitly includes commentary transcription (§8.2), which is where the pressure to make an exception will actually come from.
 - External model APIs are a destination like any other: allowlisted for `PUBLIC` / `DERIVED_ANON` only, gated, logged.
+- **The existing fallback chain must be disabled, not merely unused.** `willow-seed` documents a "free fleet fallback": when local Ollama is unavailable, inference routes to Groq → Cerebras → SambaNova on keys from `credentials.json`. That is a sensible default for a personal box and a **silent FERPA disclosure** on a school hub — it fires exactly when the local model is down, which is when nobody is watching, and it produces no error. A rule that says *local models only* is satisfied by a running Ollama and defeated by a stopped one. Remove the fallback keys, assert their absence in install acceptance, and let local inference **fail loudly** instead of degrading to a third party.
 - Agent tool-calls are constrained by the same authorization tuples as the human they act for — an agent cannot read what its principal cannot read.
 - Agents knock like anyone else (§7.2), and being the least trusted rung, they are the loudest.
 
@@ -475,6 +484,12 @@ Its **exclusion list is the more instructive half.** `frank_ledger`, `hook_execu
 **One caveat worth carrying.** The migration backfills `valid_at` from `created_at`, so on legacy rows the two axes coincide, and the tables lacking `created_at` end up with only one axis. For guardianship you need both, and the case that proves it is ordinary: **a court order dated in March, delivered to the program in October.** *When the restriction took effect* and *when this system learned of it* are different dates, and a disclosure made in June was either compliant or not depending on which one you ask about. Keep `created_at` immutable alongside the pair, and never update it.
 
 This is the one place in this domain where the failure is a safety failure rather than a bug, and it is worth having the mechanism before the case arrives — because when it arrives it will arrive urgently.
+
+**The fleet has already named this as its hardest open problem.** `corpus-lens` scopes itself to *owner == subject* — studying yourself — and says so explicitly: *pointing it at another person (a child, a partner, an employee) is a different consent object and is out of scope by design.* Its "named and deliberately unbuilt" list puts it plainly:
+
+> The guardian-consent model (owner ≠ subject) — **the biggest gap between this toolkit and any family-facing instrument**; not solved, so not shipped.
+
+Every persona in this document is owner ≠ subject. A school holds records *about* minors; a director reads data they are not the subject of; a guardian consents on behalf of someone else. `marching-arts` P2 is the fleet's first real attempt at that model — guardianship edges, consent never requested by its beneficiary, expiry at majority. **This app is where that gap either gets closed or gets shipped unsolved**, and §7.1's dated termination is the part of it still missing.
 
 ### 7.2 The knock — sessions are reconciled, not merely authorized
 
@@ -645,6 +660,31 @@ The related trap, worth naming because this codebase has hit it more than once: 
 - **Season lifecycle:** graduation, roster turnover, staff departure, and purge are recurring scheduled events, not one-off scripts written in a panic each June.
 - **Loss of the director:** the person who holds the most access is also the one likeliest to change jobs. Escrow and succession are operational requirements.
 
+### 11.1 The exit plan is a shipping requirement
+
+`awesome-sovereign-software` states the fleet's own criterion, and it is stricter than anything in this document: **sovereignty is the ability to leave**, every listed entry documents how you walk away with your data, and *if an exit line cannot be written honestly, the app does not get listed.*
+
+This design has escrow (§5) — how to recover a key you still hold. It did not have **exit** — how a program leaves entirely. Those are different, and the second is the one an institution will actually need:
+
+- A director changes jobs and the successor prefers something else.
+- The district standardises on a vendor.
+- The booster dissolves, or the program is cut.
+- The software stops being maintained.
+
+In every case the education records must survive, in a form a person can read **without this application**, and FERPA retention obligations continue regardless of what the program is running. So the exit line has to be written now, tested like a restore, and hold against the five-point test the fleet already publishes:
+
+| Criterion | What it demands here |
+|---|---|
+| Runs without an account | On-site personas already do; guardian passkeys are device-held, not vendor accounts |
+| Runs without a server | The hub is the org's; §4.1 keeps notification off any hosted dependency |
+| No subscription for core function | No feature may become unavailable on non-payment — least true of anything with a hosted SMS route |
+| **Data readable without the app** | SQLite plus documented schema, exportable to CSV/PDF per record type — including commentary audio and its transcript |
+| **Survives the vendor** | The box keeps working with the network cut and nobody maintaining it |
+
+**Write the exit line before the first install, not at the end.** Something as specific as: *your program's records are one SQLite file per store plus a media directory; `terpsi export --all` writes CSV per table, PDF per student record, and the original audio; the schema is documented in `docs/`; nothing requires this software to read.* If that sentence cannot be written honestly, that is the finding.
+
+One caution the same list supplies: its **Delisted** section records sovereignty regressions with a date, a reason, and a source, and *removing an entry without accounting for it fails CI*. Regressions are normal; unrecorded ones are the problem. An install that quietly acquires a hosted dependency between seasons has regressed, and something should say so out loud.
+
 ---
 
 ## 12. Decisions to lock now
@@ -659,8 +699,9 @@ The related trap, worth naming because this codebase has hit it more than once: 
 8. **SMS carries signals, never records** (§4.1) — where the transport cannot be made incapable, the payload is made not worth reading. Minimization is the mechanism, and it is what shrinks the parent problem from daily to occasional.
 9. **Sessions declare a purpose and are reconciled against it** (§7.2) — the only check in this design that compares outcome to promise, and the disclosure artifact a regulator actually wants.
 10. **Narrate the read, gate the export** (§7.2) — the harm is in data leaving, not in someone glancing at a schedule. Concentrating ceremony at the boundary is both less obstructive and more honest.
-11. **A guard that cannot be shown to fail has not been shown to work** (§10) — acceptance is mutation, not a green suite; the observed failure mode in this fleet is defects in the verification apparatus rather than in the code it verifies.
-12. **Ordinal scales never compare as raw integers, and provenance never gates** (§15) — two existing five-level scales already run in opposite directions; a third arrives only with prefixes and a single mapping table.
+11. **The exit line is written before the first install** (§11.1) — sovereignty is the ability to leave, and if the line cannot be written honestly that is the finding.
+12. **A guard that cannot be shown to fail has not been shown to work** (§10) — acceptance is mutation, not a green suite; the observed failure mode in this fleet is defects in the verification apparatus rather than in the code it verifies.
+13. **Ordinal scales never compare as raw integers, and provenance never gates** (§15) — two existing five-level scales already run in opposite directions; a third arrives only with prefixes and a single mapping table.
 
 ## 13. Open questions
 
@@ -720,6 +761,9 @@ Written after reading the READMEs of the components below; contents inferred fro
 | Judge calibration | `oakenscrolls-office` | **Exists as an engine** — see §13 and §15 |
 | §15 `P1–P5` provenance | `field-acoustics` (3 rungs), evidence tiers, `jeles`, `oakenscrolls-office` | **Partial and divergent.** Four vocabularies, no mapping; the `Cited` and `Estimated` rungs have nowhere to sit today |
 | §15 scale-direction convention | — | **Open.** `T0–T4` and `L1–L5` already oppose; no prefix rule or mapping table exists yet |
+| §11.1 exit plan | `awesome-sovereign-software` | **Criterion exists**, five-point test plus a required exit line. No exit line written for this app yet |
+| Owner ≠ subject consent | `corpus-lens` (names it unsolved), `marching-arts` P2 | **The fleet's stated hardest gap.** This app is where it closes or ships unsolved |
+| Cloud inference fallback | `willow-seed` (Groq/Cerebras/SambaNova) | **Must be disabled, not unused.** Fires exactly when the local model is down |
 | §15 rendering the scales | `safe-design` | **Exists.** Semantic tokens, lookup-time aliases, structurally guaranteed backend parity, ASCII path |
 | §5 exclusion of family data from the corpus | `willow-compose` | **Exists as stated policy.** This app is a family-data app by its definition |
 | Fifth authorization mechanism | `openclaw-sap-gate` (SAP/1.0) | **Exists**, with a fail-open default fingerprint and revocation-by-deletion |
