@@ -141,3 +141,61 @@ def verify_against(log: Log, anchor: tuple) -> tuple:
     if count and log.entries[count - 1].digest != head:
         return (False, "the anchored entry is no longer at that position")
     return (True, "chain intact and consistent with the anchor")
+
+
+# --- per-lane partitioning (§5, W-1) ---------------------------------------
+
+
+@dataclass(frozen=True)
+class Ledger:
+    """One chain per lane, because §5 says so and the first version did not.
+
+    *"Any new chained artifact in this system — **the disclosure log**, the
+    egress log of §6, adjudication commentary — inherits all three
+    requirements: **per-subject partitioning**, fail-closed on unscoped access,
+    and an anchor that distinguishes emptied from never-written."*
+
+    The first `Log` here was a single global chain carrying a `subject_id` per
+    entry, which satisfies none of that. Two things go wrong with it:
+
+    * **W-1 requires a separate audit trail per lane**, not one trail with a
+      column naming which student a row is about. That is rule 8's
+      roster-column shape in the audit table.
+    * **Positions leak.** A guardian holding receipts for global positions 5,
+      12 and 40 learns there were thirty-four entries about other children in
+      between. Per-lane chains make a position mean *"the nth thing about your
+      child"* and nothing else, which is what makes a receipt safe to hand over.
+
+    Found by building `records/receipts.py`, two hours after shipping the
+    global version.
+    """
+
+    lanes: tuple = ()  # ((lane_id, Log), ...) — a tuple so the Ledger stays frozen
+
+    def _index(self) -> dict:
+        return dict(self.lanes)
+
+    def log_for(self, lane_id: str) -> Log:
+        """The lane's chain. A lane with no entries yet is an empty chain, not
+        an error — but it is also not the same object as another lane's."""
+        return self._index().get(lane_id, Log())
+
+    def record(self, serving, *, lane_id: str, principal_id: str, subject_id: str,
+               field_name: str, at: datetime, authority: str = "") -> "Ledger":
+        by_lane = self._index()
+        by_lane[lane_id] = self.log_for(lane_id).record(
+            serving, principal_id=principal_id, subject_id=subject_id,
+            field_name=field_name, at=at, authority=authority)
+        return Ledger(tuple(sorted(by_lane.items())))
+
+    def verify(self) -> tuple:
+        for lane_id, log in self.lanes:
+            ok, why = log.verify()
+            if not ok:
+                return (False, f"lane {lane_id}: {why}")
+        return (True, f"{len(self.lanes)} lane(s), all chains intact")
+
+    def anchors(self) -> tuple:
+        """One anchor per lane. Publishing these individually would leak which
+        lanes exist; the caller anchors the *ledger*, not the lanes."""
+        return tuple((lane_id, log.anchor()) for lane_id, log in self.lanes)

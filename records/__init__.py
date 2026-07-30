@@ -11,7 +11,8 @@ from .crossing import Envelope, permits
 from .dispatch import Dispatch, dispatch
 from .exit import Lane, Threshold, open_lane, transfer
 from .classify import Classification, Decision, Descriptor, classify, unclassified
-from .disclosure import Entry, Log, verify_against
+from .disclosure import Entry, Ledger, Log, verify_against
+from .receipts import (GuardianReceipt, authentic, contradictions, gaps, held_by, issue)
 from .dispositions import Disposition, Request, answer, ask, extend, state_at
 from .rungs import DERIVE_AT, NEVER_SERVED, Rung, at_least, compose, outranks, parse
 from .sealing import Record, State, draft, redraft, reject, seal
@@ -24,7 +25,8 @@ __all__ = [
     "ContactRestriction", "Payload", "SendList", "Standing", "deliver", "recipients",
     "who_could_see",
     "Descriptor", "Classification", "Decision", "classify", "unclassified",
-    "Log", "Entry", "verify_against",
+    "Log", "Ledger", "Entry", "verify_against",
+    "GuardianReceipt", "issue", "authentic", "held_by", "gaps", "contradictions",
     "Record", "State", "draft", "seal", "reject", "redraft",
     "Request", "Disposition", "ask", "answer", "state_at", "extend",
     "Lane", "Threshold", "open_lane", "transfer",

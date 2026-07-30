@@ -102,6 +102,16 @@ MUTATIONS = [
     ("records/witness.py", "kinds = len({r.witness_kind for r in evidentiary})",
      "kinds = len(evidentiary)",
      "corroboration counts witnesses", "tests/test_witness.py"),
+    ("records/receipts.py", 'if e.kind != "guardian_of" or e.subject_id != subject_id:',
+     "if False:", "receipts go to guardians only", "tests/test_receipts.py"),
+    ("records/receipts.py", "if not e.live_at(at):", "if False:",
+     "ended standing gets no receipt", "tests/test_receipts.py"),
+    ("records/receipts.py", "if len(lanes) > 1 or len(holders) > 1:", "if False:",
+     "gaps refuses a mixed sequence", "tests/test_receipts.py"),
+    ("records/receipts.py", "if r.position > len(log.entries):", "if False:",
+     "removal contradicts a receipt", "tests/test_receipts.py"),
+    ("records/receipts.py", "if not r.matches(entry):", "if False:",
+     "substitution contradicts a receipt", "tests/test_receipts.py"),
 ]
 
 
@@ -131,7 +141,7 @@ def main() -> int:
         "tests/test_serving.py", "tests/test_sending.py", "tests/test_classify.py",
         "tests/test_disclosure.py", "tests/test_sealing.py", "tests/test_dispositions.py",
         "tests/test_exit.py", "tests/test_crossing.py", "tests/test_dispatch.py",
-        "tests/test_witness.py"))
+        "tests/test_witness.py", "tests/test_receipts.py"))
     print("green" if healthy else "RED — every result below is meaningless")
     if not healthy:
         return 1
