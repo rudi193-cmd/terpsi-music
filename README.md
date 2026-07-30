@@ -32,6 +32,7 @@ block a first commit and two of them are decisions rather than documents — §1
 | `docs/CROSSINGS.md` | Findings record — one session's defects and the six patterns under them |
 | `docs/FLEET-READS.md` | The 36 fleet repositories this design rests on, and why none is readable right now |
 | `docs/CRAFT-SOURCES.md` | What §24 claims already exists in the field, with its evidence and how weak that evidence is |
+| `docs/SKINS.md` | Exploration — which parts of this are the contract and which are the domain, and what else could fill it |
 | `CLAUDE.md` | Twenty rules, kept short on purpose. A pointer, not a summary |
 
 **§14's "Exists" column is unverified** — assembled from READMEs and
