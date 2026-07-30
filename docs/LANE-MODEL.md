@@ -201,6 +201,18 @@ authenticate-at-the-read so a fourth read added later inherits the gate.
 > not written here, because the DDL stays in `docs/schema/` until item 3's
 > other gates clear.
 
+**The `self` edge's holder.** Added to `edge_kind` 2026-07-30 (§18 item 12).
+Its defining property is that `holder_id` **is** the lane's `subject_id`, and a
+CHECK cannot reach through `target_lane_id` to `lane.subject_id` to say so — so
+this is the one edge kind whose meaning the table states and cannot hold. A row
+reading `('self', <staff person>, <Ben's lane>)` is accepted by the DDL and
+would, unchecked, entitle a staff member through the subject's own door.
+`records/standing.py`'s `is_self_edge()` is the middle, called by the read
+predicate before any edge matches, and ablated in `tests/ablate.py` as *"a
+forged self edge."* A `BEFORE INSERT OR UPDATE` trigger is the DDL-side answer
+when this migration stops being proposed. **A fourth entry on this list, and the
+first one added by widening the schema rather than by reading it.**
+
 **The rung ceiling.** `access_grant.max_rung` records the ceiling and the
 registry is now populated for all 93 columns, so the lookup has something to
 resolve against. What is missing is the code that performs it at serving time.

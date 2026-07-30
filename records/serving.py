@@ -55,7 +55,7 @@ class Edge:
     quietly meaning something else.
     """
 
-    kind: str  # guardian_of, staff_of, director_of, judge_at, clinician_for
+    kind: str  # self, guardian_of, staff_of, director_of, judge_at, clinician_for
     principal_id: str
     subject_id: str
     valid_at: datetime
@@ -136,12 +136,22 @@ def serve(
     lane_id: Optional[str] = None,
     known_as_of: Optional[datetime] = None,
     envelopes: Sequence = (),
+    *,
+    threshold: Optional[datetime] = None,
+    widenings: Sequence = (),
 ) -> Serving:
     """Decide what `principal` is served for `fld` at instant `at`.
 
     Order matters and is the order the rules are written in `SENSITIVITY.md`:
     absence first, then the never-served rung, then the lane seal, then the
     entitlement edge, then the declared purpose.
+
+    `threshold` is the date W-6's threshold falls for this subject — derived
+    from a birthdate or a graduation date, never a flag. It governs only the
+    `self` edge's cap (see `records/standing.py`); `None` means not yet reached,
+    which is the fail-closed direction. `widenings` are guardian signatures that
+    lift that cap per category. Both are keyword-only, so no existing positional
+    call absorbs one into `envelopes` — the lesson `Edge.created_at` taught.
     """
     # Rule 13. An unclassified field is a build failure; if one reaches here
     # anyway it reads as unknown and is not served. Never L1 by default.
@@ -191,6 +201,27 @@ def serve(
     # (§7.2's knock). Even for an entitled principal the instruction is the
     # normal mode and the payload is the exception.
     if at_least(fld.rung, Rung.L4):
+        from .standing import SELF, SELF_CAP, past_threshold, widens
+
+        # §18 item 12. A `self` edge is capped at L3 until the threshold; above
+        # it, only a guardian's signature widens — and `principal.purposes` is
+        # deliberately NOT consulted, because a ward declaring a purpose over
+        # its own record is the ward authorizing itself (W-4).
+        if edge.kind == SELF and not past_threshold(at, threshold):
+            w = widens(widenings, subject_id=fld.subject_id,
+                       category=fld.category, at=at, signer_edges=edges)
+            if w is None:
+                return _derived_or_refused(
+                    fld,
+                    f"{fld.rung} is above the self edge's {SELF_CAP} cap before the "
+                    f"W-6 threshold; a guardian's signature widens it per category (W-5)",
+                    edge=edge)
+            return Serving(Outcome.PAYLOAD, fld.payload, fld.rung,
+                           f"{fld.rung} to the subject, widened by {w.signed_by}'s "
+                           f"signature for {w.category!r}" + crossing_note,
+                           via_edge=edge.kind, via_purpose=w.category,
+                           provenance=fld.provenance)
+
         if fld.category and fld.category in principal.purposes:
             return Serving(Outcome.PAYLOAD, fld.payload, fld.rung,
                            f"{fld.rung} with edge and declared purpose" + crossing_note,
@@ -217,6 +248,13 @@ def _entitling_edge(
     and the question an audit asks about a disclosure that already went out.
     """
     for e in edges:
+        if e.kind == "self" and e.principal_id != e.subject_id:
+            # A row claiming `self` for somebody who is not the subject is not a
+            # weaker edge; it is not an edge. The kind names a relationship and
+            # nothing else here was checking that the relationship held, so
+            # `Edge("self", "staff-nguyen", "student-ben", …)` would otherwise
+            # entitle a staff member through the subject's own door.
+            continue
         if (e.subject_id == subject_id and e.principal_id == principal_id
                 and e.live_at(at) and e.known_at(horizon)):
             return e

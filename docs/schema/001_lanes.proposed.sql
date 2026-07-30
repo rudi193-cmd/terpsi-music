@@ -162,8 +162,19 @@ CREATE TABLE edge (
     created_at      timestamptz NOT NULL,
     valid_at        timestamptz NOT NULL,
     invalid_at      timestamptz,
+    -- 'self' added 2026-07-30 (§18 item 12): the subject's own standing in
+    -- their own lane, capped at L3 until W-6's threshold.
+    --
+    -- Its defining property -- holder_id must be the lane's subject_id -- is
+    -- NOT enforceable here. A CHECK cannot reach through target_lane_id to
+    -- lane.subject_id, so 'self' is the one kind whose meaning this table
+    -- states and cannot hold. Named in LANE-MODEL.md's stated-and-unenforced
+    -- list beside the other three, and enforced in records/standing.py's
+    -- is_self_edge(), which the read predicate calls before any edge matches.
+    -- Rule 12: the pair has a named middle. A trigger is the DDL-side answer
+    -- when this migration stops being proposed.
     CONSTRAINT edge_kind CHECK (kind IN (
-        'guardian_of', 'staff_of', 'director_of', 'judge_at', 'clinician_for'
+        'self', 'guardian_of', 'staff_of', 'director_of', 'judge_at', 'clinician_for'
     )),
     CONSTRAINT edge_exactly_one_target
         CHECK (num_nonnulls(target_lane_id, target_scope_id) = 1),

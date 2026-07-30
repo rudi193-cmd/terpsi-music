@@ -128,7 +128,8 @@ aggregates that have survived a re-identification check.
 
 Names or identifies an individual, or is trivially resolvable to one. Served in
 full only to a principal holding a **current entitlement edge** to that subject
-(§7's `guardian_of`, `staff_of`, `director_of`, `judge_at`, `clinician_for`).
+(§7's `self`, `guardian_of`, `staff_of`, `director_of`, `judge_at`,
+`clinician_for`).
 On any path without such an edge the payload is `NULL` and, where an operational
 need exists, a derived instruction is served in its place.
 
@@ -153,6 +154,15 @@ diagnosis.
 > A staff member with a declared medical purpose gets the payload; the same
 > staff member, on the same device, ten minutes earlier under an attendance
 > purpose, does not.
+
+> **The subject is a capped case at this rung and not at `L3`.** A `self` edge
+> reaches `L3` in full — a student sits in their own chair, and serving them the
+> derived form about their own name is not protection. At `L4` the subject is
+> served the instruction like any entitled principal without a declared purpose,
+> and their own purpose declaration is **not** read (W-4: a ward may request,
+> never authorize). A guardian may sign a per-category widening; the cap lifts at
+> W-6's threshold. `records/standing.py` is canonical; §18 item 12 has the
+> argument.
 
 > **This is the rung that makes the ladder worth having.** `L4` is not "`L3`
 > but more so." It is the claim that most operational needs around sensitive

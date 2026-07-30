@@ -528,12 +528,18 @@ This is the section most superseded by what exists. `marching-arts` P1/P2 is the
 The guest-access shape, which is where the personas outside the program live. Expressed as relationship edges with expiry:
 
 ```
+self             : Student:Ben     → Student:Ben           [capped at L3 until the threshold]
 guardian_of      : Person:Ann      → Student:Ben
 staff_of         : Person:Chris    → Ensemble:Drumline      [season-bounded]
 director_of      : Person:Dana     → Program:Marching
 judge_at         : Person:Erin     → Event:Regional_Oct12   [expires +36h]
 clinician_for    : Person:Frank    → Session:Brass_Sep03    [expires +24h]
 ```
+
+**`self` was added 2026-07-30 and the first five were the whole list until then** — which meant the subject was a stranger to their own lane. §18 item 12 records how that was found and what it cost to close; `records/standing.py` is canonical. Two properties of it belong here rather than there, because they are properties of *this* vocabulary:
+
+- **It is capped, not equal.** Before W-6's threshold a `self` edge reaches `L3`; above that the subject is served the derived instruction unless a guardian signs a per-category widening. The cap lifts at the threshold by date comparison, which is the same predicate majority expiry already uses — no flag, no job.
+- **`principal.purposes` is not read for a pre-threshold `self` edge.** W-4 is *a ward may request, never authorize*; a minor declaring a purpose over their own record is self-authorization, and honouring the declaration would defeat the clause with a keyword argument.
 
 Properties worth insisting on: every grant carries an expiry (guest grants die on their own); permissions derive from edges rather than being stamped on people; the family circle is a set of individual guardian edges, so one guardian's revocation never touches another's; and every access decision is answerable after the fact — "who could see Ben's medical form on October 12, and why."
 
@@ -1413,7 +1419,7 @@ The DDL has been **executed** against PostgreSQL 16 and every constraint attacke
 **This one is struck as *written*, not as *closed*, and the distinction is the point.** Three things still gate adoption:
 
 - **It rests on a paraphrase.** W-1…W-7 exist in `Willow`'s `PROTECTED_AGENTS.md` Part III and were not read at source — the schema encodes CLAUDE.md's one-line gloss of §7.4's summary. §7.4 itself notes the fragment carries a machine register and a human one, and that *"a clause that cannot survive translation between the two registers is not yet a clause."* Encoding the human-register gloss is exactly that translation risk. **Open Part III before this becomes `migrations/001_lanes.sql`.**
-- **Three invariants are stated and unenforced** — I-7's supersession asymmetry, W-3's default deny, and the rung ceiling. All three are predicates over the acting principal, so they belong with the read predicate and not in DDL. Named in `LANE-MODEL.md` rather than left to be discovered.
+- **~~Three~~ Four invariants are stated and unenforced** — I-7's supersession asymmetry, W-3's default deny, the rung ceiling, and (added 2026-07-30) **the `self` edge's holder**, which must be the lane's subject and cannot be expressed as a CHECK. The first three are predicates over the acting principal and belong with the read predicate; the fourth is a row-shape constraint needing a trigger, and it is the first entry added by *widening* the schema rather than by reading it. All four named in `LANE-MODEL.md` rather than left to be discovered.
 - **It is gated on blockers 2 and 4**, which is why the file sits in `docs/schema/` rather than `migrations/`.
 
 **4 · Which surfaces exist.**
@@ -1498,17 +1504,27 @@ diagnosis in the struck sentence was half right: the ladder is indeed right, and
 the vocabulary feeding it had no hole — the *route into* the ladder did, because
 classification consulted the class mapping and never reached step 3's clause.
 
-**12 · The subject has no standing in their own lane.**
-**State: open, found by building 2026-07-30. Needs a decision.**
-§7's entitlement edges are `guardian_of`, `staff_of`, `director_of`, `judge_at`, `clinician_for`. **None of them is the subject.** `records/serving.py` implements §7 faithfully and the consequence is that a student reading their own chair assignment is served the derived instruction — *"one member of this section"* — about their own name.
+**~~12 · The subject has no standing in their own lane.~~**
+**State: closed 2026-07-30. `records/standing.py` is canonical for the resolution; `docs/SENSITIVITY.md`'s `L4` note and §7's edge block carry the rung consequences.**
 
-Two settled clauses assume the opposite. **W-6** transfers the lane's keys *to the subject* at the threshold, with history intact; **I-7** makes a student's own entries as durable as entries about them. A model where the subject is a stranger to their own lane until the day they inherit it is unlikely to be what §7 meant. `marching-arts` scoped its projection by `subject_id != viewer`, so the subject always saw their own payload — the spike had a rule this design does not.
+**The decision: a `self` edge, capped at `L3` until W-6's threshold.** `L1`–`L3` served in full; `L4` served as the derived instruction unless a guardian signs a per-category `Widening`; `L5` unchanged, never served to anyone including the subject; the cap lifts at the threshold by date comparison and `self` then behaves like any other edge. **And the subject reads their own disclosure log at every rung** — a student who cannot read their `L4` medical field can still see that the athletic director read it on October 12.
 
-**Three ways to close it**, and this is the decision: add a `self` edge kind to §7's vocabulary; make the predicate treat `principal.id == subject_id` as standing without an edge; or state deliberately that a minor has no read standing in their own lane before W-6's threshold, and say what that means for I-7.
+**This item's own framing is what kept it open.** It asked *whether* the subject has standing, and three-fifths of that was already decided by the ladder: `L5` is checked before the edge check and is never served to anyone, and `L1`/`L2` sit below the derive floor and need no edge at all. The live question was only `L3` and `L4`, and it was never a yes/no — every other principal's standing is rung-shaped, and there was no reason the subject's would not be. **A binary question about a graded system will stay open**, because neither answer is true.
 
-**The third is defensible and should be argued rather than defaulted into**, which is what is happening now. A guardianship model may legitimately hold that a ten-year-old does not read their own medical lane. It should not hold that by accident of an enumeration.
+**Why the first option and not the second.** A `self` edge is *dated*, so the threshold is a date compared on every read rather than an event somebody runs; it is *auditable*, and `principal.id == subject_id` would log `via_edge=None`, indistinguishable in the disclosure log from an unentitled read — §7.2's *narrate the read* silently broken by the fix; it can be *ended* by `invalid_at` (refusal 3), which is where a safety plan in which the subject is the risk has to live; and it is already a row.
 
-`tests/test_serving.py::test_a_student_CANNOT_read_their_own_record_documented_not_hidden` asserts the current behaviour so that changing it is a visible diff.
+**Why not the third — deliberate no-standing.** It makes I-7 unverifiable by the party it protects. *"A student's entries are as durable as entries about them"* is a claim a student cannot check without reading their lane, and rule 19 says a guarantee that cannot be shown to hold is not one. It also makes W-6 the worst moment in the design: years of records, first sight, all at once, nobody left to ask.
+
+**W-4 survives, and one consequence of that is load-bearing.** For a pre-threshold `self` edge, `principal.purposes` is **never consulted** — a minor declaring a purpose over their own `L4` record is the ward authorizing itself, and honouring the declaration would defeat *a ward may request, never authorize* with a keyword argument. Only a guardian's signature widens. W-5 survives because nothing here lifts a cap for good behaviour; a cap set identically for every student at enrolment is not drift.
+
+**Two things this closing found**, recorded because of how:
+
+- **A forged `self` edge.** `Edge("self", "staff-nguyen", "student-ben", …)` would entitle a staff member through the subject's own door. The kind names a relationship and nothing was checking that the relationship held. Guarded in `is_self_edge()`, ablated, and named in `LANE-MODEL.md` as a fourth stated-and-unenforced invariant — the first added by *widening* the schema rather than by reading it, since a CHECK cannot reach `lane.subject_id`.
+- **The tripwire could not fire.** `test_a_student_CANNOT_read_their_own_record_documented_not_hidden` closed with `assert not any(k in ("self", "subject_of") for k in ("guardian_of", "staff_of"))`, written to fail once a `self` edge existed. It compares two hardcoded tuples: a tautology that passed after the edge shipped. §16's *cannot fire* mode, in the test written to detect the change, in this repository, after it had already quoted `willow-mcp` #211's version of the same defect. Replaced by `test_the_subjects_standing_is_an_edge_and_is_not_ambient`, which asserts both halves against the predicate.
+
+**Carried forward, not closed by this.** A safeguarding read — a counsellor opening a record because of a referral — appears in the subject's own log like any other, and there is no suppression mechanism. That is deliberate: a `suppressed_from_subject` flag is a backdoor that ends up on everything, and a *"one entry is withheld"* count tips off as loudly as the entry would. It is a real tension and it is named here rather than solved by a field nobody asked for. Whether a **guardian** may read the lane's log is also open and is not this item — a guardian reading it learns which staff member is looking at a record, which is nearer §13's prohibited standing scores than it appears, and guardians already hold receipts.
+
+The `Widening` is a **fourteenth table, as a type**, on the same footing as the crossing envelope's thirteenth: written in `records/standing.py`, not in `docs/schema/`, and for the same reason.
 
 **13 · `PLAN-GUARDIANSHIP.md`'s gate set is incomplete in two places.**
 **State: open, found by ablation 2026-07-30. Small, and a decision only in the sense that someone must write the gates down.**

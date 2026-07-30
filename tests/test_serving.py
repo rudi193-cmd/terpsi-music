@@ -367,37 +367,45 @@ def test_the_read_path_honours_the_knowledge_horizon_like_the_send_path():
     )
 
 
-def test_a_student_CANNOT_read_their_own_record_documented_not_hidden():
-    """**A limitation, not a guarantee.** Named the way `corpus-lens` names
-    `test_weekly_cadence_IS_reconstructable_documented_not_hidden`, so it
-    cannot be mistaken for a failing assertion and quietly "fixed".
+def test_the_subjects_standing_is_an_edge_and_is_not_ambient():
+    """§18 item 12, **closed 2026-07-30**. `records/standing.py` is canonical
+    and `tests/test_standing.py` carries the guards; what remains here is the
+    half that belongs to the predicate.
 
-    §7's edge kinds are `guardian_of`, `staff_of`, `director_of`, `judge_at`,
-    `clinician_for`. **None of them is the subject.** So a student reading their
-    own chair assignment holds no entitlement edge to themselves and is served
-    the derived instruction — *"one member of this section"* — about their own
-    name.
+    The subject now holds standing in their own lane, and it is a `self` **edge**
+    rather than a `principal.id == subject_id` special-case — so a subject
+    arriving without one is refused exactly like anyone else, and the read that
+    succeeds names the edge for the log to narrate.
 
-    This was found by building the predicate, not by reading the section. It
-    matters because two settled clauses assume the opposite: W-6 transfers the
-    lane's keys *to the subject* at majority, and I-7 makes a student's own
-    entries as durable as entries about them. A model where the subject is a
-    stranger to their own lane until the day they inherit it is unlikely to be
-    what §7 meant, and `marching-arts` scoped by `subject_id != viewer` — the
-    subject always saw their own payload.
+    ---
 
-    Filed as §18 item 12. This test asserts the *current* behaviour so that
-    changing it is a deliberate act with a visible diff, not a silent widening.
+    **What this test used to be, and why it is worth recording.** It asserted the
+    old behaviour — the subject served *"one member of this section"* about their
+    own name — with a tripwire meant to fire when a `self` edge appeared:
+
+        assert not any(k in ("self", "subject_of")
+                       for k in ("guardian_of", "staff_of"))
+
+    That compares two hardcoded tuples. It is a tautology, it passed after the
+    `self` edge shipped, and **it could never have failed** — §16's *cannot fire*
+    mode, in the test written to detect the change. `willow-mcp` #211's fixture
+    with no row the principal could not already see is the same defect, and this
+    repository quoted that finding before committing it.
     """
     own = roster_field()
-    s = serve(own, Principal(BEN), [], SEASON)
-    assert s.outcome is Outcome.INSTRUCTION
-    assert s.value == "one member of this section"
-    assert "no live entitlement edge" in s.reason
-    # And the sharper half: it is not that the subject is refused — it is that
-    # the model has no way to *express* the subject's own standing.
-    assert not any(k in ("self", "subject_of") for k in ("guardian_of", "staff_of")), (
-        "if a self edge now exists, item 12 has moved and this test should too"
+
+    without = serve(own, Principal(BEN), [], SEASON)
+    assert without.outcome is Outcome.INSTRUCTION, (
+        "the subject was served their own payload with no edge at all; standing "
+        "became ambient rather than dated"
+    )
+    assert "no live entitlement edge" in without.reason
+
+    with_edge = serve(own, Principal(BEN),
+                      [Edge("self", BEN, BEN, SEASON, created_at=SEASON)], SEASON)
+    assert with_edge.outcome is Outcome.PAYLOAD
+    assert with_edge.via_edge == "self", (
+        "the read did not name the edge that entitled it; §7.2 has nothing to narrate"
     )
 
 
