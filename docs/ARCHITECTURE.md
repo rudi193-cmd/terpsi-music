@@ -897,6 +897,8 @@ Written after reading the READMEs of the components below; contents inferred fro
 | Prohibited scopes registry | `Willow` Schedule A (SA-1…SA-5) | **Drafted, unratified.** Validated before any envelope issues; `envelopes/pre-approved.json` is the enforcement surface |
 | Stakes classification | `Willow` Schedule B (SB-1…SB-5) | **Drafted.** A music program touches four of the five classes |
 | Retirement artifact | `Willow` `PROTECTED_PERSONS.md` | **Exists as a model.** The five-part tombstone that would have prevented the dead-link tally |
+| Shared-edge placement | `Nestor` → `Die-Namic-Systems`, sole occupant | **Decided.** The fleet's single named cross-face dependency (§17) |
+| Second shared edge | `libs/subject-consent` | **Unresolved.** Same property as Nestor, still a folder in an app store, already vendored once |
 | Per-graduate lane export (W-6) | — | **Open**, and a precondition of enrolment rather than an end-of-life feature |
 | §10 privacy notice | `willow-2.0/TRUST.md` | **Reusable structure** — every path data can take, each with its switch |
 | Install acceptance gate | `willow-2.0/SECURITY_AUDIT.md` | **Reusable rubric**, 15 checks. W-MCP-01's trigger condition applies here |
@@ -1255,6 +1257,26 @@ So what propagates is the part that is identical everywhere and expensive to ret
 | Dated predicates for revocation, never deletes (§7.1) | |
 
 That is `safe-app-common` grown from a library into a scaffold — a natural next size for a thing that already exists and already owns the canonical purity check.
+
+### Where the shared parts live, and what that costs the template
+
+`Nestor` is going to be the only repo under `Die-Namic-Systems`, directly — and the reason is structural rather than filing convenience. **It is the one component in the fleet that is not *about* something.** Almanacs are about public data, `hornbook-knowledge` about learners, `willow-memory` about the system's own history; every app is about music, predictions, or legal matters. Nestor is about verification, full stop, in the same posture `PROTECTED_AGENTS.md` adopts when it declares itself *"system- and species-agnostic: it names no product, no model, no vendor, and no family."*
+
+A thing that belongs to every face cannot sit on one. Giving it an org of its own states that in the structure instead of in a README, and makes it the fleet's **single named cross-face dependency** — the clean opposite of four things called Grove.
+
+**Sole-occupancy promotes it from library to supply chain, which raises the bar on three things this document had recorded as footnotes:**
+
+| | Why it matters more now |
+|---|---|
+| `nestor @ git+…/Nestor@master` — unpinned, mutable branch | Violates the fleet's own R14 in the dependency every app imports. One force-push moves what every consumer resolves. Fix before the move, not after |
+| README states **96 tests** in three places; #124 recorded the suite at 123 | Cosmetic in an app. In the component whose subject *is* verification, it is the wrong advertisement |
+| Cleared all eight promote gates in #88, left no record (`promote_check.py` writes nothing) | The artifact being promoted to infrastructure has no promotion record |
+
+**And it exposes an inconsistency worth settling before the migration, not during it.** Nestor is not the only cross-face dependency. `libs/subject-consent` has the identical property — not about a domain, needed by multiple faces, already vendored into UTETY with `marching-arts` carrying a test that refuses any load path containing `utety`. It currently lives as a folder inside an app store.
+
+So the fleet has **two** shared edges and is promoting one. Either `subject-consent` joins that tier or the rule for what earns its own org needs stating out loud — and given that it is the guardian-consent core for systems holding minors' records, it has the stronger claim of the two.
+
+**What this costs §17's template:** propagation now crosses an org boundary. Locally that is free — everything is a peer under `~/github/`, and `kart-sandbox.json` binds by path with no org in it. For CI it is fine, since public repos resolve by URL. The tax lands on remote and cloud agent sessions, where `add_repo` refuses cross-tier and a session can hold one owner's repos or another's, not both. So a conformance suite that lives with the template and is *run* by instances in a different org is reaching across the one boundary that is awkward for agents — which argues for the suite being **installed as a dependency** (versioned, pinned, resolvable by URL) rather than read from a sibling checkout.
 
 ### A template without a conformance check is just the first copy
 
