@@ -20,6 +20,7 @@ ROOT = Path(__file__).resolve().parent.parent
 
 ARCHITECTURE = ROOT / "docs" / "ARCHITECTURE.md"
 CAPABILITY_MAP = ROOT / "docs" / "CAPABILITY-MAP.md"
+SENSITIVITY = ROOT / "docs" / "SENSITIVITY.md"
 CLAUDE = ROOT / "CLAUDE.md"
 
 # "## 7. Authorization" / "### 7.4 The Ward Case, adopted" -> 7 / 7.4
@@ -103,6 +104,29 @@ def test_architecture_self_references_resolve():
 def test_capability_map_references_resolve():
     bad = unresolved(CAPABILITY_MAP, default=CAPABILITY_MAP)
     assert not bad, "\n".join(bad)
+
+
+def test_sensitivity_references_resolve():
+    """SENSITIVITY.md defines the L-ladder and points outward for everything
+    else, so every §N in it is a reference to ARCHITECTURE.md."""
+    bad = unresolved(SENSITIVITY, default=ARCHITECTURE)
+    assert not bad, "\n".join(bad)
+
+
+def test_sensitivity_declares_no_numbered_sections():
+    """The property that makes the test above safe.
+
+    Default-routing sends a bare §N in SENSITIVITY.md to ARCHITECTURE.md. If
+    SENSITIVITY.md ever grew a "## 3. ..." of its own, a self-reference to §3
+    would silently resolve against ARCHITECTURE.md §3 (Topology) — passing,
+    and pointing at the wrong document. Rungs are addressed as L1–L5 precisely
+    so this collision cannot arise, and this asserts it stays that way."""
+    found = headings(SENSITIVITY)
+    assert not found, (
+        f"SENSITIVITY.md declares numbered sections {sorted(found)} — a bare §N "
+        "in it would now be ambiguous. Address by rung, or teach references() "
+        "to route to it."
+    )
 
 
 def test_the_check_can_actually_fail(tmp_path=None):

@@ -458,6 +458,8 @@ The classes below answer a different question — *what kind of data is this, an
 
 Tag at schema-definition time. Retrofitting classification across an existing schema is miserable, which is why it belongs in the first module — and why the mapping from these classes onto the existing L-levels should be written down once, in the schema, rather than inferred per feature.
 
+**That mapping is written, and it is `docs/SENSITIVITY.md`** — which is canonical for what the five rungs mean, for all eight classes' rungs, and for the sensitivity→trust crossing. This section is not to restate it; where the two disagree, that document wins and this one is the defect (§16). Note in particular that no class maps to `L5`: that rung is reached per record, under three rules stated there.
+
 ### Enforcement tiers
 
 1. **Allowed** — pre-approved, logged. Payment tokenization, the drop, OS updates from pinned mirrors.
@@ -742,7 +744,7 @@ The ordering principle: build the things that are expensive to retrofit first, r
 
 **Foundation — hard to add later, so add it now**
 1. Person / relationship graph with time-boxed edges (§7) — **built** (P1/P2), less the dated-guardianship gap in §7.1
-2. Data classification on every field (§6) — the L-ladder is **built**; the class-to-L mapping is not
+2. Data classification on every field (§6) — the L-ladder is **built**; the class-to-L mapping is **written but unenforced** (`docs/SENSITIVITY.md`), and enforcement is the work
 3. Envelope + key hierarchy, even while everything is still on one LAN (§5) — chain integrity and per-subject erasure are **built**; at-rest sealing across the Zone A boundary is not
 4. Egress purity in the core (§6, inner ring) — **built**, AST-proven. The outer broker is not, and is only needed once something must legitimately talk to the world
 5. Append-only audit log — the hash-chained disclosure log is **built**, with the count-anchor truncation defence
@@ -972,7 +974,7 @@ Both are small integers, both are called "level," and they point opposite ways. 
 
 The resolution is *not* to force them into agreement — sensitivity and privilege genuinely oppose, and bending one to match would make its own semantics worse. Instead:
 
-- **Never compare raw integers across scales.** A single mapping — which trust rung a given sensitivity requires — lives in one place, and every gate calls it. `law-gazelle`'s permission table (§7.2) is that mapping, written out.
+- **Never compare raw integers across scales.** A single mapping — which trust rung a given sensitivity requires — lives in one place, and every gate calls it. `law-gazelle`'s permission table (§7.2) is that mapping, written out. **For this app it lives in `docs/SENSITIVITY.md`**, in that table's shape, and it is a mapping rather than an enforcement until a harness routes reads through it.
 - **Prefix every rung so a bare integer cannot travel**: `L1–L5` sensitivity, `T0–T4` trust, `P1–P5` provenance.
 - **Composition differs per scale**, which is the strongest reason they can never be merged:
 
@@ -1323,11 +1325,20 @@ Everything above argues about design. This section is the short list of things t
 
 That is the exact defect #124 named: *a figure carried from a summary rather than from the thing that produced it.* Before anything is built on the strength of that table, one pass should open the code behind each **Exists** row and either confirm it or downgrade it — and the pass itself should leave a record, because an unverified table and a verified one look identical.
 
-### The four that block
+> **The pass cannot be run from a remote session, and that is a property of the fleet rather than of any one session.** It requires reading thirty-six repositories that have no GitHub organisation to be read from; locally they are flat peers under `~/github/`, which is reachable from a local session and invisible to a remote one. Until an organisation exists, §14's table stays `P2 Cited` for every remote session, and anything written in one rests on the summary rather than the source **by construction, not by carelessness**. Documents produced under that constraint should say so in their own provenance note rather than leaving the reader to infer it.
 
-**1 · `L1–L5` is undefined.**
-**State: blocking. Needs a document, not a decision.**
-§6 keys classification onto the sensitivity ladder and §15 makes it one of three ordinal scales, but nothing in the fleet states what the five levels *mean*. All that is recorded is behavioural: at L3 and above the payload is `NULL` in the SELECT list and only a derived instruction is served, and L5 is never served to anyone under any grant (#112). `willow-tech-manual` does not carry the definitions. **No field can be classified against a ladder nobody has written down**, so this blocks the first migration and everything downstream of it. Resolution: write the five definitions with one worked example each, in the app that owns the resolver.
+### The four that block — one closed, three open
+
+**~~1 · `L1–L5` is undefined.~~**
+**State: closed 2026-07-30. Resolved by `docs/SENSITIVITY.md`, which is canonical for the five definitions.**
+~~§6 keys classification onto the sensitivity ladder and §15 makes it one of three ordinal scales, but nothing in the fleet states what the five levels *mean*. All that is recorded is behavioural: at L3 and above the payload is `NULL` in the SELECT list and only a derived instruction is served, and L5 is never served to anyone under any grant (#112). `willow-tech-manual` does not carry the definitions. **No field can be classified against a ladder nobody has written down**, so this blocks the first migration and everything downstream of it. Resolution: write the five definitions with one worked example each, in the app that owns the resolver.~~
+
+The document defines `L1` Open, `L2` Internal, `L3` Attributed, `L4` Restricted, `L5` Enforcement-only; maps all eight §6 classes onto them; writes the sensitivity→trust crossing §15 asked to live in exactly one place; and carries the composition, prefix, fail-closed, and declassification rules. `tests/test_sensitivity_ladder.py` asserts the ladder is whole and that no rung takes a name another scale owns.
+
+**Two residuals, carried forward rather than closed with it:**
+
+- **1a · The `L3`+ NULL rule is ambiguous as cited, and the definitions assume a reading.** "The payload is `NULL` in the SELECT list" does not say *on which paths*. Read absolutely, a guardian cannot be served their own child's name; read as scoped to principals without an entitlement edge, it is correct. `SENSITIVITY.md` assumes scoped and flags it. **If the absolute reading is right, `L3` and `L4` are wrong.** This is one file in `apps/marching-arts` and it is the highest-value item in the item-0 pass.
+- **1b · `L5` is unreachable by class.** None of §6's eight classes maps to it, so the document assigns it per record under three rules — key material, the content of an enforced external restriction, and anything whose rendering would reveal a refusal. The alternative is a ninth class. Deliberate, and worth revisiting if a fourth trigger appears.
 
 **2 · The disposition of `apps/marching-arts`.**
 **State: blocking. Needs a decision.**

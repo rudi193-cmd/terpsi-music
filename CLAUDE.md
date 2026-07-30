@@ -24,7 +24,7 @@ A music-program management application holding **minors' education records**: ro
 11. **The canonical store is read-only to the app.** Agents write sidecars only; promotion to canonical is a human act. (§5)
 12. **Every pair gets a named middle, in the same commit.** Vendored copy, port, duplicate store, declaration-plus-enforcement — name the reconciler when you create the pair, or don't create the pair. (§16)
 13. **Absence surfaces as `unknown`, never as a result.** A rubric that failed to load returns "unavailable," not "no findings." A consent backend that errored returns "unknown," not "no restrictions." (§6)
-14. **Scales never compare as bare integers**, and no scale is encoded by colour alone. `L1–L5` sensitivity, `T0–T4` trust, `P1–P5` provenance — one mapping table, prefixes always. (§15)
+14. **Scales never compare as bare integers**, and no scale is encoded by colour alone. `L1–L5` sensitivity, `T0–T4` trust, `P1–P5` provenance — one mapping table, prefixes always. (§15; `docs/SENSITIVITY.md` for the L-rungs and the crossing)
 15. **Every ask gets a dated disposition.** Fee waivers, absence requests, records inspections. Silence is not an answer, and the timebound is declared at issuance. (§7.4 I-6)
 16. **A student's entries are as durable as entries about them.** No role's authority extends to deleting the record of its own exercise. (§7.4 I-7)
 
@@ -37,7 +37,7 @@ A music-program management application holding **minors' education records**: ro
 
 ## Working here
 
-- Canonical docs: **`docs/ARCHITECTURE.md`** (17 sections, with a component map at §14 marking what exists versus what is proposed) and **`docs/CAPABILITY-MAP.md`** (the domain surface).
+- Canonical docs: **`docs/ARCHITECTURE.md`** (18 sections, with a component map at §14 marking what exists versus what is proposed), **`docs/CAPABILITY-MAP.md`** (the domain surface), and **`docs/SENSITIVITY.md`** (the `L1–L5` rungs, the class-to-rung mapping, and the sensitivity→trust crossing — canonical for those, and addressed by rung rather than by section number).
 - Read **`§18` first** — the open list, with the four items that block a first commit — then `§14` for what exists versus what is proposed. Most of what this design needs already exists elsewhere in the fleet; the value is in what does not.
 - **`§14`'s "Exists" column is unverified** — assembled from READMEs and PR descriptions, not from reading source. Treat it as a claim to check, not a fact to build on (`§18` item 0).
 - Fleet repos are read through the GitHub API, not cloned. Do not clone the fleet into this workspace.
