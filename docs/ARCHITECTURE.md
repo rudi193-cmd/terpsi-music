@@ -129,6 +129,18 @@ Under (b), compromise of the drop yields: which mailboxes talked, when, and roug
 
 **Honest caveat.** A browser-delivered decryptor (the fallback for parents who won't install anything) means the code doing the decryption is served by the thing you don't trust. That is a real weakening. Keep it for low-sensitivity content only — the public performance schedule, a general announcement — and require the installed client for anything protected.
 
+### 4.2 What exists, and what the relay is not
+
+**`willow-mcp` serve mode is a real remote-access path.** HTTP with OAuth 2.0 + PKCE against Google or Apple, then a separate, operator-confirmed **identity binding** mapping that identity to an `app_id` before any permission applies. `confirm-binding` is deliberately not an MCP tool — a remote caller must never confirm its own binding — and an authenticated-but-unbound caller is denied exactly like an unmanifested one. It also tracks `email_basis` (`asserted` / `first_auth_only` / `relay` / `unavailable`) rather than trusting an IdP email uniformly, and annotates `email_drift` instead of silently updating.
+
+Two things follow for the parent problem. Google as IdP is *convenient* in a district on Google Workspace for Education and *wrong* everywhere else, so it cannot be the only enrollment path — which is what §4.1's passkey recommendation is for. And serve mode binds `127.0.0.1` by default; making it reachable by 200 households is precisely the exposure §4.1 exists to avoid, so it is the transport for the **staff** path of §4, not the parent one.
+
+**Grove is not the drop.** The catalog describes Grove as *encrypted peer-to-peer* and Willow Grove as carrying *encrypted u2u direct messages*. The implementation's own README corrects this: u2u is **authenticated, not confidential** — `json.dumps(packet)` onto a plain TCP socket, with `cryptography` used only for Ed25519 signing. Origin and integrity are verified; the body is plaintext on the wire, readable by anyone on the LAN segment. Adding confidentiality is described as an open decision, not a shipped feature.
+
+So the §4.1 relay remains unbuilt, and reusing u2u for it would be a serious error. What u2u *does* supply is the harder half of a mailbox relay — signed identity, verified origin, per-contact consent flags defaulting to False so a newly admitted contact can deliver nothing until granted. A confidentiality layer over that is a smaller job than a relay from scratch.
+
+> **Divergence to fix.** `catalog.json` still advertises encryption that the code does not implement, for two entries. Sibling repo `safe-app-grove`, named as Grove's canonical repository, does not resolve — consistent with the survey finding in #119 that two of four claimed canonical repos 404. Both are `FLEET_SEAMS`-class findings: the declaration and the enforcement disagree, and the declaration is the customer-facing one.
+
 ---
 
 ## 5. Envelope security
@@ -237,9 +249,41 @@ Two properties to carry into this design:
 
 A destination allowlist is still wanted for the genuinely outward traffic of §6's policy model — payment tokenization, the drop, circuit submissions — but it is a smaller, later thing than this document implied, and it sits outside the app rather than around it.
 
-### Policy model
+### The residual, and why it is a deployment requirement here
 
-Every outbound call at the outer ring is a triple: **destination × data class × purpose.** No triple, no traffic.
+`willow-mcp` states its own weakness plainly, and it is the single most important operational fact for this design: **on a host where the agent and the MCP server run as the same uid, the agent can write the very files that authorize its egress.** Leases make a self-grant expire and leave a record, and a `PreToolUse` hook blocks the obvious attempts, but the operating system is not stopping it. `WILLOW_MCP_STRICT_TRUST_ROOT=1` refuses egress when the keys are self-writable — and it ships **off by default**, because turning it on before uid separation exists would deny egress on every current install (tracked as B-32).
+
+For a personal box, off-by-default is a reasonable trade. For a hub holding minors' education records it is not. So this is a hard requirement of any school deployment, not a hardening option:
+
+- `mcp_apps/` and `mcp_apps/_net_leases/` owned by a uid the application does not run as
+- `WILLOW_MCP_STRICT_TRUST_ROOT=1`
+- the trust root outside any directory bound read-write into a task sandbox — *put data in the repo; put the gate outside it*
+- `diagnostic_summary`'s `checks.net_lease.self_writable` clean, checked as part of install acceptance rather than trusted
+
+**Severance is the mechanism for "this org's data stays local," and it is asserted rather than assumed.** Naming the fleet an install is cut off from turns the claim into something checked across four surfaces, with the right asymmetry: store and Postgres hold *data*, so a violation degrades; `trust_root` and `egress` hold *authority*, so a violation breaks. A server reporting `ok` while wired to the fleet would be worse than no check at all. Every school install should assert severance, and an unasserted one should not pass acceptance.
+
+### Policy model — superseded by willow-mcp's three keys
+
+This document proposed a destination × data class × purpose triple. `willow-mcp` implements something better, and the improvement is that **no single authority can open the door**:
+
+| Key | Question | Turned by |
+|---|---|---|
+| `task_net` | May this app *ever* request egress? | operator, once, in the manifest — deliberately excluded from `full_access` |
+| `consent.internet` | Is egress permitted *right now*? | operator, flipped freely in `settings.global.json` |
+| egress lease | For *this app*, until *when*? | operator CLI, expires on its own |
+| signed task envelope | This submitter, this exact task, scope, expiry, nonce? | operator, one use |
+
+The load-bearing sentence is *an agent may request egress and may never grant it to itself*: `grant-net` is local-CLI only, no MCP tool can mint a lease, and the Ed25519 signing key lives outside `WILLOW_HOME`.
+
+`consent.internet` is the kill switch this document asked for, already built — `{"consent": {"internet": false}}` stops network tasks immediately without editing a manifest. And the reading discipline is the right one everywhere: a missing file, an unparseable file, a non-boolean (`"true"`, `1`), an expired lease, a deadline with no timezone, or a lease naming a different app than the file it sits in all read as denied. **Absence is not consent, and a name is not an identity.**
+
+Destination and purpose still want expressing for the genuinely outward traffic — payment tokenization, circuit submissions, the drop — but as adapters in the integration ledger, where the rule is already *earned, not scaffolded*: four adapters live, six declared stubs that refuse fail-closed and name what would earn them.
+
+### The redaction funnel exists; it does not know about students
+
+Tool responses pass a single funnel that redacts credential-shaped values — provider keys, PEM blocks, tokens, JWTs — to `[REDACTED:<kind>]`, with per-tool exemptions that are receipted as `credential_returned` so an exception is loud rather than silent.
+
+**That is exactly the mechanism §6's outbound scanning wanted, aimed at a different noun.** The funnel is one place; adding student-identifier patterns to it is a smaller change than building the scanner this document imagined. The classes above are what it would key on.
 
 ### Classification, and how it meets the L-ladder
 
@@ -441,6 +485,7 @@ Not legal advice — the state-law column in particular varies enough that the d
 - The current build targets caption scoring. Does its model treat captions as projections over anchored commentary (§8.1), or as the base structure? If the latter, that is the one thing worth revisiting early — festival ratings and clinician feedback both fall out for free under the former.
 - Score-position anchoring: align audio against a stored score, or judge-driven tap-to-mark, or both? Affects how much of the music library must be machine-readable.
 - **Can `field-acoustics` and commentary share coordinates?** A judge's remark is anchored to a moment and a seat; the acoustic model predicts what arrived at that seat. Pairing them gives a claim no drill designer can currently make — and gives the model's `ASSUMED` rear hemisphere a source of validation data that would otherwise have to be measured in the field.
+- **Should adjudicators be calibrated?** `oakenscrolls-office` is a working calibration ledger — state a claim with confidence, grade it when the world weighs in, and a reliability diagram shows whether your 70% means 70%, scored by Brier and log loss, append-only so a revised number never erases the original. Point that engine at adjudication and the question becomes: does this judge's caption score predict placement, and are they consistently high, low, or noisy against the panel? That is a real capability with an existing implementation, and also the most politically delicate feature in this entire document — a circuit may want it badly and individual judges may not. Decide who may see a judge's own reliability curve before building it, because the answer is probably *the judge, and no one else by default*. Note the same repo's citation pattern is directly reusable: resolution evidence pinned to a source *and the git commit of the catalog that vouched for it*, read from local clones with no network.
 - **Does the practice loop violate a fleet ground rule?** UTETY's ground rule 2 is *feedback is about the work, never the learner* — no praise of the person, no leaderboards — with a policy test linting content against self-directed praise. The capability map proposes practice streaks, cumulative-hour milestones, and chair-challenge standings. Some of that is about the work and survives; some of it is a leaderboard with a different name. Reconcile before building, because the rule is enforced by test in a sibling app and this would be the second student-facing app in the fleet.
 
 ---
@@ -464,6 +509,16 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §8.1 commentary primitive | — | **Open** |
 | §1–§2 practice + mastery | UTETY (BKT, item sets, on-device store) | **Adjacent.** Different subject matter, same shape — worth reading before rebuilding |
 | Library vs. learner split | UTETY ↔ Jeles | **Settled pattern.** UTETY holds the learner, Jeles holds the sources — the repertoire library may want the same seam |
+| §6 kill switch | `consent.internet` | **Exists** |
+| §6 three-key egress + envelope | `willow-mcp` | **Exists**, stronger than proposed |
+| §6 outbound scanning | the redaction funnel | **Exists for credentials.** Needs the student-identifier classes |
+| §3 hardening | `WILLOW_MCP_STRICT_TRUST_ROOT`, severance | **Exists, off by default.** Mandatory here — see §6 residual |
+| §4 staff remote access | `willow-mcp` serve mode (OAuth + confirmed binding) | **Exists** |
+| §4.1 the parent relay | — | **Open.** Grove's u2u is signed, *not* confidential — reusable identity, missing confidentiality |
+| §7 finance module | `private-ledger` | **Exists as a template**, with the injected-`ingest` bridge pattern |
+| §10 / §17 aggregate exports | `nest_promote`, `nest_digest` | **Exists as a pattern.** Promote *structure* — counts, categories, never content; the full digest is local-CLI only, never returned over MCP |
+| Guardianship / family graph | `the-squirrel` | **Adjacent**, though it serves a web port rather than staying import-pure |
+| Judge calibration | `oakenscrolls-office` | **Exists as an engine** — see §13 |
 
 **Read before building:** `willow-grove`'s `FLEET_SEAMS.md` and `DESIGN_CONSTRAINTS.md`. The fleet already maintains a repo whose entire job is recording where two components each do half a job and the halves do not meet, with `file:line` citations and a re-verify command per finding. A new app is exactly the thing that creates a fifth such seam.
 - Is "corporate" the circuit/association, the district, or a vendor? Changes what aggregates mean and who signs off on them.
