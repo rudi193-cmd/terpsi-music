@@ -629,6 +629,24 @@ The scaffold above was described for a student writing a song, which is the bott
 
 **And the tree runs both directions.** I-7 in §7.4 of the architecture — *entries authored by the governed about the office are as durable as entries authored by the office about the governed* — means feedback travels up as well as down: a student's account of a rehearsal, a section's note on a chart that does not sit well, a staff member's account of a decision. A scaffold that only helps authority address subordinates is a management tool wearing a pedagogy costume. **It has to work upward or it is the wrong thing.** W-7 holds throughout: no rung is ever ranked against another, in any surface, under any grant.
 
+### The loop must not close
+
+Once a generator and a critic both exist, connecting them is the obvious next step. It is cheap, it works, and **it already happened in the session that produced this section.** A machine wrote a lyric. A machine built the checker. The checker found five real defects in the lyric — including one introduced by a revision made *after* the rule it violated had been explained — and the machine accepted every correction. Two human instructions in the whole cycle, neither of them a craft judgement.
+
+Recorded because it is the worked example, and because of the gap between what it did and what it could not do.
+
+**It found five defects. It proposed zero replacements.** Every actual choice — which image, which word, where the harmony lifts — came from outside the checker's reach. A loop of that shape can converge on a draft satisfying every mechanical rule that moves nobody, which is the homogenisation failure named above, industrialised.
+
+**So the hazard is not machines generating. It is machines agreeing.** A generator and a critic drawn from the same model are structurally a mirror, and a mirror cannot audit itself. §6 of the architecture already carries the answer, arrived at for an unrelated reason: `willow-gate`'s friction floor is model-free, deterministic, and runs **outside** the model it watches, on precisely the grounds that self-audit is not audit.
+
+The constraints:
+
+- **No artifact is sealed by a chain containing no human signature.** §8.2 of the architecture requires this for transcripts and it holds here unamended: a machine critique of a machine draft yields another draft. The loop may iterate indefinitely; it cannot produce a record.
+- **Generator and critic must be separable, and where they are not, the artifact says so.** "Written and reviewed by the same model" is a provenance fact of the same class as `P5 Assumed` (§15 of the architecture) and belongs on the record rather than in a reader's assumption.
+- **A student's draft is never the input to an unattended loop.** Iterating a machine's own lyric costs nothing. Iterating a fourteen-year-old's costs them the thing this capability exists to teach — and W-5 already forbids the version where the system decides on its own that they have stopped needing the scaffold.
+
+**Note what closed this door.** §8.2 of the architecture was written about a judge confirming a transcript, W-5 about a guardian signing for a ward. Neither was drafted with a model reviewing its own song in mind. They hold anyway, without amendment, which is usually the sign a clause was drawn at the right level.
+
 **Most of the substrate exists and is open.** `music21` for symbolic analysis, ChoCo for harmony, WASABI and LyricSense for lyric corpora, Essentia and `librosa` for audio. The pedagogy is formalized — Pattison's prosody and object writing have been taught at Berklee since the 1970s — and the cognition has a research program in Huron's ITPRA model of expectation. What is missing is the wiring: the taught rule has never been connected to the corpus that could check it, and the generation tools went from blank page to finished track without stopping to build the critic. **This is the part that does not exist yet, which is the only reason it is worth building here.**
 
 ---
