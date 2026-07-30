@@ -171,6 +171,8 @@ opened in a clone at the named commit, not summarised.
 | `Nestor` | `111c187` | `nestor/curator.py`, seal states | **CONFIRMED.** `Curator.servable` at `curator.py:82`, `unverifiable()` at `:118`, cascade `sealed`/`draft`/`pending` all present. **But it is at `rudi193-cmd/nestor`, not `Die-Namic-Systems`** |
 | `willow-gate` | `3092de5` | `src/willow_gate/friction_floor.py` | **CONFIRMED**, and it is a sibling of this repository's `voice.py` — see below |
 | `willow-data-vault` | `b634de0` | `README.md`, `schema/` | **CONFIRMED.** Three-layer architecture, `vault.key` + Fernet. Nine files: schemas and bootstrap only, *"never data"* |
+| `quiet-corner` | `1230e96` | `qc-data.js`, `docs/backend-architecture.md` | **§7.3 CONFIRMED exactly.** Eight `*_visible` fields; the source itself states *"API does not enforce them in Tier 1/2"* |
+| `corpus-lens` | `0c2a124` | `README.md`, `tests/test_wall.py` | **§4.2 CONFIRMED verbatim**, both halves including the test |
 
 ### The divergence, and why it is the most important thing here
 
@@ -424,3 +426,50 @@ Nine files — schema and `bootstrap/provision.sh`, explicitly *"never data."*
 no sealing implementation in it to read. That is consistent with §9 foundation 3
 already saying at-rest sealing across the Zone A boundary is **not** built; the
 reading order was wrong, not the component map.
+
+
+## The two read for what they get right about being wrong
+
+**`quiet-corner` — §7.3's claim is exact, and the source admits it in prose.**
+Eight fields, counted: `roster` · `attendance` · `standards` ·
+`knowledge_graph` · `iep` · `behavior` · `parent_contact` · `archive`. And
+`docs/backend-architecture.md:453`:
+
+> *"Frontend gates all rendering and request construction on these flags. **API
+> does not enforce them in Tier 1/2.**"*
+
+So this is not an undiscovered defect — it is a **documented** one, which makes
+it a cleaner example than §7.3 claims. The declaration and the enforcement
+disagree, the gap is written down, and nothing fails. §16's point exactly: an
+acknowledged missing middle is still a missing middle.
+
+Two things worth taking, neither in §7.3:
+
+- **The defaults encode the ladder.** Three of eight default to `false` —
+  `iep_visible`, `behavior_visible`, `parent_contact_visible`. Those are the
+  `L4`-shaped ones (health, discipline) plus guardian contact. The vocabulary
+  *does* map onto the ladder as §7.3 says, and the **defaults** are where that
+  mapping is actually expressed.
+- **`parent_contact` defaults closed while `roster` defaults open**, so the app
+  treats guardian contact as more sensitive than student roster. This
+  repository puts `PII_GUARDIAN` and `PII_MINOR` both at `L3`. Worth a look when
+  `L3` is next opened.
+
+**`corpus-lens` — §4.2's load-bearing claim is verbatim, and so is the test.**
+`README.md:19-20`:
+
+> *"A custody schedule was once reconstructed from keystroke timing alone —
+> content redaction does not scrub the shape of a week."*
+
+And §4.2's harder claim — that the README documents what the wall does *not*
+hide, with a test asserting it — is `tests/test_wall.py:147`:
+
+```
+def test_weekly_cadence_IS_reconstructable_documented_not_hidden(self):
+```
+
+**That is the shape this repository should copy directly.** A test whose subject
+is a *limitation* rather than a guarantee, named so it cannot be mistaken for a
+failing assertion and quietly "fixed." `voice.py`'s `KNOWN_MISSES` is the same
+idea and `corpus-lens` got there first; the naming convention is better and is
+free to adopt.
