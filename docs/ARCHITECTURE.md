@@ -1496,6 +1496,18 @@ diagnosis in the struck sentence was half right: the ladder is indeed right, and
 the vocabulary feeding it had no hole — the *route into* the ladder did, because
 classification consulted the class mapping and never reached step 3's clause.
 
+**12 · The subject has no standing in their own lane.**
+**State: open, found by building 2026-07-30. Needs a decision.**
+§7's entitlement edges are `guardian_of`, `staff_of`, `director_of`, `judge_at`, `clinician_for`. **None of them is the subject.** `records/serving.py` implements §7 faithfully and the consequence is that a student reading their own chair assignment is served the derived instruction — *"one member of this section"* — about their own name.
+
+Two settled clauses assume the opposite. **W-6** transfers the lane's keys *to the subject* at the threshold, with history intact; **I-7** makes a student's own entries as durable as entries about them. A model where the subject is a stranger to their own lane until the day they inherit it is unlikely to be what §7 meant. `marching-arts` scoped its projection by `subject_id != viewer`, so the subject always saw their own payload — the spike had a rule this design does not.
+
+**Three ways to close it**, and this is the decision: add a `self` edge kind to §7's vocabulary; make the predicate treat `principal.id == subject_id` as standing without an edge; or state deliberately that a minor has no read standing in their own lane before W-6's threshold, and say what that means for I-7.
+
+**The third is defensible and should be argued rather than defaulted into**, which is what is happening now. A guardianship model may legitimately hold that a ten-year-old does not read their own medical lane. It should not hold that by accident of an enumeration.
+
+`tests/test_serving.py::test_a_student_CANNOT_read_their_own_record_documented_not_hidden` asserts the current behaviour so that changing it is a visible diff.
+
 ### The three to state, which do not block day one
 
 **5 · The exit line is unwritten.** §11.1 requires it *before* the first install and it does not exist. W-6 (§7.4) additionally requires the per-graduate version, which is the harder of the two and is a precondition of enrolment rather than an end-of-life feature.

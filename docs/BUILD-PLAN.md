@@ -76,10 +76,18 @@ migrations/   ABSENT — the DDL is still in docs/schema/
 surface dir   none
 craft/        text-only: no student data, no network, no model
 voice.py      enforcement-ready, routed through nothing
+records/      the read predicate — the first code here that decides about a person
 ```
 
-Nothing here touches student data yet. That is correct for this stage, and it
-means *ready for the build* should be read as **ready to start it**.
+**`records/` is the vertical slice, built 2026-07-30**, and it earned its keep
+twice on the first day. Ablating each guard showed one mutant surviving — the
+`L5` never-served check could be removed and the suite stayed green, because a
+different rule caught the same field further down (`EXTERNAL-ARM.md`'s *"a gate
+green because a different constraint was catching it"*). And implementing §7's
+edge vocabulary faithfully revealed that **a student cannot read their own
+record**, now §18 item 12.
+
+Neither was findable by reading. Both took an afternoon.
 
 ---
 
@@ -102,6 +110,7 @@ those.
 
 | | task | depends on |
 |---|---|---|
+| ~~C1~~ | ~~The vertical slice~~ | **Built 2026-07-30** — `records/`, the first code here that touches the domain. Found §18 item 12 in an afternoon |
 | C1 | Extend `craft/` | nothing — text-only, no student data, no network, no model |
 | C2 | Sweep `docs/survey/*.md` for `§N` | needs the routing decision in `scout-25` part 5 first |
 | C3 | A rule-13 acceptance test | nothing. `willow-grove`'s constraint 1 supplies the shape — point a reader at an unreachable source in CI and assert no surface reports health. Rule 13 has **no test here** |
