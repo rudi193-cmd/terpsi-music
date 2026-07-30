@@ -204,7 +204,7 @@ The highest-frequency pain and the highest-frequency source of family conflict.
 - Donation tracking, acknowledgment letters, tax receipts
 
 **Institutional**
-- Three-way reconciliation: district account, activity account, booster account
+- Three-way reconciliation: district account, activity account, booster account — **`Nestor`'s `Reconciler` is this, already built**: a figure checked against a human-sealed baseline with absolute and percentage tolerance, reporting variation and flagging deviations, every seal and check landing in a hash-chained ledger. Substitute "ceiling" for "trip account balance" and the example runs unchanged.
 - Purchase orders and approval chains; vendor invoices and payment tracking
 - Multi-year budget planning by category; capital replacement planning
 - Grant discovery, application, and reporting

@@ -693,6 +693,20 @@ A recording of a judge's voice over a performance by identifiable minors is `MED
 
 Pipeline, entirely inside the trust boundary: ingest judge audio and performance audio → align → diarize → transcribe → anchor to score position → index. Transcripts inherit the classification of their source audio; nothing about "it's only text now" declassifies it.
 
+**And a transcript is a `draft`, not a record.** This document previously described the pipeline without saying what its output *is* in trust terms, which left a machine transcription of a human's words looking like the human's words. `Nestor`'s cascade supplies the missing state (§16):
+
+| State | For commentary |
+|---|---|
+| `draft` | The transcription, as produced. Queued, usable for search and routing, **never rendered as what the judge said.** |
+| `sealed` | The judge confirmed this text. Served verbatim thereafter, carrying their name. |
+| `pending` | Alignment or transcription produced nothing usable — said plainly, not guessed at. |
+
+The consequences are practical. A caption comment routed into a student's practice queue (§1 of the capability map) should carry its state, because *"the low brass was late at 112"* attributed to a named adjudicator is a different object from an ASR guess at those words. A `draft` can inform; only a `sealed` remark should be quoted back to a student or shown to a parent.
+
+Sealing also has a natural moment: the commentary grace period after an event (§4) is exactly when a judge could confirm their own transcript, while they still remember the performance. That turns a review chore into the thing that makes their commentary durable and attributable — and it is the only point at which the person who said the words is still available to confirm them.
+
+**Rejection matters here more than sealing.** `reject_match` — *this correct remark is attached to the wrong passage* — is the common adjudication error, and it must not destroy the remark. That distinction is already built.
+
 ---
 
 ## 9. Phasing
@@ -975,6 +989,23 @@ Propagates by `min`. A headline is its weakest input, and says so.
 
 `willow-2.0`'s evidence-tiers migration already has the right pattern — `tier` **and** `confidence` as two columns side by side, one ordinal and one continuous, neither pretending to be the other. Copy that shape: carry `provenance` and `confidence` together, and only populate `confidence` where a resolution mechanism actually exists to grade it against.
 
+### And human verification is a third axis, not a rung
+
+`Nestor`'s `sealed | draft | pending` (§16) is neither provenance nor confidence. Provenance says *where a value came from*; confidence says *how sure the claim is*; the seal state says **whether a person has stood behind it** — and no amount of the first two produces the third.
+
+A `P1 Measured` reading can be `draft`: instrumented properly, never reviewed. A `P5 Assumed` value can be `sealed`: someone looked at it, agreed it was the right assumption, and put their name on it. Those are different objects and collapsing them loses the thing that matters for a record about a minor.
+
+So the full descriptor for any served value is three fields and a name:
+
+| Field | Answers |
+|---|---|
+| `provenance` (`P1–P5`) | Where did this come from? |
+| `confidence` (0–1, optional) | How sure is the claim, where gradeable? |
+| `seal_state` (`sealed`/`draft`/`pending`) | Has a human stood behind it? |
+| `verifier` | **Which** human, and when? |
+
+And `servable` alongside `seal_state`, for the same reason `Nestor` carries it: a stored status and an enforceable one are not the same question.
+
 ### Where all of it collides
 
 Adjudication, in a single row. A judge's caption score is a **claim**. `oakenscrolls-office` grades claims against outcomes. `field-acoustics` predicts what actually arrived at that judge's seat, carrying its own `P`-rung. So one commentary record can eventually hold the score, the judge's stated confidence, the provenance of the model that corroborates or contradicts it, and — a season later — the resolution.
@@ -1058,6 +1089,37 @@ Three worked examples from the fleet's own bridges, in ascending order of how mu
 **A middle duplicated, with neither copy checked.** `nest-seed/bridge.py` connects the local PII zone to the fleet knowledge base, and its docstring states the stake plainly: *"the Nest DB holds a person's legal filings, messages, journals — content that must never leave this machine."* It has a behaviour test and **no purity test**. The same file is vendored into `willow-mcp`, a repo with no checker at all. Canonical and vendored, the middle copied along with the code, and neither instance verified.
 
 **A rule copied by hand, already diverged.** The standalone `oakenscrolls-office` carries its own AST scanner rather than importing `safe-app-common`, with a **narrower forbidden set** than the shared one. Two copies of the same rule, drifted — which is this section's thesis applied to the enforcement layer itself.
+
+### The engine for all of this already exists, and it is called Nestor
+
+This section was written as a specification. It turns out to describe a shipped component — `Nestor`, *"meaning infrastructure, **in medio, fides**"* — which answers exactly one question about any machine-produced answer: **has a human checked this?**
+
+Not as a score. As a state, and the state is never a guess:
+
+| | State | Meaning |
+|---|---|---|
+| ✓ | `sealed` | A human verified it. Served verbatim, instantly, with their name attached. |
+| ~ | `draft` | A machine produced it. Queued for review, **never served as verified**. |
+| ! | `pending` | Nothing to offer — *"said plainly rather than improvised."* |
+
+That third state is §6's rule about absence, implemented as a value rather than left to a convention.
+
+**And its `servable` column is the instrument for this entire section.** `Curator` reports `servable` next to `status`, *"because they are not the same question"* — a row saying `sealed` whose signature does not verify comes back `servable=False`, and `unverifiable()` lists precisely those rows:
+
+```
+sealed   servable=True   rita      the annual invoice
+sealed   servable=False  mallory   forged phrase        <- unverifiable() finds this
+```
+
+**That is declaration-versus-enforcement as a computed column.** Every divergence recorded in this document is a row whose `status` claims one thing and whose `servable` would say another — a catalog advertising encryption, a docstring counting four guards where five are wired, a `session_scope` honoured nowhere, a bridge whose docstring promises *"no willow import here, ever."* The pattern §16 describes has a working detector; it has simply never been pointed at prose.
+
+Three properties to carry into anything built here:
+
+- **Rejection is first-class, and it has two kinds.** `reject_pair` retires a wrong mapping everywhere; `reject_match` says *this correct answer is wrong for this query* and leaves the seal intact. The justification is the sentence this design should adopt outright: *"otherwise the audit trail only ever records agreement."* An approval log is not an audit log.
+- **Fail-safe direction is chosen per operation.** A rejection is honoured **even when its signature does not verify**, because *"suppressing an answer degrades to human review, which is the safe state; serving an unverified one does not."* Withholding and asserting are not symmetric, and the defaults should not be either.
+- **The ledger refuses rather than warns.** Appending is denied if the ledger is a symlink or not a regular file — *"the trail must not be redirectable or suppressible"* — and the existing chain is verified before extension, so a new entry can never launder a tampered history. `NESTOR_SEAL_KEY` binds a seal to a key the store does not hold, so a row edited to `status='sealed'` in the database will not verify and will not be served. Same shape as #127: the module can be bypassed, the gate cannot.
+
+Two honest limits it records about itself, both worth inheriting as habits: *"no value of [the threshold] is good at both jobs"* — 0.92 gives 16.4% false seals against 23.6% recall, 0.96 gives 0.4% against 2.4% — so the threshold is exposed rather than tuned for you; and `IDEAS.md` notes that **nothing consumes rejections as signal**, recorded but unread. A stack of rejections against one query is the strongest available evidence that a threshold is wrong for that domain.
 
 ### The only declaration in the fleet that is checked for rot
 
