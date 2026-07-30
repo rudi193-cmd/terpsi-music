@@ -22,6 +22,7 @@ ARCHITECTURE = ROOT / "docs" / "ARCHITECTURE.md"
 CAPABILITY_MAP = ROOT / "docs" / "CAPABILITY-MAP.md"
 CLAUDE = ROOT / "CLAUDE.md"
 SURVEY = ROOT / "docs" / "OPEN-SOURCE-SURVEY.md"
+EXTERNAL_ARM = ROOT / "docs" / "EXTERNAL-ARM.md"
 SURVEY_DIR = ROOT / "docs" / "survey"
 
 # "`scout-07-audio-score.md`" in the survey's index table.
@@ -196,6 +197,15 @@ def test_statute_citations_are_skipped_but_bare_refs_are_not():
     assert len(refs) == 1, f"expected the statute skipped and the bare ref kept, got {refs}"
     assert refs[0][0] == 2, "wrong reference survived the statute filter"
     assert len(bad) == 1 and "9999" not in bad[0]
+
+
+def test_external_arm_references_resolve():
+    """EXTERNAL-ARM.md is a fourth document citing §N into the canonical two.
+    Left unchecked it would be exactly what the docstring above warns about — a
+    pointer nobody verifies — and it is an outside review, so its citations are
+    the part most likely to drift from the sections it is reviewing."""
+    bad = unresolved(EXTERNAL_ARM, default=ARCHITECTURE)
+    assert not bad, "\n".join(bad)
 
 
 if __name__ == "__main__":
