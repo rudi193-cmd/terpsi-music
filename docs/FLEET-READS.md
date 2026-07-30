@@ -177,6 +177,9 @@ opened in a clone at the named commit, not summarised.
 | `kartikeya` | `de77d67` | `src/kartikeya/sandbox.py`, `execute.py` | **CONFIRMED.** bwrap isolation, fails closed. **And it contains item 0's fix** |
 | `quick-stupids` | `a92389c` | whole tree | **REFUTES this repository's own claim.** No `band/persona.py`, no Python, no tombstone |
 | `almanac-template` | — | — | **UNREACHABLE.** `add_repo` refuses cross-tier; `almanac-data` is a different org |
+| `jeles-remote` | `cdb2a1d` | `README.md`, `sources.py` | **§4.3 CONFIRMED**, all four criteria; the source count is 65 exactly |
+| `Jeles` | `0ae85b5` | `README.md` | **CONFIRMED.** *"The corpus sits in front of live search, it doesn't replace it"* |
+| `willow-config` | `4645535` | tree | **CONFIRMED** — all three named files present. And a third `kart-sandbox.json` |
 
 ### The divergence, and why it is the most important thing here
 
@@ -634,3 +637,56 @@ that never existed is **not established here**. What is established is that they
 are not on this account, and a bare name that resolves to nothing is exactly the
 `P2` decay §15 describes. Each needs a resolution or a tombstone; neither is
 this file's to write.
+
+---
+
+## `kart-sandbox.json` is in three repositories, and two of them are a bare pair
+
+Corrected from the entry earlier in this file, which saw two copies and reported
+the override mechanism as their middle. With `willow-config` read, there are
+three:
+
+| Location | Bytes | SHA (first 12) | Declared? |
+|---|---|---|---|
+| `kartikeya/src/kartikeya/data/` | 2519 | `a7d71f2d3df1` | **yes** — the vendored product-neutral default, whose own `description` names the override path |
+| `willow-config/kart-sandbox.json` | 5452 | `a98d66cc8de1` | plausibly `$WILLOW_HOME` — the documented override location |
+| `willow-2.0/willow/fylgja/config/` | 5452 | `a98d66cc8de1` | **no** |
+
+**The second and third are byte-identical**, and nothing observed reconciles
+them. `kartikeya.resolve_sandbox_config` resolves `$KART_SANDBOX_CONFIG` →
+`$WILLOW_HOME/kart-sandbox.json` → the vendored default. That mechanism explains
+*one* override. It says nothing about why a third copy of the same bytes sits
+under `willow-2.0/willow/fylgja/config/`.
+
+**Identical today is the dangerous state, not the safe one.** §16's tally is
+four pairs and four drifts; a pair that is currently in sync presents exactly
+like a pair with a middle, right up until someone edits one side. This is a
+sandbox mount policy — the file that decides what a sandboxed task can reach —
+so the drift direction that matters is the one that silently widens it.
+
+The earlier entry in this file called the two-copy case *"a pair with a middle,
+not a drift."* That was right about `kartikeya` ↔ override and wrong as a
+description of the whole picture, because a third copy had not been looked for.
+Corrected here rather than edited above, so the shape of the error stays visible:
+**finding a declared mechanism is not the same as finding all the copies.**
+
+## `willow-config` — all three claimed files present
+
+`willow.md`, `config/settings.global.json` and `kart-sandbox.json` all exist at
+`4645535`. Tier 2's description of this repository is accurate.
+
+## `Jeles` and `jeles-remote`
+
+`Jeles` at `0ae85b5` — §14's *"verified answers in front of inference"* is the
+repository's own framing: *"the corpus sits in front of live search, it doesn't
+replace it. A confident nugget match answers instantly — no search, no LLM
+call."* That is refusal 1's posture reached from a different direction: the
+cheapest way to avoid a non-local inference call is to answer without inferring.
+
+`jeles-remote` at `cdb2a1d` — §4.3's four criteria for a permitted hosted
+component all hold. Stateless (*"no volumes, no database,
+`min_machines_running = 0`"*), refuses to start without its key, opaque payloads,
+and the *"~65 institutional search APIs"* count is **65** `search_` functions
+exactly. Worth noting the near-miss: `sources.py` says *"up to 16 sources run in
+parallel"*, which reads like a source count and is a concurrency limit. A tally
+taken by grepping the first plausible number would have reported 16.

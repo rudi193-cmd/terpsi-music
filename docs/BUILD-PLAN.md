@@ -3,7 +3,7 @@
 **Status:** plan. Governs nothing; `docs/ARCHITECTURE.md` governs. No numbered
 sections — a `§N` here is always the architecture's.
 
-**One page on purpose.** There are 14,565 lines under `docs/` at time of
+**One page on purpose.** There are 14,621 lines under `docs/` at time of
 writing, this file included — derived, not quoted (#17). If this file
 grows past two screens it has stopped being a plan and become another thing to
 read. Everything here is a pointer to a decision or a task, never a restatement.
