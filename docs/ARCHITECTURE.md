@@ -458,6 +458,8 @@ The classes below answer a different question — *what kind of data is this, an
 
 Tag at schema-definition time. Retrofitting classification across an existing schema is miserable, which is why it belongs in the first module — and why the mapping from these classes onto the existing L-levels should be written down once, in the schema, rather than inferred per feature.
 
+**That mapping is written, and it is `docs/SENSITIVITY.md`** — which is canonical for what the five rungs mean, for all eight classes' rungs, and for the sensitivity→trust crossing. This section is not to restate it; where the two disagree, that document wins and this one is the defect (§16). Note in particular that no class maps to `L5`: that rung is reached per record, under three rules stated there.
+
 ### Enforcement tiers
 
 1. **Allowed** — pre-approved, logged. Payment tokenization, the drop, OS updates from pinned mirrors.
@@ -675,7 +677,11 @@ Three of the general invariants bear directly and were not in this document:
 
 ## 8. Domain model
 
-Sketch, not schema.
+Sketch, not schema — **and the lane half is now schema.** `docs/LANE-MODEL.md`
+and `docs/schema/001_lanes.proposed.sql` are canonical for `Lane`, `Person`,
+the referent, the entitlement edges, and the grant table; this section is not
+to restate their fields (§16). What follows stays a sketch for everything the
+proposed migration does not reach — inventory, money, ops, performance, comms.
 
 - **Org** → **Program** → **Ensemble** → **Season** → **Event**
 - **Lane** — per §7.4 W-1/W-3, the unit of storage and audit is one ward's lane, created at first write and sealed against sibling lanes by default. **A shared event is two lane entries with one referent** — a rehearsal attended by 150 students is 150 entries against one `Rehearsal`, not one row with a roster column. Retrofitting this is a migration, so it is a schema decision rather than a modelling preference.
@@ -742,7 +748,7 @@ The ordering principle: build the things that are expensive to retrofit first, r
 
 **Foundation — hard to add later, so add it now**
 1. Person / relationship graph with time-boxed edges (§7) — **built** (P1/P2), less the dated-guardianship gap in §7.1
-2. Data classification on every field (§6) — the L-ladder is **built**; the class-to-L mapping is not
+2. Data classification on every field (§6) — the L-ladder is **built**; the class-to-L mapping is **written but unenforced** (`docs/SENSITIVITY.md`), and enforcement is the work
 3. Envelope + key hierarchy, even while everything is still on one LAN (§5) — chain integrity and per-subject erasure are **built**; at-rest sealing across the Zone A boundary is not
 4. Egress purity in the core (§6, inner ring) — **built**, AST-proven. The outer broker is not, and is only needed once something must legitimately talk to the world
 5. Append-only audit log — the hash-chained disclosure log is **built**, with the count-anchor truncation defence
@@ -972,7 +978,7 @@ Both are small integers, both are called "level," and they point opposite ways. 
 
 The resolution is *not* to force them into agreement — sensitivity and privilege genuinely oppose, and bending one to match would make its own semantics worse. Instead:
 
-- **Never compare raw integers across scales.** A single mapping — which trust rung a given sensitivity requires — lives in one place, and every gate calls it. `law-gazelle`'s permission table (§7.2) is that mapping, written out.
+- **Never compare raw integers across scales.** A single mapping — which trust rung a given sensitivity requires — lives in one place, and every gate calls it. `law-gazelle`'s permission table (§7.2) is that mapping, written out. **For this app it lives in `docs/SENSITIVITY.md`**, in that table's shape, and it is a mapping rather than an enforcement until a harness routes reads through it.
 - **Prefix every rung so a bare integer cannot travel**: `L1–L5` sensitivity, `T0–T4` trust, `P1–P5` provenance.
 - **Composition differs per scale**, which is the strongest reason they can never be merged:
 
@@ -1072,6 +1078,8 @@ The repo also documents the cost of not doing this: twenty-one terminal UIs in `
 ---
 
 ## 16. The bilateral pattern, and the middle
+
+> **Evidence for this section is in `docs/CROSSINGS.md`** — twenty-one defects from a single session, grouped by how each was caught, and the six patterns under them. Crossing one is this section's subject with six worked instances and the one fix that held: *make the violation inexpressible, not forbidden.* It is a findings record and governs nothing.
 
 This section is a reading key for the rest of the document. It was the last thing noticed and it should probably have been the first.
 
@@ -1323,23 +1331,54 @@ Everything above argues about design. This section is the short list of things t
 
 That is the exact defect #124 named: *a figure carried from a summary rather than from the thing that produced it.* Before anything is built on the strength of that table, one pass should open the code behind each **Exists** row and either confirm it or downgrade it — and the pass itself should leave a record, because an unverified table and a verified one look identical.
 
-### The four that block
+> **The pass cannot be run from a remote session, and that is a property of the fleet rather than of any one session.** It requires reading thirty-six repositories that have no GitHub organisation to be read from; locally they are flat peers under `~/github/`, which is reachable from a local session and invisible to a remote one. Until an organisation exists, §14's table stays `P2 Cited` for every remote session, and anything written in one rests on the summary rather than the source **by construction, not by carelessness**. Documents produced under that constraint should say so in their own provenance note rather than leaving the reader to infer it.
 
-**1 · `L1–L5` is undefined.**
-**State: blocking. Needs a document, not a decision.**
-§6 keys classification onto the sensitivity ladder and §15 makes it one of three ordinal scales, but nothing in the fleet states what the five levels *mean*. All that is recorded is behavioural: at L3 and above the payload is `NULL` in the SELECT list and only a derived instruction is served, and L5 is never served to anyone under any grant (#112). `willow-tech-manual` does not carry the definitions. **No field can be classified against a ladder nobody has written down**, so this blocks the first migration and everything downstream of it. Resolution: write the five definitions with one worked example each, in the app that owns the resolver.
+### The four that block — one closed, three open
+
+**~~1 · `L1–L5` is undefined.~~**
+**State: closed 2026-07-30. Resolved by `docs/SENSITIVITY.md`, which is canonical for the five definitions.**
+~~§6 keys classification onto the sensitivity ladder and §15 makes it one of three ordinal scales, but nothing in the fleet states what the five levels *mean*. All that is recorded is behavioural: at L3 and above the payload is `NULL` in the SELECT list and only a derived instruction is served, and L5 is never served to anyone under any grant (#112). `willow-tech-manual` does not carry the definitions. **No field can be classified against a ladder nobody has written down**, so this blocks the first migration and everything downstream of it. Resolution: write the five definitions with one worked example each, in the app that owns the resolver.~~
+
+The document defines `L1` Open, `L2` Internal, `L3` Attributed, `L4` Restricted, `L5` Enforcement-only; maps all eight §6 classes onto them; writes the sensitivity→trust crossing §15 asked to live in exactly one place; and carries the composition, prefix, fail-closed, and declassification rules. `tests/test_sensitivity_ladder.py` asserts the ladder is whole and that no rung takes a name another scale owns.
+
+**Two residuals, carried forward rather than closed with it:**
+
+- **1a · The `L3`+ NULL rule is ambiguous as cited, and the definitions assume a reading.** "The payload is `NULL` in the SELECT list" does not say *on which paths*. Read absolutely, a guardian cannot be served their own child's name; read as scoped to principals without an entitlement edge, it is correct. `SENSITIVITY.md` assumes scoped and flags it. **If the absolute reading is right, `L3` and `L4` are wrong.** This is one file in `apps/marching-arts` and it is the highest-value item in the item-0 pass.
+- **1b · `L5` is unreachable by class.** None of §6's eight classes maps to it, so the document assigns it per record under three rules — key material, the content of an enforced external restriction, and anything whose rendering would reveal a refusal. The alternative is a ninth class. Deliberate, and worth revisiting if a fourth trigger appears.
 
 **2 · The disposition of `apps/marching-arts`.**
 **State: blocking. Needs a decision.**
 §17 says "from scratch." Nothing says whether the playground copy is deleted on promotion or kept. This decides whether the first commit is a move or an empty tree — and §16 rule 4 is explicit that leaving two live copies behind a "keep in sync" note is the option with a measured failure rate in this fleet (four pairs, four drifts). If it is kept, it needs a named middle in the same commit; if it is retired, it needs the five-part tombstone.
 
-**3 · No schema for the lane model.**
-**State: blocking. Needs writing.**
-W-1 and W-3 (§7.4) are schema decisions, not modelling preferences: a lane per ward from the first write, and *a shared event is two lane entries with one referent.* §8 is an entity sketch with no fields, keys, or migrations. Migration 001 cannot be written from what is on the page, and retrofitting either clause later is a data migration across every table that references a student.
+**~~3 · No schema for the lane model.~~**
+**State: written 2026-07-30, not adopted. `docs/LANE-MODEL.md` + `docs/schema/001_lanes.proposed.sql`.**
+~~W-1 and W-3 (§7.4) are schema decisions, not modelling preferences: a lane per ward from the first write, and *a shared event is two lane entries with one referent.* §8 is an entity sketch with no fields, keys, or migrations. Migration 001 cannot be written from what is on the page, and retrofitting either clause later is a data migration across every table that references a student.~~
+
+Twelve tables. W-1, W-2, W-3 and W-6 are encoded structurally rather than as policy — `lane_entry.lane_id` NOT NULL, a grant table with a single lane column and no join table to put a set in, a `referent` with no participant column, and `exit_terms` NOT NULL with a non-blank CHECK. `access_grant.max_rung` omits `L5` from its CHECK, so the ladder's top rung is unreachable through a grant by construction. §7.1's state/history split is applied: eight tables take `valid_at`/`invalid_at`, three deliberately do not, and the three carry a `BEFORE UPDATE OR DELETE` trigger because omitting the pair does not stop an `UPDATE`. All 93 columns are classified in a seeded registry.
+
+> **The count above was wrong in this document's first version of this entry — it said ten, and the tree said twelve.** That is rule 17's defect, committed in the same session that corrected an instance of it in CLAUDE.md. Recorded rather than quietly amended, because the useful part of a tally of these is that it keeps growing.
+
+The DDL has been **executed** against PostgreSQL 16 and every constraint attacked directly: eight forbidden acts refused, legitimate writes still landing. `tests/test_lane_model.py` guards the same invariants as text with no database, and `.github/workflows/tests.yml` runs both on every push — the suite existed for one commit before anything ran it automatically, which made it a ledger.
+
+**This one is struck as *written*, not as *closed*, and the distinction is the point.** Three things still gate adoption:
+
+- **It rests on a paraphrase.** W-1…W-7 exist in `Willow`'s `PROTECTED_AGENTS.md` Part III and were not read at source — the schema encodes CLAUDE.md's one-line gloss of §7.4's summary. §7.4 itself notes the fragment carries a machine register and a human one, and that *"a clause that cannot survive translation between the two registers is not yet a clause."* Encoding the human-register gloss is exactly that translation risk. **Open Part III before this becomes `migrations/001_lanes.sql`.**
+- **Three invariants are stated and unenforced** — I-7's supersession asymmetry, W-3's default deny, and the rung ceiling. All three are predicates over the acting principal, so they belong with the read predicate and not in DDL. Named in `LANE-MODEL.md` rather than left to be discovered.
+- **It is gated on blockers 2 and 4**, which is why the file sits in `docs/schema/` rather than `migrations/`.
 
 **4 · Which surfaces exist.**
 **State: blocking for layout. Needs a decision.**
 Six personas (§4), `safe-design` ready with tokens and structurally-parity backends, and nothing recorded about whether this is a TUI, a browser application, both, or a TUI plus the parent PWA of §4.2. The answer sets the first directory layout and determines which of `safe-design`'s backends is load-bearing.
+
+**11 · The class vocabulary does not cover the categories §20 of the capability map names.**
+**State: open. Needs a decision, and it is larger than it looks.**
+§6's eight classes were mapped onto the ladder in `docs/SENSITIVITY.md` faithfully, and the mapping is sound for what the classes describe. The problem is what they omit. §20 of the capability map lists **confidential address programs (Safe at Home), McKinney-Vento housing status, undocumented families, foster placement changes, and chosen name distinct from the SIS legal record.** None has a class. Every one lands at `PII_MINOR` or `PII_GUARDIAN`, and therefore at `L3` — the rung whose rule is *served in full to any principal holding a current edge*.
+
+That is wrong by at least one rung in every case and dangerously wrong in two. A Safe at Home address exists because disclosing it can get someone killed; `L3` serves it to every staff member with a roster edge. A legal name served to the program-printing path is the outing that §20 of the capability map asks to be handled deliberately. And §18 of the capability map's *"fee waivers that are structurally invisible to peers"* is already load-bearing on `L5`'s rule 3, which arrived from a different direction and covers only the refusal, not the status.
+
+Three ways to close it, and this is the decision: add classes to §6's vocabulary; add a per-field rung override that outranks the class mapping; or treat "protected status" as a fourth `L5` trigger alongside the existing three. The third is cheapest and probably wrong, because these must be *served* to somebody — a chaperone needs the accommodation even when nobody may see the status. That points at `L4` with a declared purpose, which means new classes.
+
+**Nothing should classify a field in these categories until this closes.** The ladder is right; the vocabulary feeding it has a hole in exactly the population the program is most obliged to protect.
 
 ### The three to state, which do not block day one
 
@@ -1348,6 +1387,8 @@ Six personas (§4), `safe-design` ready with tokens and structurally-parity back
 **6 · No conformance suite.** §17 requires that instances run the template's suite and that promotion writes a record. Neither exists; `promote_check.py` returns an exit code and writes nothing. Until it exists, "template" means "the first copy."
 
 **7 · Score-position anchoring is unchosen** (§13) — stored-score alignment, judge-driven tap-to-mark, or both. It determines how much of the music library must be machine-readable, which is a large and separable body of work.
+
+> **Reclassified 2026-07-30: still not day-one, no longer separable.** §24 of the capability map's craft-feedback capability rests on seven checks at the lyric/music seam — stress against meter, vowel against pitch, breath against phrase — and every one anchors to a position in *both* the text and the score. None can be built without this. It remains outside the first commit; it stops being a body of work that can be deferred indefinitely without deciding what it blocks. Left in this list rather than moved up, with the change recorded here.
 
 ### The three that need a choice, not research
 

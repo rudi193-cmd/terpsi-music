@@ -20,6 +20,11 @@ ROOT = Path(__file__).resolve().parent.parent
 
 ARCHITECTURE = ROOT / "docs" / "ARCHITECTURE.md"
 CAPABILITY_MAP = ROOT / "docs" / "CAPABILITY-MAP.md"
+SENSITIVITY = ROOT / "docs" / "SENSITIVITY.md"
+LANE_MODEL = ROOT / "docs" / "LANE-MODEL.md"
+CROSSINGS = ROOT / "docs" / "CROSSINGS.md"
+FLEET_READS = ROOT / "docs" / "FLEET-READS.md"
+CRAFT_SOURCES = ROOT / "docs" / "CRAFT-SOURCES.md"
 CLAUDE = ROOT / "CLAUDE.md"
 SURVEY = ROOT / "docs" / "OPEN-SOURCE-SURVEY.md"
 EXTERNAL_ARM = ROOT / "docs" / "EXTERNAL-ARM.md"
@@ -34,6 +39,19 @@ SEPARATELY_CHECKED = {ARCHITECTURE, CAPABILITY_MAP, SURVEY}
 
 # "`scout-07-audio-score.md`" in the survey's index table.
 _SCOUT_FILE = re.compile(r"`(scout-\d{2}-[a-z0-9-]+\.md)`")
+
+# Documents that declare no numbered sections of their own, paired with the
+# document a bare §N in them refers to. The default is not uniform: most point
+# at the architecture, but CRAFT-SOURCES.md is *about* §24 of the capability
+# map and would otherwise resolve every reference against the wrong file —
+# caught by this guard when the document was added.
+POINTERS = (
+    (SENSITIVITY, ARCHITECTURE),
+    (LANE_MODEL, ARCHITECTURE),
+    (CROSSINGS, ARCHITECTURE),
+    (FLEET_READS, ARCHITECTURE),
+    (CRAFT_SOURCES, CAPABILITY_MAP),
+)
 
 # "## 7. Authorization" / "### 7.4 The Ward Case, adopted" -> 7 / 7.4
 _HEADING = re.compile(r"^#{2,6}\s+(\d+(?:\.\d+)*)[.\s]")
@@ -182,6 +200,33 @@ def test_the_index_check_can_actually_fail():
     present = {p.name for p in SURVEY_DIR.glob("scout-*.md")}
     assert named == {"scout-99-does-not-exist.md"}
     assert named - present, "checker did not notice a file that is not there"
+def test_pointer_document_references_resolve():
+    """SENSITIVITY.md and LANE-MODEL.md are canonical for their own subject and
+    point outward for everything else, so every §N in them is ARCHITECTURE.md's."""
+    bad = []
+    for path, default in POINTERS:
+        bad += unresolved(path, default=default)
+    assert not bad, "\n".join(bad)
+
+
+def test_pointer_documents_declare_no_numbered_sections():
+    """The property that makes the test above safe.
+
+    Default-routing sends a bare §N in these files to ARCHITECTURE.md. If one
+    ever grew a "## 3. ..." of its own, a self-reference to §3 would silently
+    resolve against ARCHITECTURE.md §3 (Topology) — passing, and pointing at
+    the wrong document. They address by rung and by clause id precisely so the
+    collision cannot arise, and this asserts it stays that way."""
+    bad = []
+    for path, _default in POINTERS:
+        found = headings(path)
+        if found:
+            bad.append(
+                f"{path.name} declares numbered sections {sorted(found)} — a bare "
+                "§N in it is now ambiguous. Address by rung or clause, or teach "
+                "references() to route to it."
+            )
+    assert not bad, "\n".join(bad)
 
 
 def test_the_check_can_actually_fail(tmp_path=None):

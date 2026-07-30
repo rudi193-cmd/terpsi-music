@@ -1,0 +1,17 @@
+# Declared intentional — craft findings kept on purpose, with the reason.
+# Format: <finding-id>  <why>
+#
+# Per §24 of the capability map, a declared finding is not suppressed. It moves
+# to a separate list in the report, because the declaration is the artifact
+# worth keeping — whether the writer knew is a better signal than whether the
+# line follows the rule.
+
+SING:CHORUS:S0:L2:hands       "Hands cold" is the hook. The cluster is the grit and it sits on a short note, not a held one.
+SING:CHORUS#2:S0:L2:hands     Same line, second chorus. Deliberate.
+SING:CHORUS-(out):S0:L2:hands Same line, last chorus. Deliberate.
+SING:BRIDGE:S0:L0:months      "Nine months" is the whole bridge. /nths/ is hard and the difficulty is the point — it should sound like effort.
+SING:BRIDGE:S0:L1:months      Repeated on purpose; see above.
+SING:VERSE-2:S0:L2:hazards    Kept. "Hazards on" is the image the verse is built around and no synonym carries it.
+SING:CHORUS:S0:L2:horns      "Horns up" is the command, not a word choice. /rnz/ is easy to sing and there is no synonym.
+SING:CHORUS#2:S0:L2:horns     Same line, second chorus.
+SING:CHORUS-(out):S0:L2:horns Same line, last chorus.

@@ -494,6 +494,181 @@ The section that separates software written by someone who has run a program fro
 
 ---
 
+## 24. Composition and Craft Feedback
+
+> **Numbered last, placed here on purpose.** It belongs beside §2, and inserting it there would renumber twenty-one sections and break every reference in three documents. Appended rather than inserted; the number records when it arrived, not where it sits.
+
+The twenty-three sections above are about **performing** music. None is about writing it. That is a third of the domain missing — Create, alongside Perform and Respond — and it covers AP Theory composition assignments, arranging, the student who writes the pep-band chart, and the kid with a notebook of lyrics nobody has ever given feedback on.
+
+**It is a teaching instrument that happens to work by diagnosis.** That distinction is the whole design and it is easy to lose.
+
+A critic reports defects. What this does is deliver the lesson **at the only moment it can land** — when the student already cares, because it is their line, in their song, and they are stuck on it now. Motivation is the scarce resource in music education and the task supplies it for free. Most tooling in this space bolts a lesson onto a task; here the task is the delivery vehicle, and the pedagogy is not a companion module.
+
+The literature has been settled on this for decades and music software has largely ignored it: scaffolding within the zone of proximal development; cognitive apprenticeship, which makes expert *thinking* visible rather than only its output; Hattie and Timperley's finding that task-level and process-level feedback work while praise does not; and productive failure — let the student get it wrong first, because the attempt is what makes the explanation stick. Order matters. Teach before the attempt and it is a lecture.
+
+It does not write the song and it does not grade it.
+
+**Lyric diagnosis**
+- Prosody: where natural speech stress lands on a weak beat, which is the single most common defect and the least visible to the writer
+- Structure: section lengths, how long the hook is withheld, whether the final chorus varies or repeats
+- Line-count parity — even groups resolve, odd groups propel — and whether that matches the section's intent
+- Rhyme scheme and rhyme *type*: perfect closes a section, slant leaves it open, and all-perfect reads as nursery rhyme
+- Concreteness: the ratio of sensory detail to stated abstraction, per section
+- Singability: closed vowels on long or high notes, consonant clusters at speed
+
+**Music diagnosis — melody**
+- Contour: the arc, where the single peak sits, whether it is approached or stumbled into
+- Range *and* tessitura, which are different problems. A melody whose extremes are fine but which lives at the top of them exhausts a singer by the second chorus
+- Melodic rhythm in isolation — a good tune is recognisable with every pitch flattened, and one that is not is usually the problem
+- Leap-to-step ratio, and whether large leaps resolve back
+- Motivic economy: one cell examined from several angles, or four unrelated ideas in a row
+- Breath. Where the singer actually inhales, which is checkable and almost never checked
+
+**Music diagnosis — harmony**
+- Voice leading: smallest available motion, common tones held. The skill nobody notices until it is wrong, and the one that separates chords that sound inevitable from chords that sound stacked
+- Parallel fifths and octaves, the oldest check in the pedagogy and one `music21` performs today
+- Cadence type and placement against where the form says a section should close
+- Harmonic rhythm, and whether it shifts at section boundaries or grinds on unchanged
+- Direction: a progression that goes somewhere versus a loop of individually nice chords
+- Surprise budget. Zero borrowed chords reads as bland; four reads as incoherent. One, well placed, is usually the answer
+
+**Music diagnosis — rhythm, meter, form**
+- Where the strong beats fall, which is the input the lyric side needs and cannot derive alone
+- Syncopation density, and whether the groove and the melody are arguing
+- Section proportion, time-to-hook, whether the bridge departs and whether the final chorus varies
+- Repetition analysis: state, restate, depart
+
+**Music diagnosis — arrangement and orchestration**
+
+This is the strongest case in the whole section, because almost none of it is a matter of taste.
+
+- **Range and playability per part, against the actual players.** A trumpet part written to a high D for a section whose best player tops out at A is not a stylistic disagreement, it is a chart that cannot be performed, and student arrangers and directors write them constantly. §19's *repertoire recommendation calibrated to measured ensemble ability* is the same data pointed at a different question
+- Register collision: two parts in the same octave doing different things, which is where mud comes from
+- Doubling — what is doubled, and whether it needs to be
+- Texture over time: does anything ever drop out, or does everything play from bar one
+- Entrance and exit points as an arc, which is the difference between an arrangement and a stack
+- Transposition errors, key-signature errors, and out-of-range percussion assignments — unglamorous, and the actual content of most failed school charts
+
+### The join — where lyric and music meet, and why it is the whole point
+
+Everything above splits cleanly into two halves. **The interesting capability is neither half; it is the seam**, and the seam has a name: prosody.
+
+Seven things are checkable there, and **not one of them can be checked from either side alone:**
+
+| Seam | The check | Needs |
+|---|---|---|
+| Stress ↔ meter | Natural speech stress lands on strong beats | Syllable stress + the metric grid |
+| Vowel ↔ pitch | Open vowels on long or high notes | Phonetics + note duration and register |
+| Breath ↔ phrase | The singer can inhale where the syntax allows it | Punctuation and clause structure + rests |
+| Syllables ↔ notes | A seven-syllable line does not fit a six-note phrase without crushing something | Line scansion + melodic rhythm |
+| Consonants ↔ tempo | Clusters that cannot be articulated at this speed | Phonetics + BPM |
+| Rhyme ↔ cadence | Rhyme closure agreeing, or deliberately disagreeing, with harmonic closure | Rhyme scheme + cadence placement |
+| Register ↔ register | The lyric's emotional turn and the music's harmonic turn arriving on the same word | Both, and taste |
+
+**And the join is exactly the gap the field left open.** The lyric corpora are enormous and the symbolic music corpora are excellent, and the *aligned* data between them is thin. Analysis tools take audio or they take text. The generators produce both at once and explain neither. A tool that only reads lyrics cannot see a beat; a tool that only reads scores cannot see a syllable. **The most common defect in songwriting is invisible to every existing tool because it lives between two of them**, which is the entire argument for building this here rather than assembling it from parts.
+
+**What the join cannot reach.** The last row of that table is Pattison's prosody in the wide sense — form serving content — and it is where the art actually lives. Lifting to the relative major on the word the warmth arrives is a decision no checker proposes and none can score. The tool handles the mechanical seam and should say so plainly rather than implying the rest follows. Getting the stress right is a floor, not a song.
+
+**One dependency, and it is already an open item.** Every check in that table anchors to a position in *both* the text and the score, which requires score-position anchoring — stored-score alignment, tap-to-mark, or both. That is §13 of the architecture's open question and §18 item 7, and it is unchosen. **This capability cannot be built past the lyric-only checks until it is**, which promotes item 7 from a separable body of work to a prerequisite.
+
+**Revision is the actual product**
+- Draft-to-draft diff, because the revision is where the craft lives and the first draft never is
+- "What changed and did it help" — the question a teacher asks and has no time to ask thirty times
+
+**The mechanic: flag, then let the student declare intent**
+
+Not flag-and-fix. Half of these rules are not laws, they are descriptions of a tradition, and the good songs break them deliberately. **The tool cannot tell an error from a choice** and must stop pretending it can.
+
+> *Line 3 — "because" is stressed BE-cause against the beat here. Usually a mistake. Sometimes deliberate.*
+> → `I'll fix it` · `I meant it, and here is why`
+
+That turns the limitation into the best assessment signal in the system. **Whether a student can say "I know, I meant it" — and defend it — is a better measure of craft than whether the line follows the rule.** It is also the question a teacher grading thirty songs never has time to ask, and the answer is precisely what they want to know. The declaration is the artifact worth keeping, not the corrected line.
+
+**Fading is mandatory, and the success metric is inverted**
+
+A scaffold that never withdraws manufactures dependency, which is the opposite of teaching. If this flags the same stress mismatch in draft forty that it flagged in draft one, it has **failed while working perfectly.**
+
+So the measure is not defects found. It is **defects the student caught before the tool did, trending up** — and the tool's goal is its own obsolescence, one student at a time. Worth stating as a design target because every incentive in software points the other way.
+
+The related trap is the expertise reversal effect: worked examples help novices and actively harm people who have internalised the thing. Explaining prosody to a student who now hears it makes them worse at the task, not better.
+
+**Hard constraints, all of them already specified elsewhere**
+- **Diagnose, never score.** *"Line 3's stress falls on a weak beat"* is checkable and true whether or not the song is any good. A quality score is the thing with a documented record of failing at scale, and it would be poison in a classroom regardless.
+- A craft note is **commentary anchored to a position** — §8.1 of the architecture already models this, and a measure number or a line number is the same primitive as a judge's remark at bar 112.
+- A machine critique is a **`draft` until a named human seals it** (§8.2 of the architecture). It may inform a teacher; it is never shown to a student as a teacher's judgment.
+- **No comparison between two students, ever.** W-7 in §7.4 of the architecture: the system presents, a human decides. No ranking of whose song is better, in any surface, under any grant.
+- Local inference only. A student's unfinished song is `MEDIA_MINOR` and `PII_MINOR` at once.
+- **Scaffolds do not fade by themselves.** W-5 in §7.4 of the architecture — *agency grows by signature, never by drift; a clean track record is evidence for a proposal, never a grant in itself.* Dropping a student's hints because their record looks good is exactly drift. The system surfaces the case — *this student has caught their own prosody four drafts running, consider reducing the hints* — and a teacher signs it. Slower, and correct, and it keeps the teacher in a loop that adaptive software otherwise quietly removes them from.
+- **The rules are Anglo-American popular song craft, and the tool must know that.** Stress-timed prosody does not transfer to a syllable-timed language. Flagging a Spanish or Mandarin lyric against English stress rules is not a limitation, it is a wrong answer delivered confidently to a child. §18's language-access requirement bites harder here than anywhere else in this map, and a rule set that cannot name the tradition it encodes should refuse rather than guess (§6 of the architecture — absence surfaces as unknown, never as a result).
+- **Homogenisation is the failure mode nobody will notice.** Thirty students corrected toward the same tradition write the same song. The declare-intent mechanic is the only defence in the design, which is thin, and it should be watched rather than assumed sufficient.
+
+### The tree — everyone in it writes something
+
+The scaffold above was described for a student writing a song, which is the bottom rung and the obvious one. It is not the only one. **Every person in a music program produces a made thing, every one of those things has a craft, and above the student rung almost nobody has ever been taught it.**
+
+| Rung | What they make | The craft nobody teaches them |
+|---|---|---|
+| Student | The song, the solo, the audition take, the reflection | Prosody, contour, structure, revision |
+| Peer / section | The critique of each other's work | How to say a useful thing about someone else's work without either flattering or flattening it |
+| Student leader | The sectional plan, the correction on the field | Giving a note that is specific, actionable, and does not humiliate — at seventeen, to a friend |
+| Staff / tech | The rehearsal plan, the sectional | Sequencing a rehearsal so the hard thing happens while attention is still available |
+| Arranger / designer | The chart, the drill, the show concept | Writing to a *measured* ensemble ability rather than an imagined one |
+| Director | The season arc, repertoire selection, program notes | The multi-year shape; and program notes, which are almost universally bad |
+| Adjudicator / clinician | The commentary itself | Writing a remark a fifteen-year-old can act on before Tuesday |
+| Guardian | The story they tell about the program | — (receives, retells; the audience the case is made to) |
+| Admin / district | The schedule defence, the staffing case | Making an argument from evidence they already hold and never assemble |
+| Board / exec | The narrative that decides whether the program exists | Concreteness over abstraction, under time pressure, to people who do not play |
+
+**Three things make this one capability rather than ten.**
+
+**One primitive covers the whole tree.** §8.1 of the architecture already models commentary as *anchored, addressed, dimensioned* — a remark attached to a position, aimed at an ensemble, a section, a part, or one person, optionally against a rubric criterion. A judge's note at bar 112, a section leader's correction on a drill page, a director's margin note on an arrangement, and a student's own reflection on their second verse are **the same object with different authors and different anchors.** Nothing new is needed to hold them.
+
+**Above the student rung, the craft being scaffolded is giving feedback — and that is the genuinely untaught thing.** A student gets years of instruction in playing and none in critique. A section leader is handed authority over eight peers at seventeen with no training in how to use words. An adjudicator has usually never been taught how to write a comment that a teenager can act on, which is why so much adjudication commentary is unactionable — *more energy, watch your ensemble, needs maturity.* The same scaffold applies without modification: flag the abstraction, name what a specific version would look like, let the author declare intent, and fade as they stop needing it.
+
+**The same defect recurs at every rung, which is why one tool reaches all of them.** It is the failure named for lyrics at the bottom of the tree — *"I'm lonely" is a report; the untouched second toothbrush is the thing that lands* — and it is identical at the top. A board hears *the arts build well-rounded students* and forgets it before the next agenda item. A board hears *forty-one kids spent nine months on eleven minutes* and does not. **Concreteness over statement is one rule, and it decides both whether a lyric works and whether the program is funded next year.**
+
+**And the tree runs both directions.** I-7 in §7.4 of the architecture — *entries authored by the governed about the office are as durable as entries authored by the office about the governed* — means feedback travels up as well as down: a student's account of a rehearsal, a section's note on a chart that does not sit well, a staff member's account of a decision. A scaffold that only helps authority address subordinates is a management tool wearing a pedagogy costume. **It has to work upward or it is the wrong thing.** W-7 holds throughout: no rung is ever ranked against another, in any surface, under any grant.
+
+### The loop must not close
+
+Once a generator and a critic both exist, connecting them is the obvious next step. It is cheap, it works, and **it already happened in the session that produced this section.** A machine wrote a lyric. A machine built the checker. The checker found five real defects in the lyric — including one introduced by a revision made *after* the rule it violated had been explained — and the machine accepted every correction. Two human instructions in the whole cycle, neither of them a craft judgement.
+
+Recorded because it is the worked example, and because of the gap between what it did and what it could not do.
+
+**It found five defects. It proposed zero replacements.** Every actual choice — which image, which word, where the harmony lifts — came from outside the checker's reach. A loop of that shape can converge on a draft satisfying every mechanical rule that moves nobody, which is the homogenisation failure named above, industrialised.
+
+**So the hazard is not machines generating. It is machines agreeing.** A generator and a critic drawn from the same model are structurally a mirror, and a mirror cannot audit itself. §6 of the architecture already carries the answer, arrived at for an unrelated reason: `willow-gate`'s friction floor is model-free, deterministic, and runs **outside** the model it watches, on precisely the grounds that self-audit is not audit.
+
+The constraints:
+
+- **No artifact is sealed by a chain containing no human signature.** §8.2 of the architecture requires this for transcripts and it holds here unamended: a machine critique of a machine draft yields another draft. The loop may iterate indefinitely; it cannot produce a record.
+- **Generator and critic must be separable, and where they are not, the artifact says so.** "Written and reviewed by the same model" is a provenance fact of the same class as `P5 Assumed` (§15 of the architecture) and belongs on the record rather than in a reader's assumption.
+- **A student's draft is never the input to an unattended loop.** Iterating a machine's own lyric costs nothing. Iterating a fourteen-year-old's costs them the thing this capability exists to teach — and W-5 already forbids the version where the system decides on its own that they have stopped needing the scaffold.
+
+**Note what closed this door.** §8.2 of the architecture was written about a judge confirming a transcript, W-5 about a guardian signing for a ward. Neither was drafted with a model reviewing its own song in mind. They hold anyway, without amendment, which is usually the sign a clause was drawn at the right level.
+
+### What can be built first
+
+Thirty-seven checks, derived from the lists above. They do not all cost the same, and the split is sharp enough to plan against:
+
+| Group | Checks | Needs |
+|---|---|---|
+| Lyric diagnosis | 6 | text only |
+| Revision / draft diff | 2 | text only |
+| Melody | 6 | a symbolic score |
+| Harmony | 6 | a symbolic score |
+| Rhythm, meter, form | 4 | a symbolic score |
+| Arrangement | 6 | a score **and** measured ensemble ability |
+| The seam | 7 | both, aligned |
+
+**Eight need nothing but text**, and are built: `craft/`, stdlib-only, no network. **Seven are blocked** on score-position anchoring (§18 item 7 of the architecture), which is the awkward part — the highest-value checks are the only ones that cannot be started.
+
+It multiplies by rung less than it looks. Nearly all thirty-seven are checks on a student's artifact; what extends up the tree is one feedback-craft scaffold applied to ten different made things, not 370 checks.
+
+**Most of the substrate exists and is open.** `music21` for symbolic analysis, ChoCo for harmony, WASABI and LyricSense for lyric corpora, Essentia and `librosa` for audio. The pedagogy is formalized — Pattison's prosody and object writing have been taught at Berklee since the 1970s — and the cognition has a research program in Huron's ITPRA model of expectation. What is missing is the wiring: the taught rule has never been connected to the corpus that could check it, and the generation tools went from blank page to finished track without stopping to build the critic. **This is the part that does not exist yet, which is the only reason it is worth building here** — and that claim is an absence inferred from four web searches, which `docs/CRAFT-SOURCES.md` records at its true strength rather than this one's.
+
+---
+
 ## 21. Persona index
 
 | Domain | Student | Guardian | Staff/Tech | Director | Clinician/Judge | Admin/District |
