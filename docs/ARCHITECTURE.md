@@ -193,6 +193,19 @@ Two things follow for the parent problem. Google as IdP is *convenient* in a dis
 
 **Grove is not the drop.** The catalog describes Grove as *encrypted peer-to-peer* and Willow Grove as carrying *encrypted u2u direct messages*. The implementation's own README corrects this: u2u is **authenticated, not confidential** — `json.dumps(packet)` onto a plain TCP socket, with `cryptography` used only for Ed25519 signing. Origin and integrity are verified; the body is plaintext on the wire, readable by anyone on the LAN segment. Adding confidentiality is described as an open decision, not a shipped feature.
 
+**But the fleet does have a template for a justified hosted component, and the relay should be held to it.** `jeles-remote` is the only remote-hosted service in the constellation — a FastAPI proxy on Fly.io fronting ~65 institutional search APIs — and it is a deliberate, tightly-argued exception rather than a lapse:
+
+| Property | How it is achieved |
+|---|---|
+| Holds no state | Stateless; no volumes, no database, `min_machines_running = 0` — it is not even running between calls |
+| Cannot reach the sensitive corpus | **By absence, not by gate**: *"no local knowledge base, no corpus access, no Postgres, no Ollama, no filesystem-backed credential store"* |
+| Refuses to run misconfigured | *"The service refuses to start at all"* without `JELES_REMOTE_SECRET` |
+| Touches only public data | Every call is an outbound request to a public institutional API |
+
+That second row is the un-passable-parameter discipline again (§6), applied to a whole deployment: the corpus cannot leak through this service because the corpus is not in it.
+
+**The drop can meet every one of those criteria**, and should be required to. Stateless, opaque payloads, no schema of the domain, no ability to enumerate, refuses to start without its keys. jeles-remote does not solve confidential transport — but it establishes the bar under which this fleet permits a hosted thing to exist at all, and §4.2's relay is the next candidate to clear it.
+
 So the relay remains unbuilt, and reusing u2u for it would be a serious error. What u2u *does* supply is the harder half of a mailbox relay — signed identity, verified origin, per-contact consent flags defaulting to False so a newly admitted contact can deliver nothing until granted. A confidentiality layer over that is a smaller job than a relay from scratch.
 
 > **Divergence to fix.** `catalog.json` still advertises encryption that the code does not implement, for two entries. Sibling repo `safe-app-grove`, named as Grove's canonical repository, does not resolve — consistent with the survey finding in #119 that two of four claimed canonical repos 404. Both are `FLEET_SEAMS`-class findings: the declaration and the enforcement disagree, and the declaration is the customer-facing one.
@@ -706,7 +719,9 @@ Not legal advice — the state-law column in particular varies enough that the d
 
 **The rubric is missing the two checks this app needs most.** R1–R15 covers injection, traversal, credentials, CORS, XSS, unsigned execution, API auth, swallowed exceptions, temp paths, races, entry points, dependency pinning, and dev paths. It has **no check for encryption at rest** and **no check that an egress test exists**. Both are the point of this design, so the recommendation is concrete: add **R16 — data at rest is encrypted, with the key escrowed (§5)** and **R17 — a structural no-egress test exists and fails when neutralised (§6, §10)** to the fleet rubric rather than to a local fork of it.
 
-It also carries the fleet's canonical fail-closed idiom, worth stating as house style: *fail at startup, not at request time. A missing secret is a hard configuration error.* Every gate in this document should behave that way — `SAP_PGP_FINGERPRINT` unpinned (§7.2), `WILLOW_INFERENCE_PROVIDER` set to `auto` (§6), and a manifest declaring a cloud permission should each refuse to start.
+It also carries the fleet's canonical fail-closed idiom, worth stating as house style: *fail at startup, not at request time. A missing secret is a hard configuration error.* `jeles-remote` implements exactly that — it *"refuses to start at all"* without its shared secret — so the idiom is real practice, not just a documented aspiration. Every gate in this document should behave that way: `SAP_PGP_FINGERPRINT` unpinned (§7.2), `WILLOW_INFERENCE_PROVIDER` set to `auto` (§6), and a manifest declaring a cloud permission should each refuse to start.
+
+**The counter-pattern, from the same repo, is worth naming too.** A `jeles-remote` source missing its API key *"silently returns no results; nothing else breaks."* That is convenient and it is the same failure family as §7's indistinguishability caveat and §15's decaying `P2`: **an absence rendered as a negative answer.** A caller cannot distinguish *this source found nothing* from *this source was never asked*. In a program context the equivalents are unforgiving — a rubric that did not load returning "no findings," a consent backend that failed open returning "no restrictions," an eligibility check that could not reach the SIS returning "eligible." Wherever a component can be absent, the absence must be reported as *unknown*, never as a result.
 
 **Add a line the rubric does not have: the verification apparatus was itself verified.** `willow-mcp` #211 reports that across three merged PRs in one session, **six defects were found in the verification apparatus and zero in the code under verification** — a differential reference generated before the thing it checked changed; a fixture writing a hash chain with the same function it read it back with, so a rename was invisible *and self-consistent*; a fixture that could not fail; a killed mutation harness that left a mutation in the tree and turned every subsequent number into fiction; three mutations that renamed a SQL trigger rather than disabling it, so it kept firing under the new name; and counts in prose that nothing checks.
 
@@ -822,6 +837,7 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §4 staff remote access | `willow-mcp` serve mode (OAuth + confirmed binding) | **Exists** |
 | §4.1 parent notification + acknowledgment (~95%) | SMS, ideally a local SIM gateway | **Open, but small.** No app, no enrollment, no inbound; constrained by carrier throughput, not cost |
 | §4.2 the transactional relay (~5%) | — | **Open.** Grove's u2u is signed, *not* confidential — reusable identity, missing confidentiality |
+| Criteria for a justified hosted component | `jeles-remote` | **Exists as precedent.** Stateless, scales to zero, corpus absent rather than gated, refuses to start unconfigured |
 | §7 finance module | `private-ledger` | **Exists as a template**, with the injected-`ingest` bridge pattern |
 | §10 / §17 aggregate exports | `nest_promote`, `nest_digest` | **Exists as a pattern.** Promote *structure* — counts, categories, never content; the full digest is local-CLI only, never returned over MCP |
 | Guardianship / family graph | `the-squirrel` | **Adjacent**, though it serves a web port rather than staying import-pure |

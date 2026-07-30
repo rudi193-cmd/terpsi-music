@@ -120,6 +120,7 @@ The highest-frequency pain and the highest-frequency source of family conflict.
 - **Physical location** down to cabinet and drawer number
 - Part-level inventory — do we actually have all eight second clarinet parts
 - Missing-part tracking, reprint authorization, purchase records with PO numbers
+- **A citable-source backend already exists.** `jeles-remote` fronts ~65 institutional APIs — Library of Congress, Crossref, Internet Archive, Chronicling America, Europeana, plus a specialty long tail that explicitly includes **music** — and pointedly excludes Wikipedia from its defaults because *"results here are meant to be citable in an academic bibliography."* That is the right posture for programme notes, composer research, and public-domain determination, and it pairs with the `status` + `observed` liveness discipline the `P2` rung needs.
 - **Copyright and licensing status**, tracked as a first-class field
 - Performance rights reporting (ASCAP/BMI/SESAC) for concerts
 - Sync/mechanical licensing for anything posted publicly — the gap that produces takedowns
