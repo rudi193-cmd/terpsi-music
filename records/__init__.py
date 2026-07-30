@@ -14,6 +14,11 @@ from .classify import Classification, Decision, Descriptor, classify, unclassifi
 from .disclosure import Entry, Ledger, Log, verify_against
 from .receipts import (GuardianReceipt, authentic, contradictions, gaps, held_by, issue)
 from .dispositions import Disposition, Request, answer, ask, extend, state_at
+from .conflict import Escalation, NotComputable, Stake, halt, refuse_to_rank
+from .consent import Governance, Model, governs
+from .export import Artifact, bundle
+from .marking import Mark, ScorePosition, align, drift, realign
+from .practice import Milestone, OwnPractice, Session, milestones, own
 from .standing import (SELF, SELF_CAP, LogAccess, OwnLog, Widening, is_self_edge,
                        own_log, past_threshold, self_edge, widens)
 from .rungs import DERIVE_AT, NEVER_SERVED, Rung, at_least, compose, outranks, parse
@@ -31,6 +36,11 @@ __all__ = [
     "GuardianReceipt", "issue", "authentic", "held_by", "gaps", "contradictions",
     "Record", "State", "draft", "seal", "reject", "redraft",
     "Request", "Disposition", "ask", "answer", "state_at", "extend",
+    "Escalation", "NotComputable", "Stake", "halt", "refuse_to_rank",
+    "Governance", "Model", "governs",
+    "Artifact", "bundle",
+    "Mark", "ScorePosition", "align", "drift", "realign",
+    "Session", "OwnPractice", "Milestone", "own", "milestones",
     "SELF", "SELF_CAP", "Widening", "OwnLog", "LogAccess", "self_edge",
     "is_self_edge", "past_threshold", "widens", "own_log",
     "Lane", "Threshold", "open_lane", "transfer",
