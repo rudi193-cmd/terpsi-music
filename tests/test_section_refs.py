@@ -61,6 +61,7 @@ DEFAULT_TARGETS = {
 SELF_NUMBERED = {
     ROOT / "docs" / "EXTERNAL-ARM.md",
     ROOT / "docs" / "PLAN-GUARDIANSHIP.md",
+    ROOT / "docs" / "SKINS.md",
 }
 
 # "## 7. Authorization" / "### 7.4 The Ward Case, adopted" -> 7 / 7.4

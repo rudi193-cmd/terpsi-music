@@ -61,6 +61,16 @@ python3 -m craft lyrics/get-ready.txt --against <earlier-draft>
 A finding you disagree with is not suppressed — you declare it, with a reason,
 and the declaration is what gets kept. That is the mechanic, not a convenience.
 
+The same tool wears a second skin with `--prose`, reading a document instead of
+a lyric and checking the craft `CLAUDE.md` states in English — counts with no
+derivation, a gate that does not say whether it is a gate or a ledger, absence
+rendered as a result, a bare integer where a rung belongs, a retirement with no
+tombstone. Same report, same ids, same declaration file.
+
+```bash
+python3 -m craft docs/ARCHITECTURE.md --prose --intent docs/prose.intent
+```
+
 The proposed migration runs against PostgreSQL 16 in CI, where eight forbidden
 acts are attempted and asserted to fail. A guard that cannot be shown to fail
 has not been shown to work.
