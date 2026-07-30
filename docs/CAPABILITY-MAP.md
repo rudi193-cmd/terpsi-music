@@ -321,6 +321,12 @@ The highest-frequency pain and the highest-frequency source of family conflict.
 - IEP/504 accommodations translated into a music context
 - Adaptive instruments and inclusive participation planning
 
+**There is no youth-health baseline in the fleet, and this is the section that most needs one.** `almanac-data/health-almanac` holds seven entries — CDC BRFSS, WONDER, PLACES, FluView, the CDC data portal, CMS, and WHO GHO — and **none of them cover schools, minors, youth, or student populations.** The obvious counterpart to the adult-focused BRFSS is CDC's youth surveillance programme, and it is not catalogued; neither is any occupational noise-exposure or heat-illness authority.
+
+That matters more here than in most sections, because two of the items above are **numeric safety thresholds**: at what heat index water breaks become mandatory, and at what dB exposure and duration hearing conservation is triggered. A program that writes those numbers into a handbook is making a safety claim on a minor's behalf, and an uncited threshold is a `P5` assumption (§15 of the architecture) sitting in a policy that a district's counsel may one day read closely.
+
+So this is a cataloguing job before it is a software job: the noise-exposure limit, the heat-index protocol, and the youth-health baseline each need a named publisher, a canonical URL, and a `status` + `observed` record on the almanac's daily sweep — so that when a guideline is revised, the handbook that cites it is flagged rather than silently stale.
+
 ---
 
 ## 13. Academics, Eligibility, Compliance
