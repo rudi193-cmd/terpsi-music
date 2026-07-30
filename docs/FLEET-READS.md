@@ -156,6 +156,9 @@ opened in a clone at the named commit, not summarised.
 | `safe-app-store` | `b1825f7` | `apps/marching-arts`, `libs/subject-consent` | **Both exist.** 27 apps in the store |
 | `safe-app-store` | `b1825f7` | `marching_arts/bands.py`, `policy.py` | **Divergence — see below.** The band scale is not the L-ladder |
 | `safe-app-common-package` | `2b3d088` | `src/safe_app_common/no_egress.py` | **Exists**, with `tests/test_no_egress_checker.py` beside it. §9 foundation 4 confirmed |
+| `willow-tech-manual` | `5cff7cd` | whole tree, 68 files | **Negative claim CONFIRMED.** Zero occurrences of `sensitiv` and zero `L1`–`L5` tokens in any file. §18 was right that it does not carry the ladder, so `SENSITIVITY.md` was correctly written from scratch |
+| `willow-2.0` | `4147013` | `migrations/20260522_bitemporal_all_tables.sql` | **"17 tables" CONFIRMED exactly** — counted from the migration. And this repository is *stricter* than what it adopted; see below |
+| `safe-design` | `457cb7e` | `src/safe_design/backends/`, `tests/` | **Three backends** — `css`, `textual`, `curses_backend`. Parity is **enforced, not claimed** |
 
 ### The divergence, and why it is the most important thing here
 
@@ -203,3 +206,39 @@ Two further findings, recorded where they were found rather than acted on here:
   external, so an intake would digitise a broken path rather than repair it."*
   That is a stronger argument for `L5`'s posture than this repository currently
   makes for its own.
+
+
+### Three smaller results from the second batch
+
+**A verified negative is worth as much as a verified positive.** §18 asserted
+`willow-tech-manual` does *not* carry the `L1`–`L5` definitions, and that
+assertion is why `SENSITIVITY.md` exists at all. Had it been wrong, this
+repository would have written a second ladder beside an existing one — §16's
+canonical/vendored pair, created by the document that forbids it. It was right.
+This is the row shape item 0 most needs: *checked, and the claim held.*
+
+**`willow-2.0` is where this repository took `valid_at`/`invalid_at`, and this
+repository hardened it.** The source migration adds the pair to 17 tables and
+carries **no CHECK constraint on interval ordering** — nothing stops an
+`invalid_at` that precedes its `valid_at`. `docs/schema/001_lanes.proposed.sql`
+carries eight named ones, and enforces append-only with a trigger rather than a
+comment. So the direction of divergence here is the opposite of the
+`marching-arts` case: the paraphrase was *stronger* than its source.
+
+Worth transplanting the other way: the source migration names its **exclusions**
+— `frank_ledger`, `hook_executions`, `routing_decisions` — as *"append-only
+audit/log; historical fact, not mutable state."* That is the same partition
+`disclosure_log` sits on here, arrived at independently, and it is a better
+statement of the rule than this repository currently writes down.
+
+**`safe-design` is the fleet's worked example of a pair with its middle.**
+Three backends, and `test_css_and_textual_agree_on_every_token` asserts them
+equal token by token — *"a token cannot mean one color in the terminal and
+another on the web."* That is rule 12 discharged in ten lines, in the same fleet
+where `safe-app-willow-grove` declares `"surfaces": ["tui"]` and opens a port.
+When §18 item 4 lands, this is the backend layer it lands on, and all three
+surfaces named in that item's correction have a backend already.
+
+(`curses_backend` is not in the parity test. It consumes palette indices
+directly rather than converting them, so the drift the test guards cannot arise
+the same way — noted so its absence reads as a fact rather than a gap.)
