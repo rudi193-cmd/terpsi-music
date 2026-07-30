@@ -500,7 +500,13 @@ The section that separates software written by someone who has run a program fro
 
 The twenty-three sections above are about **performing** music. None is about writing it. That is a third of the domain missing — Create, alongside Perform and Respond — and it covers AP Theory composition assignments, arranging, the student who writes the pep-band chart, and the kid with a notebook of lyrics nobody has ever given feedback on.
 
-**The capability is a critic, not a generator.** It reads a draft and says where the craft is off. It does not write the song, and it does not grade it.
+**It is a teaching instrument that happens to work by diagnosis.** That distinction is the whole design and it is easy to lose.
+
+A critic reports defects. What this does is deliver the lesson **at the only moment it can land** — when the student already cares, because it is their line, in their song, and they are stuck on it now. Motivation is the scarce resource in music education and the task supplies it for free. Most tooling in this space bolts a lesson onto a task; here the task is the delivery vehicle, and the pedagogy is not a companion module.
+
+The literature has been settled on this for decades and music software has largely ignored it: scaffolding within the zone of proximal development; cognitive apprenticeship, which makes expert *thinking* visible rather than only its output; Hattie and Timperley's finding that task-level and process-level feedback work while praise does not; and productive failure — let the student get it wrong first, because the attempt is what makes the explanation stick. Order matters. Teach before the attempt and it is a lecture.
+
+It does not write the song and it does not grade it.
 
 **Lyric diagnosis**
 - Prosody: where natural speech stress lands on a weak beat, which is the single most common defect and the least visible to the writer
@@ -521,12 +527,32 @@ The twenty-three sections above are about **performing** music. None is about wr
 - Draft-to-draft diff, because the revision is where the craft lives and the first draft never is
 - "What changed and did it help" — the question a teacher asks and has no time to ask thirty times
 
+**The mechanic: flag, then let the student declare intent**
+
+Not flag-and-fix. Half of these rules are not laws, they are descriptions of a tradition, and the good songs break them deliberately. **The tool cannot tell an error from a choice** and must stop pretending it can.
+
+> *Line 3 — "because" is stressed BE-cause against the beat here. Usually a mistake. Sometimes deliberate.*
+> → `I'll fix it` · `I meant it, and here is why`
+
+That turns the limitation into the best assessment signal in the system. **Whether a student can say "I know, I meant it" — and defend it — is a better measure of craft than whether the line follows the rule.** It is also the question a teacher grading thirty songs never has time to ask, and the answer is precisely what they want to know. The declaration is the artifact worth keeping, not the corrected line.
+
+**Fading is mandatory, and the success metric is inverted**
+
+A scaffold that never withdraws manufactures dependency, which is the opposite of teaching. If this flags the same stress mismatch in draft forty that it flagged in draft one, it has **failed while working perfectly.**
+
+So the measure is not defects found. It is **defects the student caught before the tool did, trending up** — and the tool's goal is its own obsolescence, one student at a time. Worth stating as a design target because every incentive in software points the other way.
+
+The related trap is the expertise reversal effect: worked examples help novices and actively harm people who have internalised the thing. Explaining prosody to a student who now hears it makes them worse at the task, not better.
+
 **Hard constraints, all of them already specified elsewhere**
 - **Diagnose, never score.** *"Line 3's stress falls on a weak beat"* is checkable and true whether or not the song is any good. A quality score is the thing with a documented record of failing at scale, and it would be poison in a classroom regardless.
 - A craft note is **commentary anchored to a position** — §8.1 of the architecture already models this, and a measure number or a line number is the same primitive as a judge's remark at bar 112.
 - A machine critique is a **`draft` until a named human seals it** (§8.2 of the architecture). It may inform a teacher; it is never shown to a student as a teacher's judgment.
 - **No comparison between two students, ever.** W-7 in §7.4 of the architecture: the system presents, a human decides. No ranking of whose song is better, in any surface, under any grant.
 - Local inference only. A student's unfinished song is `MEDIA_MINOR` and `PII_MINOR` at once.
+- **Scaffolds do not fade by themselves.** W-5 in §7.4 of the architecture — *agency grows by signature, never by drift; a clean track record is evidence for a proposal, never a grant in itself.* Dropping a student's hints because their record looks good is exactly drift. The system surfaces the case — *this student has caught their own prosody four drafts running, consider reducing the hints* — and a teacher signs it. Slower, and correct, and it keeps the teacher in a loop that adaptive software otherwise quietly removes them from.
+- **The rules are Anglo-American popular song craft, and the tool must know that.** Stress-timed prosody does not transfer to a syllable-timed language. Flagging a Spanish or Mandarin lyric against English stress rules is not a limitation, it is a wrong answer delivered confidently to a child. §18's language-access requirement bites harder here than anywhere else in this map, and a rule set that cannot name the tradition it encodes should refuse rather than guess (§6 of the architecture — absence surfaces as unknown, never as a result).
+- **Homogenisation is the failure mode nobody will notice.** Thirty students corrected toward the same tradition write the same song. The declare-intent mechanic is the only defence in the design, which is thin, and it should be watched rather than assumed sufficient.
 
 **Most of the substrate exists and is open.** `music21` for symbolic analysis, ChoCo for harmony, WASABI and LyricSense for lyric corpora, Essentia and `librosa` for audio. The pedagogy is formalized — Pattison's prosody and object writing have been taught at Berklee since the 1970s — and the cognition has a research program in Huron's ITPRA model of expectation. What is missing is the wiring: the taught rule has never been connected to the corpus that could check it, and the generation tools went from blank page to finished track without stopping to build the critic. **This is the part that does not exist yet, which is the only reason it is worth building here.**
 
