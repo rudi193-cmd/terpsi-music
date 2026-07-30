@@ -1,0 +1,51 @@
+# Declared intentional — prose craft findings kept on purpose, with the reason.
+# Format: <finding-id>  <why>
+#
+#   python3 -m craft docs/FLEET-READS.md --prose --intent docs/prose.intent
+#
+# Same mechanic as `lyrics/get-ready.intent`, same reason: a declared finding is
+# not suppressed, it moves to a separate list, because whether the writer knew
+# is a better signal than whether the line follows the rule. The checker cannot
+# tell a defect from a decision — that is the whole of §24's argument, and it
+# holds when the artifact is a document instead of a song.
+#
+# WHAT IS NOT DECLARED HERE IS OPEN ON PURPOSE. The findings against the
+# canonical documents — §7.2's bare "Level 0", the two "Nothing found"s in the
+# survey, §18's two thin tombstones, §6's unprefixed enforcement tiers, and
+# every COUNT — are left standing because they look like real defects rather
+# than choices, and clearing them is a human's call, not the checker's and not
+# this file's.
+#
+# KNOWN WEAKNESS. Finding ids are document-local: a heading slug plus the
+# matched text. Two documents with the same heading would produce colliding
+# ids, and a declaration written for one would silently apply to the other.
+# Today the slugs are distinct, which is a fact about the tree rather than a
+# guarantee from the format. If that stops being true this file needs splitting
+# per document before it needs anything else.
+
+
+# --- docs/FLEET-READS.md ----------------------------------------------------
+# A read-priority grouping, not a position on any of the three ordinal scales.
+# Rule 14 is aimed at sensitivity, trust and provenance, where an unprefixed
+# integer can travel between scales that run in opposite directions. Nothing
+# compares a reading-order tier against an L-rung, and renaming these would
+# make the file worse to read to satisfy a rule that is not about them.
+
+RUNG:TIER-1-REQUIRED-TO-CLEAR-18-S:TIER-1   Reading order, not a scale. See the note above.
+RUNG:TIER-2-CODE-THIS-WOULD-ACTUALL:TIER-2  Same grouping, second band.
+RUNG:TIER-3-READ-ONCE-FOR-A-PATTERN:TIER-3  Same grouping, third band.
+
+
+# --- docs/SKINS.md ----------------------------------------------------------
+# `stops` and `blocks` in their ordinary English senses. The GATE rule reads
+# them as claims that a mechanism prevents something, and here they are
+# describing a domain — offline ceasing to be optional, an open item standing
+# in the way of a build. Rewording them to dodge the rule would be writing for
+# the checker, which is the failure mode a declaration exists to avoid.
+
+GATE:2-DOMAIN-SKINS-THE-CONTRACT-HO:STOPS     "Offline stops being a mode" — ordinary English, no mechanism claimed.
+GATE:2-DOMAIN-SKINS-THE-CONTRACT-HO:STOPS#2   "stops being deferrable" — same sense.
+GATE:3-SKINS-THAT-TIGHTEN-THE-WARD:STOPS      "the ward case stops being an analogy" — same sense.
+GATE:3-SKINS-THAT-TIGHTEN-THE-WARD:STOPS#2    "sidesteps ... entirely" clause; same sense.
+GATE:3-SKINS-THAT-TIGHTEN-THE-WARD:BLOCKS     "the at-rest gap blocks here too" — an obstacle, not a gate.
+GATE:3-SKINS-THAT-TIGHTEN-THE-WARD:ENFORCED   Describes what a domain's regulator enforces, not what this design does.
