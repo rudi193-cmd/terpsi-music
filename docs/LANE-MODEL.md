@@ -178,6 +178,29 @@ stays in its lane. Enforcement is one predicate, compiled once, funnelled
 through the single read method — §7's resolver shape, with #127's
 authenticate-at-the-read so a fourth read added later inherits the gate.
 
+> **And the crossing itself has no table — found by reading W-3 at source,
+> 2026-07-30.** The full clause is *"Between wards, default deny; **a crossing
+> requires a guardian-signed envelope naming both lanes, purpose, and
+> expiry.** A shared event is two lane entries with one referent."* This
+> document encoded the third sentence and the first; the middle one is absent
+> from all twelve tables — `envelope` and `crossing` appear zero times in the
+> DDL.
+>
+> The distinction matters because the two halves fail differently. Default deny
+> unenforced means an *illegitimate* crossing is not stopped, which is recorded
+> above. No envelope table means a **legitimate** crossing is not
+> *representable* — there is nowhere to put the guardian's signature, the
+> purpose, or the expiry, so the only way to serve a real sibling case is to
+> not record that it happened.
+>
+> This is exactly the risk §18 item 3 named: the schema was built from a
+> paraphrase, and the paraphrase kept the prohibition and dropped the
+> permission. **A ward clause that forbids without providing the sanctioned
+> path is not the clause** — W-5's *"agency grows by signature"* has the same
+> shape and would fail the same way. Fixing it is a thirteenth table and it is
+> not written here, because the DDL stays in `docs/schema/` until item 3's
+> other gates clear.
+
 **The rung ceiling.** `access_grant.max_rung` records the ceiling and the
 registry is now populated for all 93 columns, so the lookup has something to
 resolve against. What is missing is the code that performs it at serving time.

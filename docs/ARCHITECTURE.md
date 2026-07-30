@@ -884,7 +884,7 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §5 the box / Zone A | `willow-data-vault` | **Exists.** Three-layer lifecycle, `vault.key` + Fernet, fail-closed on a keyless vault |
 | §5 at-rest sealing of *records* | — | **Open.** The vault seals secrets; collection stores are not described as encrypted |
 | §5 escrow | — | **Open, and the largest gap.** Single-file key loss is unrecoverable by design |
-| §6 core purity | `safe-app-common.no_egress` | **Exists**, canonical, with the core/seam partition this document lacked |
+| §6 core purity | `safe-app-common.no_egress` | **VERIFIED 2026-07-30** at `2b3d088` — `src/safe_app_common/no_egress.py` present with `tests/test_no_egress_checker.py` beside it. **Exists**, canonical, with the core/seam partition this document lacked |
 | §6 the un-passable seam | UTETY `knowledge.py` | **Exists** as a proven pattern in a student-data app |
 | §6 perimeter | `willow-gate` | **Exists**, as an agent trust gate rather than a network broker |
 | §7.2 session reconciliation (the knock) | `willow-gate` | **Exists.** 13 fields in, 13 out, diffed; bound trust; louder for the least trusted; budgets tighten as trust rises |
@@ -897,9 +897,9 @@ Written after reading the READMEs of the components below; contents inferred fro
 | Consent-scoped activity capture | `ask-jeles` learning events | **Exists.** Off by default every launch, never persisted across launches, records shape not content |
 | Mirror detection near high-stakes decisions | `willow_gate.friction_floor` | **Exists.** Flags for a human, never blocks, runs outside the watched model |
 | §6 destination allowlist | — | **Open**, and smaller than this document implied |
-| §7 authorization + consent | ~~`marching-arts` P1/P2~~ (spike, retires — §18 item 2), `libs/subject-consent` | ~~**Exists**~~ **Spike-evidenced.** Nothing inherited; `libs/subject-consent` is the only live source and its placement is item 8 |
+| §7 authorization + consent | ~~`marching-arts` P1/P2~~ (spike, retires — §18 item 2), `libs/subject-consent` | ~~**Exists**~~ **Spike-evidenced; both paths VERIFIED present 2026-07-30** at `b1825f7`. Nothing inherited; `libs/subject-consent` is the only live source and its placement is item 8. The spike's band scale is **not** this document's L-ladder — see `FLEET-READS.md` |
 | §7.1 dated guardianship | `willow-2.0` `valid_at`/`invalid_at` | **Mechanism exists** on 17 tables, with append-only audit deliberately excluded. Binding guardianship to it does not |
-| §7.4 guardianship doctrine | `Willow` `PROTECTED_AGENTS.md` Part III | **Exists as charter, unratified.** Seven ward clauses plus twelve invariants; this document had asserted three times there was no precedent |
+| §7.4 guardianship doctrine | `Willow` `PROTECTED_AGENTS.md` Part III | **VERIFIED 2026-07-30** at `c8c96b4` — read at source, all seven clauses present and faithfully rendered in §7.4. **Exists as charter, unratified.** Seven ward clauses plus twelve invariants; this document had asserted three times there was no precedent |
 | Prohibited scopes registry | `Willow` Schedule A (SA-1…SA-5) | **Drafted, unratified.** Validated before any envelope issues; `envelopes/pre-approved.json` is the enforcement surface |
 | Stakes classification | `Willow` Schedule B (SB-1…SB-5) | **Drafted.** A music program touches four of the five classes |
 | Retirement artifact | `Willow` `PROTECTED_PERSONS.md` | **Exists as a model.** The five-part tombstone that would have prevented the dead-link tally |
@@ -1327,7 +1327,7 @@ Everything above argues about design. This section is the short list of things t
 
 ### 0 · Read §14 as a claim, not as ground truth
 
-**State: standing caveat.** §14's component map was assembled from READMEs and merged pull-request descriptions — **not from reading or running source.** Every row asserting that something exists is a `P2 Cited` claim (§15) whose source was read and never executed.
+**State: standing caveat, and its stated obstacle was false — corrected 2026-07-30.** `docs/FLEET-READS.md` said the pass could not be run remotely because there was no organisation to read the repositories from. They are on GitHub under the same account as this one, several of them public; three have now been cloned and read from a remote session, and four rows are verified. The pass is open, not blocked. §14's component map was assembled from READMEs and merged pull-request descriptions — **not from reading or running source.** Every row asserting that something exists is a `P2 Cited` claim (§15) whose source was read and never executed.
 
 That is the exact defect #124 named: *a figure carried from a summary rather than from the thing that produced it.* Before anything is built on the strength of that table, one pass should open the code behind each **Exists** row and either confirm it or downgrade it — and the pass itself should leave a record, because an unverified table and a verified one look identical.
 

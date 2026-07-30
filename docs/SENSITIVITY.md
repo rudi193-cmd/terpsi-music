@@ -24,11 +24,28 @@ are `P2 Cited` (§15) — taken from §6 and §15 of the architecture, which too
 them from `marching-arts` PR descriptions. None has been confirmed against
 source, and §18 item 0 applies in full.
 
-| Fact | Source as cited |
-|---|---|
-| At `L3` and above the payload is `NULL` in the SELECT list; only a derived instruction is served | #112, via §6 |
-| `L5` is never served to anyone under any grant | #112, via §6 |
-| Sensitivity composes by `max` — a record holding one `L5` field is `L5` | §15 |
+| Fact | Source as cited | Verified at source 2026-07-30 |
+|---|---|---|
+| At `L3` and above the payload is `NULL` in the SELECT list; only a derived instruction is served | #112, via §6 | **True of a different ladder.** `DERIVE_AT = Band.ACCOMMODATION`, band 3 of seven |
+| `L5` is never served to anyone under any grant | #112, via §6 | **True of a different ladder.** `NEVER_SERVED = {Band.SAFEGUARDING}`, band 5 of seven |
+| Sensitivity composes by `max` — a record holding one `L5` field is `L5` | §15 | not sourced to the spike; unaffected |
+
+> **Both citations were transplanted by number across two different scales.**
+> `marching_arts/bands.py` declares seven bands, `L0`–`L6` — `SELF · ROSTER ·
+> CRAFT · ACCOMMODATION · HEALTH · SAFEGUARDING · FAMILY` — and this file
+> declares five rungs, `L1`–`L5`. The spike's `L3` is ACCOMMODATION; this
+> file's `L3` is *Attributed*, "anything identifying a student." They are not
+> the same rung and the rules do not carry across.
+>
+> That is §15's own hazard — *"scales never compare as bare integers"* —
+> committed in the sourcing of the ladder §15 governs. The spike compounds it
+> with `IntEnum`, so its bands compare as bare integers by construction.
+>
+> **The rungs below are unaffected**, because they were written from the
+> problem rather than from #112, and because the spike retires (§18 item 2).
+> What is corrected is this file's account of where they came from: **the five
+> rungs are original to this document and were never inherited.** A reader who
+> took the table above as showing the ladder's derivation was misled by it.
 
 > **The first of those is now decided rather than cited. `L3`+ NULL is
 > SCOPED — to principals without an entitlement edge. Decided 2026-07-30,
@@ -51,6 +68,21 @@ source, and §18 item 0 applies in full.
 > **Decided here, not inherited.** If `marching-arts` turns out to have
 > implemented the absolute reading, that is a fact about the spike and does not
 > reopen this. The rungs below are now canonical on their own authority.
+>
+> **Read at source 2026-07-30, after the decision.** The spike's rule is
+> `CASE WHEN facts.band >= 3 AND facts.subject_id != :viewer THEN NULL ELSE
+> facts.payload END`. Scoped, so the disposition holds — but the framing was
+> malformed twice over. Band 3 is ACCOMMODATION, not *Attributed*, so the rule
+> never governed this file's `L3` at all; and the scoping is by **subject
+> identity**, not by entitlement edge.
+>
+> **That second difference is open and is not a correction.** Under the spike
+> only the data subject ever receives their own payload — a guardian reading
+> their child's accommodation gets the instruction. `L4` below is looser: an
+> entitled principal with a declared purpose receives the payload, which is
+> what makes the bus-chaperone example work. Whether the spike's stricter rule
+> is right, or whether the declared-purpose escape is the deliberate
+> improvement, is a live design question. **Recorded, not resolved.**
 
 ---
 

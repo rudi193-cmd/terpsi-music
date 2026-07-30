@@ -9,18 +9,38 @@ This document carries no numbered sections: a `§N` here always means
 
 ---
 
-## Why it cannot be done yet
+## ~~Why it cannot be done yet~~ — WRONG, corrected 2026-07-30
 
-§18 item 0 asks for one pass that opens the source behind every **Exists** row
+> **This section's central claim was false, and it was load-bearing.** The
+> repositories are on GitHub under the `rudi193-cmd` account — the same owner as
+> this one — and `Willow`, `safe-app-store` and `safe-app-common-package` are
+> **public**. Three were added and cloned from a remote session on 2026-07-30,
+> and the reads below were performed. `add_repo`'s cross-owner restriction never
+> applied, because there was no cross-owner boundary to cross.
+>
+> **The cost of the error was not the delay.** This document told `BUILD-PLAN.md`
+> that item 0 was structurally impossible remotely, `BUILD-PLAN.md` split its
+> whole plan around that constraint, and §18 item 1a was filed as an unreachable
+> read for the same reason. One unchecked sentence about infrastructure
+> re-planned the project. It is left standing, struck, because deleting it would
+> hide how far a false premise travelled (§16, rule 20).
+>
+> **What was actually true:** §17's note about `~/github/` describes a local
+> working layout, not the absence of remotes. This document inferred the second
+> from the first and nobody checked. The check was one tool call.
+
+~~§18 item 0 asks for one pass that opens the source behind every **Exists** row
 in §14 and either confirms it or downgrades it. That pass requires these 36
 repositories and **there is no GitHub organisation to read them from.**
 §17 records that everything is a flat peer under `~/github/`, which is
-reachable from a local session and invisible to a remote one.
+reachable from a local session and invisible to a remote one.~~
 
-Three consequences, all of which should be stated rather than discovered:
+Consequences, as originally stated — the first is withdrawn, the others stand:
 
-- **§14's table stays `P2 Cited` for every remote session.** Not as a caveat —
-  as a structural fact. Anything written remotely rests on the summary.
+- ~~**§14's table stays `P2 Cited` for every remote session.** Not as a caveat —
+  as a structural fact. Anything written remotely rests on the summary.~~
+  **Withdrawn.** Rows can be verified remotely and four now have been. See
+  *Reads performed* below.
 - **`Nestor` may be unreachable even locally-authorised.** §17 flags it: it is
   the sole occupant of `Die-Namic-Systems`, and *"`add_repo` refuses cross-tier
   and a session can hold one owner's repos or another's, not both."*
@@ -45,11 +65,17 @@ Seven. Everything else can wait behind these.
 | `willow-tech-manual` | §18 claims it does **not** carry the `L1`–`L5` definitions. That claim is why `docs/SENSITIVITY.md` was written from scratch and it should be checked |
 | `willow-grove` | §14 ends *"Read before building"* — `FLEET_SEAMS.md` and `DESIGN_CONSTRAINTS.md` |
 
-**The single highest-value file in the tier** is `apps/marching-arts`'s
+~~**The single highest-value file in the tier** is `apps/marching-arts`'s
 resolver, for one question: whether #112's *"payload is `NULL` in the SELECT
 list at L3 and above"* is absolute or scoped to principals without an
 entitlement edge. `docs/SENSITIVITY.md` assumes scoped. If it is absolute, `L3`
-and `L4` are wrong. That is §18 item 1a, and it is one file.
+and `L4` are wrong. That is §18 item 1a, and it is one file.~~
+
+**Read 2026-07-30 — and the question was malformed.** It is scoped, so the
+assumption held. But the scoping is by *subject identity*, not by entitlement
+edge, and band 3 is ACCOMMODATION rather than *Attributed* — the two ladders do
+not share a rung. See *Reads performed*. Item 1a was closed as a decision before
+this read; the read corroborates the disposition and refutes the framing.
 
 ## Tier 2 — code this would actually depend on
 
@@ -111,6 +137,69 @@ facts and `status_source` ∈ `auto · curator` recording who decided.
 
 Assembled by extracting every backticked repository name from
 `docs/ARCHITECTURE.md`, `docs/CAPABILITY-MAP.md` and `CLAUDE.md`, then sorting
-by what §18 blocks on. **No repository in this list has been opened.** The
+by what §18 blocks on. ~~**No repository in this list has been opened.**~~
+**Three have, on 2026-07-30** — `Willow`, `safe-app-store` and
+`safe-app-common-package`; see *Reads performed*. The remaining 33 have not. The
 tiering is a judgement about reading order, not a claim about contents, and the
 counts were derived from the tree on 2026-07-30.
+
+---
+
+## Reads performed
+
+First entries in what item 0 asked for. Each row is `P1 measured` — the file was
+opened in a clone at the named commit, not summarised.
+
+| Repository | Commit | Read | Result |
+|---|---|---|---|
+| `Willow` | `c8c96b4` | `PROTECTED_AGENTS.md` Part III | **Confirms §7.4.** All seven ward clauses present and rendered faithfully in `ARCHITECTURE.md`. Draft 0.6, unratified, candidate Article XIV — which §14 already said |
+| `safe-app-store` | `b1825f7` | `apps/marching-arts`, `libs/subject-consent` | **Both exist.** 27 apps in the store |
+| `safe-app-store` | `b1825f7` | `marching_arts/bands.py`, `policy.py` | **Divergence — see below.** The band scale is not the L-ladder |
+| `safe-app-common-package` | `2b3d088` | `src/safe_app_common/no_egress.py` | **Exists**, with `tests/test_no_egress_checker.py` beside it. §9 foundation 4 confirmed |
+
+### The divergence, and why it is the most important thing here
+
+`marching_arts/bands.py` declares **seven bands, `L0`–`L6`**:
+
+```
+SELF 0 · ROSTER 1 · CRAFT 2 · ACCOMMODATION 3 · HEALTH 4 · SAFEGUARDING 5 · FAMILY 6
+```
+
+`SENSITIVITY.md` is built on **five rungs, `L1`–`L5`**, with different names and
+different meanings. Both facts §6 cites are true *of the spike's scale*:
+`DERIVE_AT = Band.ACCOMMODATION` is band 3, and `NEVER_SERVED = {SAFEGUARDING}`
+is band 5. **They were transplanted by number onto a different ladder** — the
+spike's `L3` is ACCOMMODATION; this repository's `L3` is *Attributed*, "anything
+identifying a student."
+
+That is §15's own hazard — *"scales never compare as bare integers"* — committed
+in the sourcing of the ladder §15 governs. The spike compounds it by using
+`IntEnum`, so its bands compare as bare integers by construction; declining to
+inherit that was correct and was done for the wrong reason, since nobody had
+read it.
+
+**The rule at source is scoped**, which confirms the disposition of item 1a
+independently:
+
+```sql
+CASE WHEN facts.band >= 3 AND facts.subject_id != :viewer
+THEN NULL ELSE facts.payload END
+```
+
+But scoped **by subject identity, not by entitlement edge**. Under the spike only
+the data subject ever receives their own payload; a guardian reading their
+child's accommodation gets the instruction. `SENSITIVITY.md`'s `L4` is looser —
+an entitled principal with a declared purpose receives the payload. **That
+difference is a live design question and is not resolved by this read.**
+
+Two further findings, recorded where they were found rather than acted on here:
+
+- **The spike ranks `FAMILY` (6) above `HEALTH` (4)**, defined as "family and
+  financial circumstance" — where housing status and foster placement live. It
+  reached §18 item 11's conclusion independently and went further; this
+  repository still places `FINANCIAL` level with `HEALTH`.
+- **`SAFEGUARDING` is "routed, never received"**, on the reasoning that *"in
+  every leadership-implicating case on the public record, surfacing was
+  external, so an intake would digitise a broken path rather than repair it."*
+  That is a stronger argument for `L5`'s posture than this repository currently
+  makes for its own.

@@ -3,7 +3,7 @@
 **Status:** plan. Governs nothing; `docs/ARCHITECTURE.md` governs. No numbered
 sections — a `§N` here is always the architecture's.
 
-**One page on purpose.** There are 13,941 lines under `docs/` at time of
+**One page on purpose.** There are 14,096 lines under `docs/` at time of
 writing, this file included — derived, not quoted (#17). If this file
 grows past two screens it has stopped being a plan and become another thing to
 read. Everything here is a pointer to a decision or a task, never a restatement.
@@ -12,29 +12,36 @@ read. Everything here is a pointer to a decision or a task, never a restatement.
 
 ## The fact that orders everything else
 
-§9 marks foundation items 1–5 **built**. That rests on §14's *Exists* column,
-which §18 item 0 says was assembled from READMEs and pull-request descriptions
-rather than from source. `docs/FLEET-READS.md` adds the part that turns a
-caveat into a constraint: the 36 repositories sit under `~/github/` as flat
-peers, **reachable from a local session and invisible to a remote one.**
+> **This section was built on a false premise and is struck, 2026-07-30.** It
+> read `FLEET-READS.md`'s claim that the repositories were unreachable
+> remotely, concluded that no remote session could ever verify §14, and split
+> the entire plan around that. The repositories are on GitHub under the same
+> account as this one, several public. Three were cloned from a remote session
+> and four §14 rows are now verified. **The check was one tool call, and this
+> plan re-organised a project rather than make it.**
+>
+> Kept struck rather than rewritten, because the shape of the error is the
+> useful part: an infrastructure claim nobody tested became the organising
+> principle of the work. That is the same failure as a claim sourced to a
+> spike, one level up.
 
-So: **no remote session can verify §14, now or later.** Not a scheduling
-problem — a structural one.
-
-The plan therefore splits by *where the work can happen*, not by module. That
-is the only split that survives contact with this constraint.
+**What actually orders the work.** §9's foundation labels are still wrong —
+items 1 and 2 rest on a spike that retires — but that is a correction anyone
+can make from here, not a constraint. The real ordering principle is what is
+*decided* versus what is *observed*, and the session that closed items 1a, 2
+and 11 established that several things filed as reads were decisions nobody had
+taken. Track A is now a working queue rather than a locked door.
 
 ---
 
-## Track A — needs the local machine
+## Track A — reads (no longer blocked)
 
-Three reads. Nothing here is construction, and everything downstream is
-planned on unverified ground until they land.
+Three reads. **All three are now performable from here**, and two are done.
 
 | | task | closes | output |
 |---|---|---|---|
-| A1 | Open the 36 repos; confirm or downgrade every *Exists* row | item 0 | §14 with a verified/unverified column — the thing that distinguishes the two today |
-| A2 | Open `Willow`'s `PROTECTED_AGENTS.md` Part III | item 3 | W-1…W-7 at source, so the DDL stops encoding CLAUDE.md's one-line gloss |
+| A1 | Open the 36 repos; confirm or downgrade every *Exists* row | item 0 | **Started 2026-07-30** — 3 repos cloned, 4 rows verified, 33 repos unread. Rows carry `VERIFIED <date> at <commit>` |
+| ~~A2~~ | ~~Open `Willow`'s `PROTECTED_AGENTS.md` Part III~~ | item 3 | **Done 2026-07-30** at `c8c96b4`. §7.4 renders all seven clauses faithfully. Found: the DDL encodes W-3's prohibition and drops its permission — no crossing-envelope table |
 | ~~A3~~ | ~~Read the `L3`+ NULL rule in `apps/marching-arts`~~ | item 1a | **Closed 2026-07-30 — scoped, decided not inherited.** It was never a read |
 
 **A3 was not a Track A item and that is the lesson worth keeping.** It was
@@ -92,24 +99,28 @@ building them first means building against a guess.
 fully specified, and unbuildable until B3 says what a surface is and A2 says
 what W-3 actually requires.
 
-**A1 and A2 remain, and B3 is deferred rather than open.** B1, B2 and 1a closed
-on 2026-07-30, two of the three by asking rather than by reading.
+**A1 remains; B3 is deferred rather than open.** B1, B2, 1a and A2 all closed on
+2026-07-30 — three by deciding, one by reading.
 
-**Both remaining items need the local machine.** Nothing on the critical path
-can be advanced from a remote session — which is the same constraint this plan
-opens with, arrived at from the other end. Two findings on B3 landed anyway and
-are recorded at §18 item 4: its enumeration omits the guest surface that
-clinicians and judges need, and `surfaces` is a manifest field whose fleet
-precedent shipped a declaration nothing enforced.
+**Nothing on the critical path is blocked.** A1 is a queue of 33 unread
+repositories, and it can be worked from here. Two findings on B3 landed while it
+was discussed and are recorded at §18 item 4: its enumeration omits the guest
+surface clinicians and judges need, and `surfaces` is a manifest field whose
+fleet precedent shipped a declaration nothing enforced.
+
+**One open design question came out of A2's read** and is recorded in
+`SENSITIVITY.md` rather than here: the spike serves an `L4` payload only to the
+data subject, where `L4` allows an entitled principal with a declared purpose.
+Stricter-at-source versus deliberate-improvement, unresolved.
 
 ---
 
 ## Order
 
 1. ~~**A3**, **B1**, **B2**~~ — all closed 2026-07-30.
-2. **B3** — deferred, in hand elsewhere. It gates layout and any dispatcher, so nothing downstream of layout starts before it lands.
-3. **A2** — turns the lane model from a paraphrase into a clause.
-4. **A1** — the long read; start it early because it runs alongside everything. Expect some rows to need deciding rather than reading, per A3.
+2. ~~**A2**~~ — done 2026-07-30. The lane model's paraphrase is now checked against the clause, and one gap found.
+3. **B3** — deferred, in hand elsewhere. It gates layout and any dispatcher, so nothing downstream of layout starts before it lands.
+4. **A1** — 33 repositories unread. Expect some rows to need deciding rather than reading, per A3, and expect scale mismatches, per the band/rung divergence.
 5. Then, and only then, §9's list in its existing order — noting foundation 1 and 2 are now **to build**, not built.
 
 ## What this plan deliberately does not do
