@@ -47,7 +47,7 @@ def message_guardian(payload):
 ```
 
 You cannot send to a restricted guardian because there is nowhere to put one.
-That is the same discipline §6 describes as the inner ring — not gated,
+That is the same discipline §6 of the architecture describes as the inner ring — not gated,
 inexpressible — applied to a recipient rather than to a socket, and it is
 checkable statically, so it holds on a path no test exercises.
 
