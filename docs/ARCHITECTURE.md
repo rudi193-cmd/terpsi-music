@@ -401,6 +401,8 @@ For a director asking questions of their own program, that ordering is the whole
 
 `verified_by` / `verified_at` is also the same shape as `rationale`'s human seal (#125) — two components independently deciding that an answer is only trustworthy when a person's name is attached to it.
 
+**Converge the provenance vocabulary before adding a fourth.** The fleet currently expresses "how much should I trust this" four different ways: `field-acoustics` uses `measured | fitted | assumed` propagated by `min()`; `willow-2.0`'s evidence tiers use `hypothesis | observed | validated` plus a 0.0–1.0 confidence; `jeles` uses `verified_by` with citations; `oakenscrolls-office` uses a stated confidence graded against outcomes. Each is right for its own job, and a music program will touch at least three — an acoustic prediction, a verified answer, and a judge's score. Pick the mapping between them deliberately rather than letting a fifth appear.
+
 **The friction floor belongs here too.** `willow-gate`'s sibling module watches a different surface from access: whether the agent has stopped being *other* and started reflecting the user back, smoothed, while the user is escalating. Model-free, deterministic, running outside the model it watches — because a mirror cannot audit itself. It flags for a human and never blocks.
 
 That is not a general-purpose nicety in this domain. The highest-stakes moments in a music program are a student in crisis, a conflict with a parent, a disciplinary decision, and a death in the program. An assistant that agrees fluently with a stressed director in exactly those moments is a real harm vector, and flagging rather than blocking is the correct posture for a detector that will sometimes be wrong.
@@ -450,7 +452,13 @@ If a terminated guardianship is a `DELETE` while majority is a predicate, the tw
 - A restriction that must take effect at a future date has nowhere to live until it does.
 - Reinstatement — orders get modified — has to reconstruct what deletion discarded.
 
-The recommendation is that guardianship carry `effective_from` / `effective_until` and terminate by **setting a date, never by removing the edge**, so that revocation-by-order and revocation-by-majority are the same mechanism with different sources. Erasure of a guardianship record remains available separately, under §5's per-subject partitioning, as a distinct act with its own authority.
+The recommendation is that guardianship terminate by **setting a date, never by removing the edge**, so that revocation-by-order and revocation-by-majority are the same mechanism with different sources. Erasure of a guardianship record remains available separately, under §5's per-subject partitioning, as a distinct act with its own authority.
+
+**Use the fleet's spelling, because the mechanism already exists.** `willow-2.0`'s `20260522_bitemporal_all_tables.sql` puts `valid_at` / `invalid_at` on seventeen tables — *when the record became true*, and *when it was superseded, NULL meaning still active* — with supersession as a nullable timestamp rather than a delete. That is the proposal above, already built, under better names. Adopt them rather than inventing `effective_from`/`effective_until`.
+
+Its **exclusion list is the more instructive half.** `frank_ledger`, `hook_executions`, and `routing_decisions` are deliberately left out, because they are append-only audit and *records are never superseded* — a historical fact is not mutable state. The same split applies here: guardianship, enrollment, staff assignment, and fee schedules are state and take the pair; the disclosure log, the consent chain, and reconciled sessions (§7.2) are history and must not.
+
+**One caveat worth carrying.** The migration backfills `valid_at` from `created_at`, so on legacy rows the two axes coincide, and the tables lacking `created_at` end up with only one axis. For guardianship you need both, and the case that proves it is ordinary: **a court order dated in March, delivered to the program in October.** *When the restriction took effect* and *when this system learned of it* are different dates, and a disclosure made in June was either compliant or not depending on which one you ask about. Keep `created_at` immutable alongside the pair, and never update it.
 
 This is the one place in this domain where the failure is a safety failure rather than a bug, and it is worth having the mechanism before the case arrives — because when it arrives it will arrive urgently.
 
@@ -584,6 +592,14 @@ The ordering principle: build the things that are expensive to retrofit first, r
 
 Not legal advice — the state-law column in particular varies enough that the district's counsel should see the data inventory before parents see the app.
 
+### Two artifacts to reuse rather than write
+
+**`willow-2.0/TRUST.md` is the privacy notice, already drafted.** Three tables — *what stays local* (with the specific store named), *what can leave, opt-in only* (with the exact condition per feature), and *how to verify the code yourself* — plus an explicit honesty note that demo data is seeded and labelled. Retarget it at guardians and at a district technology review and it is most of what either audience needs. Its structure is the valuable part: not a policy, a **map of every path data can take, each with the switch that opens it.**
+
+**`willow-2.0/SECURITY_AUDIT.md` is a reusable acceptance rubric.** Fifteen numbered checks — SQL construction, shell injection, path traversal, credentials in version control, CORS, XSS, unsigned execution, MCP tool auth, exception swallowing, temp-file predictability, race conditions, manifest correctness, dependency pinning, hardcoded home paths — with findings carrying IDs, severity, and status. Run it against this app before a school install, and treat the result as an install gate rather than a document.
+
+**One finding in it is a live condition for this design.** W-MCP-01 records that `willow-2.0`'s `sap/` MCP servers expose knowledge read/write and task submission with no per-client authentication, judged acceptable because the design is portless, and states the trigger explicitly: *future fix needed if network transport is added.* Serve mode and any parent-facing path are that trigger. `willow-mcp` appears to answer it with OAuth plus operator-confirmed identity binding — but `willow-2.0` still owns the shared fleet Postgres schema, so an install that touches those servers inherits the P1 rather than the fix.
+
 ---
 
 ## 11. Operations
@@ -646,7 +662,9 @@ Written after reading the READMEs of the components below; contents inferred fro
 | Mirror detection near high-stakes decisions | `willow_gate.friction_floor` | **Exists.** Flags for a human, never blocks, runs outside the watched model |
 | §6 destination allowlist | — | **Open**, and smaller than this document implied |
 | §7 authorization + consent | `marching-arts` P1/P2, `libs/subject-consent` | **Exists** |
-| §7.1 dated guardianship | — | **Open** |
+| §7.1 dated guardianship | `willow-2.0` `valid_at`/`invalid_at` | **Mechanism exists** on 17 tables, with append-only audit deliberately excluded. Binding guardianship to it does not |
+| §10 privacy notice | `willow-2.0/TRUST.md` | **Reusable structure** — every path data can take, each with its switch |
+| Install acceptance gate | `willow-2.0/SECURITY_AUDIT.md` | **Reusable rubric**, 15 checks. W-MCP-01's trigger condition applies here |
 | §10 COPPA / under-13 | SAFE `HARD_STOPS`, UTETY ground rule 4 | **Exists** as governance, above app level |
 | §8.1 commentary primitive | — | **Open** |
 | §1–§2 practice + mastery | UTETY (BKT, item sets, on-device store) | **Adjacent.** Different subject matter, same shape — worth reading before rebuilding |
