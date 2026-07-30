@@ -747,10 +747,10 @@ Sealing also has a natural moment: the commentary grace period after an event (�
 The ordering principle: build the things that are expensive to retrofit first, regardless of which module ships first.
 
 **Foundation — hard to add later, so add it now**
-1. Person / relationship graph with time-boxed edges (§7) — **built** (P1/P2), less the dated-guardianship gap in §7.1
-2. Data classification on every field (§6) — the L-ladder is **built**; the class-to-L mapping is **written but unenforced** (`docs/SENSITIVITY.md`), and enforcement is the work
+1. Person / relationship graph with time-boxed edges (§7) — ~~**built** (P1/P2)~~ **spike-evidenced, not built** (§18 item 2, 2026-07-30): P1/P2 is `marching-arts`, which was a spike and retires. Nothing of it is inherited, so this is **to build**, less nothing — including the dated-guardianship gap in §7.1
+2. Data classification on every field (§6) — ~~the L-ladder is **built**~~ the L-ladder is **decided and unbuilt**: `docs/SENSITIVITY.md` is canonical for the five rungs, *Protected status*, and the scoped `L3`+ NULL reading (§18 items 1, 1a, 11), and no code implements any of it. The class-to-L mapping is **written but unenforced**, and enforcement is the work
 3. Envelope + key hierarchy, even while everything is still on one LAN (§5) — chain integrity and per-subject erasure are **built**; at-rest sealing across the Zone A boundary is not
-4. Egress purity in the core (§6, inner ring) — **built**, AST-proven. The outer broker is not, and is only needed once something must legitimately talk to the world
+4. Egress purity in the core (§6, inner ring) — **built**, AST-proven, and **unaffected by item 2**: the checker is `safe_app_common.no_egress`, a fleet library rather than anything in the spike. Note what "built" means here — it exists *in the fleet*, and §6 records that inheriting it "is a choice terpsi-music makes explicitly, not a property of being in the fleet." The outer broker is not built, and is only needed once something must legitimately talk to the world
 5. Append-only audit log — the hash-chained disclosure log is **built**, with the count-anchor truncation defence
 
 **Then, in whatever order the program's pain dictates**
@@ -897,7 +897,7 @@ Written after reading the READMEs of the components below; contents inferred fro
 | Consent-scoped activity capture | `ask-jeles` learning events | **Exists.** Off by default every launch, never persisted across launches, records shape not content |
 | Mirror detection near high-stakes decisions | `willow_gate.friction_floor` | **Exists.** Flags for a human, never blocks, runs outside the watched model |
 | §6 destination allowlist | — | **Open**, and smaller than this document implied |
-| §7 authorization + consent | `marching-arts` P1/P2, `libs/subject-consent` | **Exists** |
+| §7 authorization + consent | ~~`marching-arts` P1/P2~~ (spike, retires — §18 item 2), `libs/subject-consent` | ~~**Exists**~~ **Spike-evidenced.** Nothing inherited; `libs/subject-consent` is the only live source and its placement is item 8 |
 | §7.1 dated guardianship | `willow-2.0` `valid_at`/`invalid_at` | **Mechanism exists** on 17 tables, with append-only audit deliberately excluded. Binding guardianship to it does not |
 | §7.4 guardianship doctrine | `Willow` `PROTECTED_AGENTS.md` Part III | **Exists as charter, unratified.** Seven ward clauses plus twelve invariants; this document had asserted three times there was no precedent |
 | Prohibited scopes registry | `Willow` Schedule A (SA-1…SA-5) | **Drafted, unratified.** Validated before any envelope issues; `envelopes/pre-approved.json` is the enforcement surface |
@@ -1343,12 +1343,35 @@ The document defines `L1` Open, `L2` Internal, `L3` Attributed, `L4` Restricted,
 
 **Two residuals, carried forward rather than closed with it:**
 
-- **1a · The `L3`+ NULL rule is ambiguous as cited, and the definitions assume a reading.** "The payload is `NULL` in the SELECT list" does not say *on which paths*. Read absolutely, a guardian cannot be served their own child's name; read as scoped to principals without an entitlement edge, it is correct. `SENSITIVITY.md` assumes scoped and flags it. **If the absolute reading is right, `L3` and `L4` are wrong.** This is one file in `apps/marching-arts` and it is the highest-value item in the item-0 pass.
+- ~~**1a · The `L3`+ NULL rule is ambiguous as cited, and the definitions assume a reading.**~~ **State: closed 2026-07-30 — SCOPED, decided rather than inherited.** ~~"The payload is `NULL` in the SELECT list" does not say *on which paths*. Read absolutely, a guardian cannot be served their own child's name; read as scoped to principals without an entitlement edge, it is correct. `SENSITIVITY.md` assumes scoped and flags it. **If the absolute reading is right, `L3` and `L4` are wrong.** This is one file in `apps/marching-arts` and it is the highest-value item in the item-0 pass.~~
+  **Why it was never a read.** This item assumed #112 was an implementation to consult. It was a **spike** (item 2), so opening that file would have established what a prototype happened to do — a different question from what the rule should be. The rule was never decided anywhere; it was observed once and quoted as settled. `SENSITIVITY.md` now states scoped on its own authority, and a contrary finding in `marching-arts` is a fact about the spike and does not reopen this. **The "highest-value item in the item-0 pass" was not an item-0 item at all**, which is worth remembering when reading the other 34 `Exists` rows.
 - **1b · `L5` is unreachable by class.** None of §6's eight classes maps to it, so the document assigns it per record under three rules — key material, the content of an enforced external restriction, and anything whose rendering would reveal a refusal. The alternative is a ninth class. Deliberate, and worth revisiting if a fourth trigger appears.
 
-**2 · The disposition of `apps/marching-arts`.**
-**State: blocking. Needs a decision.**
-§17 says "from scratch." Nothing says whether the playground copy is deleted on promotion or kept. This decides whether the first commit is a move or an empty tree — and §16 rule 4 is explicit that leaving two live copies behind a "keep in sync" note is the option with a measured failure rate in this fleet (four pairs, four drifts). If it is kept, it needs a named middle in the same commit; if it is retired, it needs the five-part tombstone.
+**~~2 · The disposition of `apps/marching-arts`.~~**
+**State: closed 2026-07-30. It was a spike; it retires. `terpsi-music` is a fresh build, and the first commit is an empty tree rather than a move.**
+
+~~§17 says "from scratch." Nothing says whether the playground copy is deleted on promotion or kept. This decides whether the first commit is a move or an empty tree — and §16 rule 4 is explicit that leaving two live copies behind a "keep in sync" note is the option with a measured failure rate in this fleet (four pairs, four drifts). If it is kept, it needs a named middle in the same commit; if it is retired, it needs the five-part tombstone.~~
+
+**The disposition, from the maintainer.** `marching-arts` was the first test of
+whether the shape could stand up. `terpsi-music` is where it comes together
+fresh, for real testing, and migrates to the organisation once it holds. So:
+retire, and **the findings carry forward while the code does not.** No
+extraction, no port, no shared library — a port is how this fleet has lost four
+pairs out of four, and `marching-arts` is itself already carrying a TypeScript
+port of a Python core that #120 found had drifted.
+
+**This decision has a consequence larger than the item.** A spike proving
+something *can* stand up is not a component that exists, so §14's `Exists` and
+§9's *built* are the wrong labels wherever they rest on it — corrected in place
+at both sites. That is a stronger correction than item 0's pass would have
+produced, and it arrived by asking the maintainer rather than by reading source.
+
+**The five-part tombstone cannot be written from here.** `marching-arts` lives
+in `safe-app-store`, which no remote session can reach (`FLEET-READS.md`). What
+is recorded here is the disposition; the stub is an act in that repository, and
+when it is written it needs: status first, `terpsi-music` named as successor,
+spike-completed as the reason, its findings mapped forward and marked
+non-authoritative, and why the stub still exists (§16, rule 20).
 
 **~~3 · No schema for the lane model.~~**
 **State: written 2026-07-30, not adopted. `docs/LANE-MODEL.md` + `docs/schema/001_lanes.proposed.sql`.**

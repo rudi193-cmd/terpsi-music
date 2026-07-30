@@ -30,15 +30,27 @@ source, and §18 item 0 applies in full.
 | `L5` is never served to anyone under any grant | #112, via §6 |
 | Sensitivity composes by `max` — a record holding one `L5` field is `L5` | §15 |
 
-> **One of those needs checking before it is built on, and it is the first.**
+> **The first of those is now decided rather than cited. `L3`+ NULL is
+> SCOPED — to principals without an entitlement edge. Decided 2026-07-30,
+> closing §18 item 1a.**
+>
 > As quoted, "the payload is `NULL` in the SELECT list" is unqualified — it does
 > not say *on which paths*. Read absolutely, a guardian could not be served
 > their own child's name, which cannot be the shipped behaviour of a roster
-> application. Read as scoped to principals without an entitlement edge, it is
-> exactly right. The definitions below assume the scoped reading and say so at
-> `L3`. **If the absolute reading turns out to be correct, `L3` and `L4` below
-> are wrong and this file is the defect.** That is one file to open in
-> `apps/marching-arts` and the highest-value item in the item-0 pass.
+> application. Scoped is the only coherent reading, and the definitions below
+> now **state** it rather than assume it.
+>
+> **Why this stopped being a read.** It was filed as one file to open in
+> `apps/marching-arts` and the highest-value item in the item-0 pass. That
+> framing rested on treating #112 as an implementation to be consulted.
+> `marching-arts` was a **spike** — a first test of whether the shape could
+> stand up — so opening that file would have established what a prototype
+> happened to do, which is not the same question. The rule was never decided
+> anywhere; it was observed once and quoted as though settled.
+>
+> **Decided here, not inherited.** If `marching-arts` turns out to have
+> implemented the absolute reading, that is a fact about the spike and does not
+> reopen this. The rungs below are now canonical on their own authority.
 
 ---
 
@@ -344,9 +356,10 @@ step 2, and still land at `L5` because rendering it would identify who declined.
 
 ## What this document does not decide
 
-- **Whether the `L3`+ NULL rule is absolute or scoped to unentitled paths.**
-  The definitions assume scoped. Flagged at the top; one file in
-  `apps/marching-arts` settles it.
+- ~~**Whether the `L3`+ NULL rule is absolute or scoped to unentitled paths.**~~
+  **Decided 2026-07-30: scoped.** See the top of this file. It moved out of
+  this list rather than off it, because a reader who remembers the caveat needs
+  to find where it went (rule 20).
 - **Whether the class vocabulary needs a ninth member for `L5`.** This document
   assigns `L5` per record by rule instead, on the grounds that its three
   triggers have nothing in common as *kinds of data* — a signing key and a

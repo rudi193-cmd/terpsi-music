@@ -3,7 +3,7 @@
 **Status:** plan. Governs nothing; `docs/ARCHITECTURE.md` governs. No numbered
 sections — a `§N` here is always the architecture's.
 
-**One page on purpose.** There are 13,867 lines under `docs/` at time of
+**One page on purpose.** There are 13,909 lines under `docs/` at time of
 writing, this file included — derived, not quoted (#17). If this file
 grows past two screens it has stopped being a plan and become another thing to
 read. Everything here is a pointer to a decision or a task, never a restatement.
@@ -35,10 +35,16 @@ planned on unverified ground until they land.
 |---|---|---|---|
 | A1 | Open the 36 repos; confirm or downgrade every *Exists* row | item 0 | §14 with a verified/unverified column — the thing that distinguishes the two today |
 | A2 | Open `Willow`'s `PROTECTED_AGENTS.md` Part III | item 3 | W-1…W-7 at source, so the DDL stops encoding CLAUDE.md's one-line gloss |
-| A3 | Read the `L3`+ NULL rule in `apps/marching-arts` | item 1a | which paths it covers — if absolute rather than scoped, `L3` and `L4` are both wrong |
+| ~~A3~~ | ~~Read the `L3`+ NULL rule in `apps/marching-arts`~~ | item 1a | **Closed 2026-07-30 — scoped, decided not inherited.** It was never a read |
 
-**A1 is the expensive one and A3 is the sharpest.** A3 is one file and can
-invalidate two rungs of a ladder already declared canonical.
+**A3 was not a Track A item and that is the lesson worth keeping.** It was
+filed as the highest-value read in the item-0 pass because #112 was taken for
+an implementation to consult. `marching-arts` was a spike, so opening the file
+would have established what a prototype happened to do — a different question
+from what the rule should be. **A claim sourced to a spike is a decision nobody
+has taken yet, wearing the costume of a fact.** Worth carrying into A1: some of
+the other 34 `Exists` rows are the same shape, and reading them will not fix
+them.
 
 ## Track B — needs a human, not a keyboard
 
@@ -47,7 +53,7 @@ Three decisions. Each is a paragraph of judgment, not a project.
 | | decision | notes |
 |---|---|---|
 | ~~B1~~ | ~~Item 11 — the rung for protected categories~~ | **Closed 2026-07-30.** Step 3's clause governs; the four examples are illustrative. `SENSITIVITY.md` *Protected status* is canonical |
-| B2 | Item 2 — disposition of `apps/marching-arts` | gates the schema's location |
+| ~~B2~~ | ~~Item 2 — disposition of `apps/marching-arts`~~ | **Closed 2026-07-30.** Spike; it retires. Findings carry forward, code does not. First commit is an empty tree |
 | B3 | Item 4 — which surfaces exist | gates layout, and gates any dispatcher |
 
 **B1's hold is lifted.** Fields in those categories may now be classified, at
@@ -86,26 +92,26 @@ building them first means building against a guess.
 fully specified, and unbuildable until B3 says what a surface is and A2 says
 what W-3 actually requires.
 
-**A1–A3 and B2–B3 are five items, B1 having closed. None takes a week.** They are the whole
+**A1, A2 and B3 remain. Three items.** B1, B2 and 1a closed on 2026-07-30, and
+two of the three closed by asking rather than by reading. They are the whole
 critical path, and the reason this plan is one page rather than a programme.
 
 ---
 
 ## Order
 
-1. **A3** — cheapest, and can invalidate `SENSITIVITY.md`. Do it before anything rests further on the ladder.
-2. ~~**B1**~~ — closed 2026-07-30. Classification is unblocked.
+1. ~~**A3**, **B1**, **B2**~~ — all closed 2026-07-30.
+2. **B3** — which surfaces exist. The last decision, and it gates layout and any dispatcher.
 3. **A2** — turns the lane model from a paraphrase into a clause.
-4. **A1** — the long read; start it early because it runs alongside everything.
-5. **B2, B3** — before any surface or migration lands.
-6. Then, and only then, §9's list in its existing order.
+4. **A1** — the long read; start it early because it runs alongside everything. Expect some rows to need deciding rather than reading, per A3.
+5. Then, and only then, §9's list in its existing order — noting foundation 1 and 2 are now **to build**, not built.
 
 ## What this plan deliberately does not do
 
 - **Does not re-order §9.** §9's ordering principle — expensive-to-retrofit
   first — is sound and is not the problem. What is unverified is its *status
   labels*, which is item 0, which is A1.
-- **Does not schedule.** No dates, because all five remaining critical items are
+- **Does not schedule.** No dates, because the remaining critical items are
   someone else's keystrokes and estimating them here would be fiction.
 - **Does not restate a mechanism.** Every row points at the document that owns
   it. If a mechanism appears to be described here, that is a defect (§16).
