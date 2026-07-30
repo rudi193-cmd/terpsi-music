@@ -13,7 +13,7 @@ A music-program management application holding **minors' education records**: ro
 3. **Never revoke by deleting.** Guardianship, enrollment, and staff assignment end by setting `invalid_at`. A delete leaves no dated record, and a court order arriving mid-season is the case that proves it. (§7.1)
 4. **No standing cross-context scores.** No durable rating of a judge, clinician, student, or staff member carried between events or contexts. Prohibited scope `SA-3`; invalid even signed by root. (§13)
 5. **No group grants over students.** `"the drumline"` is not a scope; a name is. Wildcard and section-level scopes are invalid at issuance. (§7.4 W-2)
-6. **Never compute a priority between two students.** Chair placement, rooming, limited slots — the system presents, a human decides. Halt and escalate. (§7.4 W-7)
+6. **Never compute a priority between two students — or between a student and staff convenience.** Chair placement, rooming, limited slots; and a rehearsal time, a route, or a section split that is easier to run and worse for one student. The system presents, a human decides. Halt and escalate. (§7.4 W-7)
 7. **Never put a record on SMS.** SMS carries signals — times, changes, acknowledgments. Never health, balances, grades, discipline, or a location tied to a named student. (§4.1)
 
 ## Shapes — how things get built here

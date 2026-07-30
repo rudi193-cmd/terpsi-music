@@ -123,7 +123,15 @@ _AGGREGATION = re.compile(
 #: A served value with no rung on it. Provenance qualifies an answer rather
 #: than gating it: the headline reads P5, loudly, instead of being withheld.
 #: Prefixed, never a bare integer another scale could be mistaken for.
-_RUNG = re.compile(r"\bP[1-5]\b|\b(measured|cited|fitted|estimated|assumed)\b", re.I)
+#: The **P-ladder** — provenance. Renamed from `_RUNG` on 2026-07-30: this
+#: matches `P1`-`P5`, and in this repository "rung" means the `L1`-`L5`
+#: sensitivity ladder (`docs/SENSITIVITY.md` is canonical for the rungs). The
+#: rule it backs was called `no_rung` and refused a sentence carrying a
+#: perfectly good `L3`, with a message about provenance -- §15's own
+#: three-scale hazard, inside the module written to enforce the fleet's rules.
+#: Found by routing this gate through `records/dispatch.py`; a reader
+#: integrating against `no_rung` supplies an L-rung and is refused.
+_PROVENANCE = re.compile(r"\bP[1-5]\b|\b(measured|cited|fitted|estimated|assumed)\b", re.I)
 
 
 def check(text, serves_value=False):
@@ -140,9 +148,9 @@ def check(text, serves_value=False):
                 f"naked_statistic[{REFUSE}]: {sentence[:60]!r} -- say what you "
                 f"grouped by in the same sentence as the figure, or do not say it")
 
-    if serves_value and not _RUNG.search(text):
+    if serves_value and not _PROVENANCE.search(text):
         findings.append(
-            f"no_rung[{REFUSE}]: a value was served without its provenance -- the "
+            f"no_provenance[{REFUSE}]: a value was served without its provenance -- the "
             f"answer is not withheld for being weak, it is shown with its weakness")
     return findings
 

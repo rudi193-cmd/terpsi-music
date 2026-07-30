@@ -184,6 +184,47 @@ the person making it.** Every guard written today carries a test that points it
 at a decoy and confirms it complains, because a guard that has only ever
 succeeded is indistinguishable from one that cannot fail.
 
+### Addendum, 2026-07-30 — the sentence above was not true of everything
+
+The tally is a snapshot of the session it names and is left unchanged. This is a
+later specimen, filed here because it is the cleanest one yet and because it
+falsifies the paragraph directly above it.
+
+`tests/test_serving.py` documented §18 item 12 — the subject having no standing
+in their own lane — and closed with a tripwire meant to fire the moment that
+changed:
+
+```python
+assert not any(k in ("self", "subject_of") for k in ("guardian_of", "staff_of")), (
+    "if a self edge now exists, item 12 has moved and this test should too"
+)
+```
+
+It compares two hardcoded tuples. Neither has anything to do with the edge
+vocabulary the predicate actually reads. **It is a tautology**, it passed on the
+day the `self` edge shipped, and it could never have failed on any input in any
+version of this repository.
+
+Three things make it the sharpest instance in the file:
+
+1. **It was written to catch exactly the change it did not catch.** Not a guard
+   that drifted — a guard that was born unable to fire, with a failure message
+   describing the event it would not detect.
+2. **It postdates the paragraph above.** *"Every guard written today carries a
+   test that points it at a decoy"* — this one did not, and was written in the
+   same repository by the same author, after that sentence was committed.
+3. **The mutation harness could not have caught it either.** `tests/ablate.py`
+   mutates the *predicate* and asks whether a suite notices. This defect is in
+   the suite, and no mutation of `records/serving.py` can reach an assertion
+   that never reads it. **Ablation proves a guard is load-bearing; it says
+   nothing about an assertion that is not attached to one.** That is a hole in
+   the method this repository leans on hardest, and it was found by hand, while
+   changing the thing the test claimed to watch.
+
+The replacement asserts against the predicate in both directions: a subject with
+no edge is refused, and a subject with one is served *and names the edge*. It can
+fail, which is the only property that was ever wanted.
+
 ---
 
 ## Provenance of this file

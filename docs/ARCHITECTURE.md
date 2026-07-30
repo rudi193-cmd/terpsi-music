@@ -214,6 +214,8 @@ So the relay remains unbuilt, and reusing u2u for it would be a serious error. W
 
 `bridge/__main__.py` starts an aiohttp server on `0.0.0.0:8560` — all interfaces — and `bridge/matrix.py` makes outbound POSTs to an arbitrary configured homeserver. `bridge/app.py` opens a UDP socket to `8.8.8.8:80` to discover the local IP. The rule is scoped to *the dashboard*, so it is arguably not violated; a reader of the manifest would still conclude this app cannot open a port, and it can.
 
+> **VERIFIED 2026-07-30 at `a2e11b3`, and this paragraph understates it three ways.** There are **two** all-interface listeners (`bridge/app.py:137` and `:214`), not one. The `8.8.8.8` probe is opened in **`grove/mcp_local.py:317`** as well as `bridge/app.py:60` — outside the bridge, in the app's own namespace, so the *"scoped to the dashboard"* defence above does not hold for it. And the app carries **no purity test at all**. See `docs/FLEET-READS.md`.
+
 Its own `SECURITY_AUDIT.md` knows, and says so honestly: `u2u/` and `bridge/` are *"**Scanned, not Reviewed**… they make the repo's only cryptographic trust decisions and deserve a dedicated pass."* That is a disclosure rather than a defect — but it is **prose in an audit file, not an assertion**, and nothing fails if the bridge grows a new capability tomorrow. Which is §16's distinction exactly: an acknowledged missing middle is still a missing middle.
 
 > **Divergence to fix.** `catalog.json` still advertises encryption that the code does not implement, for two entries. Sibling repo `safe-app-grove`, named as Grove's canonical repository, does not resolve — consistent with the survey finding in #119 that two of four claimed canonical repos 404. Both are `FLEET_SEAMS`-class findings: the declaration and the enforcement disagree, and the declaration is the customer-facing one.
@@ -263,6 +265,8 @@ Two consequences worth carrying into anything else that chains:
 
 - **Partitioning breaks rules that match chain names exactly.** Migration 003's guardian trigger matched `chain = 'consent'`; the moment the name gained a suffix the rule stopped firing and a minor could self-consent with nothing raised. The fix matches both the partitions and the bare name — the bare one still matters, because a writer reaching past the module straight to SQL could otherwise insert under the old name and dodge the rule entirely.
 - **Emptied is not absent** (#121). A chain whose rows were deleted must not read as one that never existed, or the strongest attack is also the simplest. The head anchor carries a `count` as well as a hash, and a surviving anchor beside missing rows reads as *tampered*, not *absent* — including on the write path, where a guard written as `if existing and not verify(...)` silently skips on an empty list.
+
+  > **And the anchor's custody was never specified — corrected 2026-07-30.** *"A **surviving** anchor"* — surviving where? An anchor held in the same vault as the chain dies with it, and one act makes the log read as never-written. This clause designs the data structure and skips the counterparty, which is the whole evidentiary question. `records/witness.py` supplies the mechanism; **§18 item 15** is the decision about who holds it.
 
 Any new chained artifact in this system — the disclosure log, the egress log of §6, adjudication commentary — inherits all three requirements: per-subject partitioning, fail-closed on unscoped access, and an anchor that distinguishes emptied from never-written.
 
@@ -356,7 +360,7 @@ The middle ring is the one this document originally missed. `safe-app-common` ha
 
 > **Correction, and it is the same defect this document keeps recording.** An earlier revision quoted `assert_does_not_import(CORE, NO_EGRESS, {"web", "serve", "willow_bridge"})` as live practice. That exact call exists **only in the docstring example inside `safe_app_common/no_egress.py`** — no app invokes it that way. `private-ledger` splits it into three single-element calls; `oakenscrolls-office` makes one, naming only `willow_bridge`. The three-seam set is aspirational documentation, and this document cited it as an enforced assertion after spending several sections warning against exactly that.
 >
-> **How widely the discipline actually applies:** seven files across thirty-six repos carry any structural declaration at all — `assert_does_not_import`, `assert_file_no_egress`, `NO_EGRESS`, or `_EGRESS_ALLOWED`. Three of the twenty-seven apps in `safe-app-store` have a `test_no_egress.py`. Every bridge in `willow-2.0`, `willow-mcp`, `safe-app-willow-grove`, and `willow-bot` is undeclared, because **those repos have no purity checker of any kind.** The core/seam discipline is real and it is confined to the `safe-app-common` sub-fleet: private-ledger, oakenscrolls-office, marching-arts, UTETY, subject-consent. Inheriting it is a choice terpsi-music makes explicitly, not a property of being in the fleet.
+> **How widely the discipline actually applies:** seven files across thirty-six repos carry any structural declaration at all — `assert_does_not_import`, `assert_file_no_egress`, `NO_EGRESS`, or `_EGRESS_ALLOWED`. Three of the twenty-seven apps in `safe-app-store` have a `test_no_egress.py`. **VERIFIED 2026-07-30** at `b1825f7` — exactly three: `oakenscrolls-office`, `private-ledger`, `marching-arts`. Every bridge in `willow-2.0`, `willow-mcp`, `safe-app-willow-grove`, and `willow-bot` is undeclared, because **those repos have no purity checker of any kind.** The core/seam discipline is real and it is confined to the `safe-app-common` sub-fleet: private-ledger, oakenscrolls-office, marching-arts, UTETY, subject-consent. Inheriting it is a choice terpsi-music makes explicitly, not a property of being in the fleet.
 
 ### The import checker has a filesystem-shaped blind spot
 
@@ -524,12 +528,18 @@ This is the section most superseded by what exists. `marching-arts` P1/P2 is the
 The guest-access shape, which is where the personas outside the program live. Expressed as relationship edges with expiry:
 
 ```
+self             : Student:Ben     → Student:Ben           [capped at L3 until the threshold]
 guardian_of      : Person:Ann      → Student:Ben
 staff_of         : Person:Chris    → Ensemble:Drumline      [season-bounded]
 director_of      : Person:Dana     → Program:Marching
 judge_at         : Person:Erin     → Event:Regional_Oct12   [expires +36h]
 clinician_for    : Person:Frank    → Session:Brass_Sep03    [expires +24h]
 ```
+
+**`self` was added 2026-07-30 and the first five were the whole list until then** — which meant the subject was a stranger to their own lane. §18 item 12 records how that was found and what it cost to close; `records/standing.py` is canonical. Two properties of it belong here rather than there, because they are properties of *this* vocabulary:
+
+- **It is capped, not equal.** Before W-6's threshold a `self` edge reaches `L3`; above that the subject is served the derived instruction unless a guardian signs a per-category widening. The cap lifts at the threshold by date comparison, which is the same predicate majority expiry already uses — no flag, no job.
+- **`principal.purposes` is not read for a pre-threshold `self` edge.** W-4 is *a ward may request, never authorize*; a minor declaring a purpose over their own record is self-authorization, and honouring the declaration would defeat the clause with a keyword argument.
 
 Properties worth insisting on: every grant carries an expiry (guest grants die on their own); permissions derive from edges rather than being stamped on people; the family circle is a set of individual guardian edges, so one guardian's revocation never touches another's; and every access decision is answerable after the fact — "who could see Ben's medical form on October 12, and why."
 
@@ -747,10 +757,10 @@ Sealing also has a natural moment: the commentary grace period after an event (�
 The ordering principle: build the things that are expensive to retrofit first, regardless of which module ships first.
 
 **Foundation — hard to add later, so add it now**
-1. Person / relationship graph with time-boxed edges (§7) — **built** (P1/P2), less the dated-guardianship gap in §7.1
-2. Data classification on every field (§6) — the L-ladder is **built**; the class-to-L mapping is **written but unenforced** (`docs/SENSITIVITY.md`), and enforcement is the work
+1. Person / relationship graph with time-boxed edges (§7) — ~~**built** (P1/P2)~~ **spike-evidenced, not built** (§18 item 2, 2026-07-30): P1/P2 is `marching-arts`, which was a spike and retires. Nothing of it is inherited, so this is **to build**, less nothing — including the dated-guardianship gap in §7.1
+2. Data classification on every field (§6) — ~~the L-ladder is **built**~~ the L-ladder is **decided and unbuilt**: `docs/SENSITIVITY.md` is canonical for the five rungs, *Protected status*, and the scoped `L3`+ NULL reading (§18 items 1, 1a, 11), and no code implements any of it. The class-to-L mapping is **written but unenforced**, and enforcement is the work
 3. Envelope + key hierarchy, even while everything is still on one LAN (§5) — chain integrity and per-subject erasure are **built**; at-rest sealing across the Zone A boundary is not
-4. Egress purity in the core (§6, inner ring) — **built**, AST-proven. The outer broker is not, and is only needed once something must legitimately talk to the world
+4. Egress purity in the core (§6, inner ring) — **built**, AST-proven, and **unaffected by item 2**: the checker is `safe_app_common.no_egress`, a fleet library rather than anything in the spike. Note what "built" means here — it exists *in the fleet*, and §6 records that inheriting it "is a choice terpsi-music makes explicitly, not a property of being in the fleet." The outer broker is not built, and is only needed once something must legitimately talk to the world
 5. Append-only audit log — the hash-chained disclosure log is **built**, with the count-anchor truncation defence
 
 **Then, in whatever order the program's pain dictates**
@@ -879,74 +889,97 @@ One caution the same list supplies: its **Delisted** section records sovereignty
 
 Written after reading the READMEs of the components below; contents inferred from those, not from source.
 
+> **Every row claiming existence now says whether anyone looked (2026-07-30).**
+> §18 item 0's complaint was that *"an unverified table and a verified one look
+> identical"*, and §9's phasing rests on this column. So each such row carries
+> exactly one of:
+>
+> - **`VERIFIED <date> at `<commit>`** — the source was opened in a clone at that
+>   commit. The date and the pin are both required: *"we checked it once"* decays
+>   the way §15 says a `P2` claim decays, and a pin makes the check re-runnable
+>   by someone who doubts it.
+> - **`UNVERIFIED`** — nobody has opened it. This is the honest state of most of
+>   the table and is not a defect; it is the thing that used to be invisible.
+>
+> **8 of 40 as of 2026-07-30.** `tests/test_component_map.py` enforces the
+> convention — a row claiming existence with neither token fails the build, as
+> does a `VERIFIED` without a commit. It deliberately does **not** assert a
+> coverage ratio, because a test that demanded more green would be an incentive
+> to mark things verified rather than to read them.
+>
+> The shape is taken from `kartikeya.resolve_sandbox_config`, which solved the
+> identical problem for sandbox policy — *return the value with the source that
+> supplied it* — reduced to what a markdown table can carry. See
+> `docs/FLEET-READS.md`.
+
 | This document | Component | Status |
 |---|---|---|
-| §5 the box / Zone A | `willow-data-vault` | **Exists.** Three-layer lifecycle, `vault.key` + Fernet, fail-closed on a keyless vault |
+| §5 the box / Zone A | `willow-data-vault` | **VERIFIED 2026-07-30** at `b634de0` — three-layer architecture and `vault.key`/Fernet confirmed; nine files, schema and bootstrap only, *"never data"*. **Exists** as a blueprint; there is no at-rest sealing implementation in it, consistent with §9's foundation 3 |
 | §5 at-rest sealing of *records* | — | **Open.** The vault seals secrets; collection stores are not described as encrypted |
 | §5 escrow | — | **Open, and the largest gap.** Single-file key loss is unrecoverable by design |
-| §6 core purity | `safe-app-common.no_egress` | **Exists**, canonical, with the core/seam partition this document lacked |
-| §6 the un-passable seam | UTETY `knowledge.py` | **Exists** as a proven pattern in a student-data app |
-| §6 perimeter | `willow-gate` | **Exists**, as an agent trust gate rather than a network broker |
-| §7.2 session reconciliation (the knock) | `willow-gate` | **Exists.** 13 fields in, 13 out, diffed; bound trust; louder for the least trusted; budgets tighten as trust rises |
-| §7.2 guest sessions reconciled | `law-gazelle` | **Exists as a worked example** in a comparable domain — gate in enforcement mode, trust ladder mapped to operations, save/commit classed as exports, refuses to start if misconfigured |
+| §6 core purity | `safe-app-common.no_egress` | **VERIFIED 2026-07-30** at `2b3d088` — `src/safe_app_common/no_egress.py` present with `tests/test_no_egress_checker.py` beside it. **Exists**, canonical, with the core/seam partition this document lacked |
+| §6 the un-passable seam | UTETY `knowledge.py` | **Exists** as a proven pattern in a student-data app · `UNVERIFIED` |
+| §6 perimeter | `willow-gate` | **Exists**, as an agent trust gate rather than a network broker · `UNVERIFIED` |
+| §7.2 session reconciliation (the knock) | `willow-gate` | **Exists.** 13 fields in, 13 out, diffed; bound trust; louder for the least trusted; budgets tighten as trust rises · `UNVERIFIED` |
+| §7.2 guest sessions reconciled | `law-gazelle` | **Exists as a worked example** in a comparable domain — gate in enforcement mode, trust ladder mapped to operations, save/commit classed as exports, refuses to start if misconfigured · `UNVERIFIED` |
 | §5 canonical vs sidecar | `law-gazelle`, `nest-seed` | **Convention, stated twice.** Canonical store read-only to the app; agent write path is sidecar only |
-| §5.1 compute isolation | `kartikeya` | **Exists.** Bubblewrap, network-isolated by default, credentials only to net-enabled tasks, cgroup/prlimit caps |
-| §6 verified answers before inference | `jeles` | **Exists.** Nuggets with sources and a named verifier, in front of search; gaps logged local-first |
-| Library digitization | `nest-seed` | **Exists.** Regex → local embeddings → generative only on the ambiguous tail, degrading gracefully |
-| Question banks / assessment | `civics-check` | **Exists as a pattern.** Authoritative sources compiled to a catalog; never hand-edit the output |
-| Consent-scoped activity capture | `ask-jeles` learning events | **Exists.** Off by default every launch, never persisted across launches, records shape not content |
-| Mirror detection near high-stakes decisions | `willow_gate.friction_floor` | **Exists.** Flags for a human, never blocks, runs outside the watched model |
+| §5.1 compute isolation | `kartikeya` | **Exists.** Bubblewrap, network-isolated by default, credentials only to net-enabled tasks, cgroup/prlimit caps · `UNVERIFIED` |
+| §6 verified answers before inference | `jeles` | **Exists.** Nuggets with sources and a named verifier, in front of search; gaps logged local-first · `UNVERIFIED` |
+| Library digitization | `nest-seed` | **Exists.** Regex → local embeddings → generative only on the ambiguous tail, degrading gracefully · `UNVERIFIED` |
+| Question banks / assessment | `civics-check` | **Exists as a pattern.** Authoritative sources compiled to a catalog; never hand-edit the output · `UNVERIFIED` |
+| Consent-scoped activity capture | `ask-jeles` learning events | **Exists.** Off by default every launch, never persisted across launches, records shape not content · `UNVERIFIED` |
+| Mirror detection near high-stakes decisions | `willow_gate.friction_floor` | **Exists.** Flags for a human, never blocks, runs outside the watched model · `UNVERIFIED` |
 | §6 destination allowlist | — | **Open**, and smaller than this document implied |
-| §7 authorization + consent | `marching-arts` P1/P2, `libs/subject-consent` | **Exists** |
-| §7.1 dated guardianship | `willow-2.0` `valid_at`/`invalid_at` | **Mechanism exists** on 17 tables, with append-only audit deliberately excluded. Binding guardianship to it does not |
-| §7.4 guardianship doctrine | `Willow` `PROTECTED_AGENTS.md` Part III | **Exists as charter, unratified.** Seven ward clauses plus twelve invariants; this document had asserted three times there was no precedent |
+| §7 authorization + consent | ~~`marching-arts` P1/P2~~ (spike, retires — §18 item 2), `libs/subject-consent` | ~~**Exists**~~ **Spike-evidenced; both paths VERIFIED present 2026-07-30** at `b1825f7`. Nothing inherited; `libs/subject-consent` is the only live source and its placement is item 8. The spike's band scale is **not** this document's L-ladder — see `FLEET-READS.md` · `UNVERIFIED` |
+| §7.1 dated guardianship | `willow-2.0` `valid_at`/`invalid_at` | **VERIFIED 2026-07-30** at `4147013` — 17 tables counted from `migrations/20260522_bitemporal_all_tables.sql`, append-only audit excluded by name. **Mechanism exists**; binding guardianship to it does not. Note the source carries **no interval-ordering CHECK**; `001_lanes.proposed.sql` adds eight |
+| §7.4 guardianship doctrine | `Willow` `PROTECTED_AGENTS.md` Part III | **VERIFIED 2026-07-30** at `c8c96b4` — read at source, all seven clauses present and faithfully rendered in §7.4. **Exists as charter, unratified.** Seven ward clauses plus twelve invariants; this document had asserted three times there was no precedent |
 | Prohibited scopes registry | `Willow` Schedule A (SA-1…SA-5) | **Drafted, unratified.** Validated before any envelope issues; `envelopes/pre-approved.json` is the enforcement surface |
 | Stakes classification | `Willow` Schedule B (SB-1…SB-5) | **Drafted.** A music program touches four of the five classes |
-| Retirement artifact | `Willow` `PROTECTED_PERSONS.md` | **Exists as a model.** The five-part tombstone that would have prevented the dead-link tally |
-| Shared-edge placement | `Nestor` → `Die-Namic-Systems`, sole occupant | **Decided.** The fleet's single named cross-face dependency (§17) |
+| Retirement artifact | `Willow` `PROTECTED_PERSONS.md` | **Exists as a model.** The five-part tombstone that would have prevented the dead-link tally · `UNVERIFIED` |
+| Shared-edge placement | `Nestor` → `Die-Namic-Systems`, sole occupant | **Decided, and unexecuted — checked 2026-07-30.** The repository is at `rudi193-cmd/nestor`; §17's prose is future tense. The decision stands; the move has not happened, and this row read as a statement about the tree would be wrong |
 | Second shared edge | `libs/subject-consent` | **Unresolved.** Same property as Nestor, still a folder in an app store, already vendored once |
 | Per-graduate lane export (W-6) | — | **Open**, and a precondition of enrolment rather than an end-of-life feature |
 | §10 privacy notice | `willow-2.0/TRUST.md` | **Reusable structure** — every path data can take, each with its switch |
 | Install acceptance gate | `willow-2.0/SECURITY_AUDIT.md` | **Reusable rubric**, 15 checks. W-MCP-01's trigger condition applies here |
-| Verifying the verifier | `willow-mcp` #211 | **Open.** Six apparatus defects to zero code defects across three PRs; no mutation gate exists for this app's guarantees yet |
+| Verifying the verifier | `willow-mcp` #211 | **Open.** Six apparatus defects to zero code defects across three PRs; no mutation gate exists for this app's guarantees yet · `UNVERIFIED` |
 | Allow-side coverage of the resolver | — | **Unknown.** Indistinguishability passes even if the predicate returns nothing to anyone; check the fixture has a principal who can see something |
-| §10 COPPA / under-13 | SAFE `HARD_STOPS`, UTETY ground rule 4 | **Exists** as governance, above app level |
+| §10 COPPA / under-13 | SAFE `HARD_STOPS`, UTETY ground rule 4 | **Exists** as governance, above app level · `UNVERIFIED` |
 | §8.1 commentary primitive | — | **Open** |
 | §1–§2 practice + mastery | UTETY (BKT, item sets, on-device store) | **Adjacent.** Different subject matter, same shape — worth reading before rebuilding |
 | Library vs. learner split | UTETY ↔ Jeles | **Settled pattern.** UTETY holds the learner, Jeles holds the sources — the repertoire library may want the same seam |
-| §6 kill switch | `consent.internet` | **Exists** |
-| §6 three-key egress + envelope | `willow-mcp` | **Exists**, stronger than proposed |
-| §6 outbound scanning | the redaction funnel | **Exists for credentials.** Needs the student-identifier classes |
-| §3 hardening | `WILLOW_MCP_STRICT_TRUST_ROOT`, severance | **Exists, off by default.** Mandatory here — see §6 residual |
-| §4 staff remote access | `willow-mcp` serve mode (OAuth + confirmed binding) | **Exists** |
+| §6 kill switch | `consent.internet` | **Exists** · `UNVERIFIED` |
+| §6 three-key egress + envelope | `willow-mcp` | **VERIFIED 2026-07-30** at `3815449` — `confirm-binding` carries *"Do not wire this into an `@mcp.tool()`"*; `compute_email_basis` returns all four values and drift is surfaced, not applied. **Exists**, stronger than proposed |
+| §6 outbound scanning | the redaction funnel | **Exists for credentials.** Needs the student-identifier classes · `UNVERIFIED` |
+| §3 hardening | `WILLOW_MCP_STRICT_TRUST_ROOT`, severance | **Exists, off by default.** Mandatory here — see §6 residual · `UNVERIFIED` |
+| §4 staff remote access | `willow-mcp` serve mode (OAuth + confirmed binding) | **Exists** · `UNVERIFIED` |
 | §4.1 parent notification + acknowledgment (~95%) | SMS, ideally a local SIM gateway | **Open, but small.** No app, no enrollment, no inbound; constrained by carrier throughput, not cost |
 | §4.2 the transactional relay (~5%) | — | **Open.** Grove's u2u is signed, *not* confidential — reusable identity, missing confidentiality |
-| Criteria for a justified hosted component | `jeles-remote` | **Exists as precedent.** Stateless, scales to zero, corpus absent rather than gated, refuses to start unconfigured |
-| §7 finance module | `private-ledger` | **Exists as a template**, with the injected-`ingest` bridge pattern |
-| §10 / §17 aggregate exports | `nest_promote`, `nest_digest` | **Exists as a pattern.** Promote *structure* — counts, categories, never content; the full digest is local-CLI only, never returned over MCP |
+| Criteria for a justified hosted component | `jeles-remote` | **Exists as precedent.** Stateless, scales to zero, corpus absent rather than gated, refuses to start unconfigured · `UNVERIFIED` |
+| §7 finance module | `private-ledger` | **Exists as a template**, with the injected-`ingest` bridge pattern · `UNVERIFIED` |
+| §10 / §17 aggregate exports | `nest_promote`, `nest_digest` | **Exists as a pattern.** Promote *structure* — counts, categories, never content; the full digest is local-CLI only, never returned over MCP · `UNVERIFIED` |
 | Guardianship / family graph | `the-squirrel` | **Adjacent**, though it serves a web port rather than staying import-pure |
-| Judge calibration | `oakenscrolls-office` | **Exists as an engine** — see §13 and §15 |
+| Judge calibration | `oakenscrolls-office` | **Exists as an engine** — see §13 and §15 · `UNVERIFIED` |
 | §15 `P1–P5` provenance | `field-acoustics` (3 rungs), evidence tiers, `jeles`, `oakenscrolls-office` | **Partial and divergent.** Four vocabularies, no mapping; the `Cited` and `Estimated` rungs have nowhere to sit today |
-| §15 scale-direction convention | — | **Open.** `T0–T4` and `L1–L5` already oppose; no prefix rule or mapping table exists yet |
-| §11.1 exit plan | `awesome-sovereign-software` | **Criterion exists**, five-point test plus a required exit line. No exit line written for this app yet |
+| §15 scale-direction convention | — | **Open.** `T0–T4` and `L1–L5` already oppose; no prefix rule or mapping table exists yet · `UNVERIFIED` |
+| §11.1 exit plan | `awesome-sovereign-software` | **Criterion exists**, five-point test plus a required exit line. No exit line written for this app yet · `UNVERIFIED` |
 | Owner ≠ subject consent | `corpus-lens` (names it unsolved), `marching-arts` P2 | **The fleet's stated hardest gap.** This app is where it closes or ships unsolved |
 | §7.3 sensitivity field vocabulary | `quiet-corner` `session_scope` | **Vocabulary worth taking, enforcement is the known-bad precedent** — declared per-field, enforced nowhere |
 | Dated / staged consent | `DispatchesFromReality` (prose only) | **No code anywhere in the fleet.** `data_streams` retention has two values; must be invented here |
 | §8.1 commentary relations | `story-timeline` (`provenance`, `contradicts_or_tensions_with`) | **Transplantable**, minus time-coding |
-| §8.2 trust state of a transcript | `Nestor` cascade (`sealed`/`draft`/`pending`) | **Exists.** A transcription is a draft until the speaker seals it |
-| §16 declaration vs enforcement, computed | `Nestor` `Curator.servable` / `unverifiable()` | **Exists.** The detector for this document's entire finding class |
-| Roster identity reconciliation | `Nestor` `EntityResolver` | **Exists.** Sealed canonical mapping; sub-threshold returns a suggestion, never a silent merge |
-| Three-way finance reconciliation | `Nestor` `Reconciler` | **Exists.** Sealed baseline, tolerance band, flagged variation, ledgered |
-| §15 `P2` liveness sweep | `almanac-template` (`status` + `observed` + daily reachability job) | **Exists as a pattern**, files an issue when a source rots |
-| Export / publication boundary | `yggdrasil-training-data` | **Pattern exists**, fail-closed on unknown — but carries a trusted-source bypass not to reproduce |
-| Cloud inference fallback | `willow-seed` (Groq/Cerebras/SambaNova) | **Must be disabled, not unused.** Fires exactly when the local model is down |
+| §8.2 trust state of a transcript | `Nestor` cascade (`sealed`/`draft`/`pending`) | **VERIFIED 2026-07-30** at `111c187` — all three states present. **Exists.** A transcription is a draft until the speaker seals it |
+| §16 declaration vs enforcement, computed | `Nestor` `Curator.servable` / `unverifiable()` | **VERIFIED 2026-07-30** at `111c187` — `curator.py:82` and `:118`. **Exists.** The detector for this document's entire finding class |
+| Roster identity reconciliation | `Nestor` `EntityResolver` | **Exists.** Sealed canonical mapping; sub-threshold returns a suggestion, never a silent merge · `UNVERIFIED` |
+| Three-way finance reconciliation | `Nestor` `Reconciler` | **Exists.** Sealed baseline, tolerance band, flagged variation, ledgered · `UNVERIFIED` |
+| §15 `P2` liveness sweep | `almanac-template` (`status` + `observed` + daily reachability job) | **Exists as a pattern**, files an issue when a source rots · `UNVERIFIED` |
+| Export / publication boundary | `yggdrasil-training-data` | **VERIFIED 2026-07-30** at `c183222` — `route()` fails closed and unknown records are not written; the bypass is `if hint == "slm": dest = "slm"`, skipping `route()` for three of four source files. **Pattern exists**, fail-closed on unknown — but carries a trusted-source bypass not to reproduce |
+| Cloud inference fallback | `willow-seed` (Groq/Cerebras/SambaNova) | **VERIFIED 2026-07-30** at `a9274e8`, **corrected same day**: `willow-seed` has *no code* for it; the live router is `willow-2.0/core/inference_router.py`, providers appear in 24 Python files, and an off-switch **does** exist — `WILLOW_INFERENCE_PROVIDER=local` yields Ollama only. **The default is `auto`**, so the rule is fail-open-when-unconfigured, which is what refusal 1 already forbids by name. `respond()` returns `(text, provider_used)`, so it is enforceable by assertion |
 | Trust-root placement | `willow-config` + `kart-sandbox.json` | **Half closed.** `mcp_apps/` is ro-bound against sandboxed tasks; still in git, on a remote, and host-writable |
-| Sandbox mount policy | `kart-sandbox.json` | **Exists**, versioned and data-driven — no-network tasks get zero credentials, sovereign data read-only, tmpfs `/tmp` |
+| Sandbox mount policy | `kart-sandbox.json` | **Exists**, versioned and data-driven — no-network tasks get zero credentials, sovereign data read-only, tmpfs `/tmp` · `UNVERIFIED` |
 | Network-isolated local inference | — | **Open.** `allow_localhost` shares the host netns, so a `MEDIA_MINOR` task can reach the network uncredentialed |
-| Contract + sandbox policy | `willow-config` (`willow.md`, `settings.global.json`, `kart-sandbox.json`) | **Exists.** These are the right things to version; the grants are not |
-| §15 rendering the scales | `safe-design` | **Exists.** Semantic tokens, lookup-time aliases, structurally guaranteed backend parity, ASCII path |
-| §5 exclusion of family data from the corpus | `willow-compose` | **Exists as stated policy.** This app is a family-data app by its definition |
-| Fifth authorization mechanism | `openclaw-sap-gate` (SAP/1.0) | **Exists**, with a fail-open default fingerprint and revocation-by-deletion |
+| Contract + sandbox policy | `willow-config` (`willow.md`, `settings.global.json`, `kart-sandbox.json`) | **Exists.** These are the right things to version; the grants are not · `UNVERIFIED` |
+| §15 rendering the scales | `safe-design` | **VERIFIED 2026-07-30** at `457cb7e` — three backends (`css`, `textual`, `curses`), and parity is **enforced** by `test_css_and_textual_agree_on_every_token`, not merely structural. **Exists.** Semantic tokens, lookup-time aliases, ASCII path |
+| §5 exclusion of family data from the corpus | `willow-compose` | **Exists as stated policy.** This app is a family-data app by its definition · `UNVERIFIED` |
+| Fifth authorization mechanism | `openclaw-sap-gate` (SAP/1.0) | **VERIFIED 2026-07-30** at `82d80d9` — and this row was **wrong**: the fingerprint default is ~~fail-open~~ **fail-closed** (`gate.py:102` *"unset ⇒ fail-closed deny"*, with `test_no_fingerprint_pinned_fails_closed`). The comment says fail-closed was *"preserved"*, so the claim may have been true of an earlier revision — §15's `P2` decay. **Exists**, four-step chain, revocation-by-deletion (which refusal 3 forbids) |
 | Purity checking, fleet-wide | `safe-app-common` | **Confined.** 7 declaring files across 36 repos; 3 of 27 store apps have a purity test; four major repos have no checker |
 | Write-path declaration | — | **Open.** The AST checker sees imports, not filesystem writes; both `willow_bridge` copies write outside their vault root |
 | Allowlist rot-checking | UTETY `test_allowlist_entries_exist` | **Unique in the fleet.** A stale allowlist silently widens the door |
@@ -1327,7 +1360,7 @@ Everything above argues about design. This section is the short list of things t
 
 ### 0 · Read §14 as a claim, not as ground truth
 
-**State: standing caveat.** §14's component map was assembled from READMEs and merged pull-request descriptions — **not from reading or running source.** Every row asserting that something exists is a `P2 Cited` claim (§15) whose source was read and never executed.
+**State: standing caveat, and its stated obstacle was false — corrected 2026-07-30.** `docs/FLEET-READS.md` said the pass could not be run remotely because there was no organisation to read the repositories from. They are on GitHub under the same account as this one, several of them public; three have now been cloned and read from a remote session, and four rows are verified. The pass is open, not blocked — **twenty-eight repositories read as of 2026-07-30, with every exists-row now marked `VERIFIED` or `UNVERIFIED`**, including one verified *negative* (`willow-tech-manual` does not carry the L-ladder, so `SENSITIVITY.md` was correctly written from scratch). Of the 36 names, eight do not resolve at all and two are unreachable cross-tier; see `docs/FLEET-READS.md`. §14's component map was assembled from READMEs and merged pull-request descriptions — **not from reading or running source.** Every row asserting that something exists is a `P2 Cited` claim (§15) whose source was read and never executed.
 
 That is the exact defect #124 named: *a figure carried from a summary rather than from the thing that produced it.* Before anything is built on the strength of that table, one pass should open the code behind each **Exists** row and either confirm it or downgrade it — and the pass itself should leave a record, because an unverified table and a verified one look identical.
 
@@ -1343,12 +1376,35 @@ The document defines `L1` Open, `L2` Internal, `L3` Attributed, `L4` Restricted,
 
 **Two residuals, carried forward rather than closed with it:**
 
-- **1a · The `L3`+ NULL rule is ambiguous as cited, and the definitions assume a reading.** "The payload is `NULL` in the SELECT list" does not say *on which paths*. Read absolutely, a guardian cannot be served their own child's name; read as scoped to principals without an entitlement edge, it is correct. `SENSITIVITY.md` assumes scoped and flags it. **If the absolute reading is right, `L3` and `L4` are wrong.** This is one file in `apps/marching-arts` and it is the highest-value item in the item-0 pass.
+- ~~**1a · The `L3`+ NULL rule is ambiguous as cited, and the definitions assume a reading.**~~ **State: closed 2026-07-30 — SCOPED, decided rather than inherited.** ~~"The payload is `NULL` in the SELECT list" does not say *on which paths*. Read absolutely, a guardian cannot be served their own child's name; read as scoped to principals without an entitlement edge, it is correct. `SENSITIVITY.md` assumes scoped and flags it. **If the absolute reading is right, `L3` and `L4` are wrong.** This is one file in `apps/marching-arts` and it is the highest-value item in the item-0 pass.~~
+  **Why it was never a read.** This item assumed #112 was an implementation to consult. It was a **spike** (item 2), so opening that file would have established what a prototype happened to do — a different question from what the rule should be. The rule was never decided anywhere; it was observed once and quoted as settled. `SENSITIVITY.md` now states scoped on its own authority, and a contrary finding in `marching-arts` is a fact about the spike and does not reopen this. **The "highest-value item in the item-0 pass" was not an item-0 item at all**, which is worth remembering when reading the other 34 `Exists` rows.
 - **1b · `L5` is unreachable by class.** None of §6's eight classes maps to it, so the document assigns it per record under three rules — key material, the content of an enforced external restriction, and anything whose rendering would reveal a refusal. The alternative is a ninth class. Deliberate, and worth revisiting if a fourth trigger appears.
 
-**2 · The disposition of `apps/marching-arts`.**
-**State: blocking. Needs a decision.**
-§17 says "from scratch." Nothing says whether the playground copy is deleted on promotion or kept. This decides whether the first commit is a move or an empty tree — and §16 rule 4 is explicit that leaving two live copies behind a "keep in sync" note is the option with a measured failure rate in this fleet (four pairs, four drifts). If it is kept, it needs a named middle in the same commit; if it is retired, it needs the five-part tombstone.
+**~~2 · The disposition of `apps/marching-arts`.~~**
+**State: closed 2026-07-30. It was a spike; it retires. `terpsi-music` is a fresh build, and the first commit is an empty tree rather than a move.**
+
+~~§17 says "from scratch." Nothing says whether the playground copy is deleted on promotion or kept. This decides whether the first commit is a move or an empty tree — and §16 rule 4 is explicit that leaving two live copies behind a "keep in sync" note is the option with a measured failure rate in this fleet (four pairs, four drifts). If it is kept, it needs a named middle in the same commit; if it is retired, it needs the five-part tombstone.~~
+
+**The disposition, from the maintainer.** `marching-arts` was the first test of
+whether the shape could stand up. `terpsi-music` is where it comes together
+fresh, for real testing, and migrates to the organisation once it holds. So:
+retire, and **the findings carry forward while the code does not.** No
+extraction, no port, no shared library — a port is how this fleet has lost four
+pairs out of four, and `marching-arts` is itself already carrying a TypeScript
+port of a Python core that #120 found had drifted.
+
+**This decision has a consequence larger than the item.** A spike proving
+something *can* stand up is not a component that exists, so §14's `Exists` and
+§9's *built* are the wrong labels wherever they rest on it — corrected in place
+at both sites. That is a stronger correction than item 0's pass would have
+produced, and it arrived by asking the maintainer rather than by reading source.
+
+**The five-part tombstone cannot be written from here.** `marching-arts` lives
+in `safe-app-store`, which no remote session can reach (`FLEET-READS.md`). What
+is recorded here is the disposition; the stub is an act in that repository, and
+when it is written it needs: status first, `terpsi-music` named as successor,
+spike-completed as the reason, its findings mapped forward and marked
+non-authoritative, and why the stub still exists (§16, rule 20).
 
 **~~3 · No schema for the lane model.~~**
 **State: written 2026-07-30, not adopted. `docs/LANE-MODEL.md` + `docs/schema/001_lanes.proposed.sql`.**
@@ -1363,22 +1419,159 @@ The DDL has been **executed** against PostgreSQL 16 and every constraint attacke
 **This one is struck as *written*, not as *closed*, and the distinction is the point.** Three things still gate adoption:
 
 - **It rests on a paraphrase.** W-1…W-7 exist in `Willow`'s `PROTECTED_AGENTS.md` Part III and were not read at source — the schema encodes CLAUDE.md's one-line gloss of §7.4's summary. §7.4 itself notes the fragment carries a machine register and a human one, and that *"a clause that cannot survive translation between the two registers is not yet a clause."* Encoding the human-register gloss is exactly that translation risk. **Open Part III before this becomes `migrations/001_lanes.sql`.**
-- **Three invariants are stated and unenforced** — I-7's supersession asymmetry, W-3's default deny, and the rung ceiling. All three are predicates over the acting principal, so they belong with the read predicate and not in DDL. Named in `LANE-MODEL.md` rather than left to be discovered.
+- **~~Three~~ Four invariants are stated and unenforced** — I-7's supersession asymmetry, W-3's default deny, the rung ceiling, and (added 2026-07-30) **the `self` edge's holder**, which must be the lane's subject and cannot be expressed as a CHECK. The first three are predicates over the acting principal and belong with the read predicate; the fourth is a row-shape constraint needing a trigger, and it is the first entry added by *widening* the schema rather than by reading it. All four named in `LANE-MODEL.md` rather than left to be discovered.
 - **It is gated on blockers 2 and 4**, which is why the file sits in `docs/schema/` rather than `migrations/`.
 
 **4 · Which surfaces exist.**
-**State: blocking for layout. Needs a decision.**
+**State: blocking for layout. Deferred 2026-07-30 — being worked separately, not unanswered.** Two corrections to this item's own statement landed while it was discussed, and both hold whichever way it goes.
 Six personas (§4), `safe-design` ready with tokens and structurally-parity backends, and nothing recorded about whether this is a TUI, a browser application, both, or a TUI plus the parent PWA of §4.2. The answer sets the first directory layout and determines which of `safe-design`'s backends is load-bearing.
 
-**11 · The class vocabulary does not cover the categories §20 of the capability map names.**
-**State: open. Needs a decision, and it is larger than it looks.**
+> **(i) The enumeration above is missing a surface, and it is the untrusted
+> one.** "TUI, browser, both, or TUI plus the parent PWA" has no place for
+> clinicians and judges. §4 already settled what they get — *"a kiosk device
+> the org owns and wipes, or their own device on a guest SSID reaching the hub
+> directly"* — and a judge on a borrowed tablet for one evening is not running
+> a TUI. That is a **third surface, browser by necessity**, and §7 singles it
+> out as the session most worth narrating precisely because it is least
+> trusted. Most of the six personas are already decided in §4; this item reads
+> as more open than it is, and the part genuinely undecided is narrower: what
+> operators use, and whether the guest surface is a separate app or a
+> restricted mode of the same one.
+>
+> **(ii) `surfaces` is a manifest field, and this fleet's precedent for it
+> failed — and the mechanism of that failure is now read at source.**
+> `willow-grove/DESIGN_CONSTRAINTS.md` (*"Design constraints for the fresh
+> build"* — which is this repository) carries the same requirement as its
+> constraint 4, *"Ship a manifest that something actually validates"*, reached
+> from a code review rather than from this discussion. It supplies what was
+> missing here: **the store's lint skips by construction.**
+> `safe-app-store/tools/catalog_lint.py:71-73` errors on a missing manifest
+> only when the catalog entry carries a local `path`, and the enforcing ACL
+> lives in `willow-mcp` `gate.py` rather than in the store — so an
+> external-repo app falls between the declaration surface and the enforcement
+> surface. That is a middle that exists and **cannot fire for a whole class of
+> entries**, and it is the argument for this repository validating its own
+> manifest in its own CI rather than relying on the store's. §4.3 records `safe-app-willow-grove` declaring `"surfaces":
+> ["tui"]` with `lan_listen`/`lan_send` and *"portless means portless"*, while
+> `bridge/__main__.py` starts an aiohttp server on `0.0.0.0:8560`. Whatever is
+> decided here becomes a declaration of the same kind, for an app with more
+> surfaces than that one and at least two that listen. **Rule 12 applies in the
+> same commit:** a test enumerating listening sockets that fails on any the
+> manifest does not account for. Without it this repository ships the exact
+> declaration-without-enforcement pair its own §16 is written about.
+>
+> Egress purity is not the obstacle to a browser surface and should not be
+> raised as one: §6's inner ring forbids *outbound* — there is no client to
+> call out. A local listener is `lan_listen`, a permission.
+
+**~~11 · The class vocabulary does not cover the categories §20 of the capability map names.~~**
+**State: closed 2026-07-30. The vocabulary does not need new members. `docs/SENSITIVITY.md` *Protected status* is canonical for the resolution.**
+
+~~Resolved against this item's own third option rather than its conclusion.~~
+The decision: **step 3 of *Classifying a new field* is a definition and its four
+familiar examples are illustrative**, so confidential addresses, McKinney-Vento
+housing status, foster placement and documentation status reach `L4` *through
+the clause* rather than through a class. This item reasoned its way to "`L4`
+with a declared purpose" correctly and then inferred "which means new classes";
+that inference is what was wrong. Read as a closed enumeration, the clause would
+make every future protected category a schema change — the wrong failure
+direction for this population.
+
+**One member left the list.** Chosen name is inverted relative to the other
+four: the harm is *non-use*, and elevating it makes a deadnaming program
+**more** likely by pushing the printing path back to the legal name. The
+protected half is the **SIS legal record**, which is `L4`. This item's own prose
+had it — *"a legal name served to the program-printing path is the outing"* —
+without drawing the consequence.
+
+**Carried forward:** what *checks* a general clause. A lookup table is
+mechanically verifiable; a clause is a judgment (rule 19). Recorded in
+`SENSITIVITY.md`'s "does not decide" list, not here.
+
+~~The original statement follows.~~
+**State: was open; needs a decision, and it is larger than it looks.**
 §6's eight classes were mapped onto the ladder in `docs/SENSITIVITY.md` faithfully, and the mapping is sound for what the classes describe. The problem is what they omit. §20 of the capability map lists **confidential address programs (Safe at Home), McKinney-Vento housing status, undocumented families, foster placement changes, and chosen name distinct from the SIS legal record.** None has a class. Every one lands at `PII_MINOR` or `PII_GUARDIAN`, and therefore at `L3` — the rung whose rule is *served in full to any principal holding a current edge*.
 
 That is wrong by at least one rung in every case and dangerously wrong in two. A Safe at Home address exists because disclosing it can get someone killed; `L3` serves it to every staff member with a roster edge. A legal name served to the program-printing path is the outing that §20 of the capability map asks to be handled deliberately. And §18 of the capability map's *"fee waivers that are structurally invisible to peers"* is already load-bearing on `L5`'s rule 3, which arrived from a different direction and covers only the refusal, not the status.
 
 Three ways to close it, and this is the decision: add classes to §6's vocabulary; add a per-field rung override that outranks the class mapping; or treat "protected status" as a fourth `L5` trigger alongside the existing three. The third is cheapest and probably wrong, because these must be *served* to somebody — a chaperone needs the accommodation even when nobody may see the status. That points at `L4` with a declared purpose, which means new classes.
 
-**Nothing should classify a field in these categories until this closes.** The ladder is right; the vocabulary feeding it has a hole in exactly the population the program is most obliged to protect.
+~~**Nothing should classify a field in these categories until this closes.** The ladder is right; the vocabulary feeding it has a hole in exactly the population the program is most obliged to protect.~~
+
+**That hold is lifted as of 2026-07-30.** Fields in these categories may now be
+classified, at `L4`, against `SENSITIVITY.md`'s *Protected status* table. The
+diagnosis in the struck sentence was half right: the ladder is indeed right, and
+the vocabulary feeding it had no hole — the *route into* the ladder did, because
+classification consulted the class mapping and never reached step 3's clause.
+
+**~~12 · The subject has no standing in their own lane.~~**
+**State: closed 2026-07-30. `records/standing.py` is canonical for the resolution; `docs/SENSITIVITY.md`'s `L4` note and §7's edge block carry the rung consequences.**
+
+**The decision: a `self` edge, capped at `L3` until W-6's threshold.** `L1`–`L3` served in full; `L4` served as the derived instruction unless a guardian signs a per-category `Widening`; `L5` unchanged, never served to anyone including the subject; the cap lifts at the threshold by date comparison and `self` then behaves like any other edge. **And the subject reads their own disclosure log at every rung** — a student who cannot read their `L4` medical field can still see that the athletic director read it on October 12.
+
+**This item's own framing is what kept it open.** It asked *whether* the subject has standing, and three-fifths of that was already decided by the ladder: `L5` is checked before the edge check and is never served to anyone, and `L1`/`L2` sit below the derive floor and need no edge at all. The live question was only `L3` and `L4`, and it was never a yes/no — every other principal's standing is rung-shaped, and there was no reason the subject's would not be. **A binary question about a graded system will stay open**, because neither answer is true.
+
+**Why the first option and not the second.** A `self` edge is *dated*, so the threshold is a date compared on every read rather than an event somebody runs; it is *auditable*, and `principal.id == subject_id` would log `via_edge=None`, indistinguishable in the disclosure log from an unentitled read — §7.2's *narrate the read* silently broken by the fix; it can be *ended* by `invalid_at` (refusal 3), which is where a safety plan in which the subject is the risk has to live; and it is already a row.
+
+**Why not the third — deliberate no-standing.** It makes I-7 unverifiable by the party it protects. *"A student's entries are as durable as entries about them"* is a claim a student cannot check without reading their lane, and rule 19 says a guarantee that cannot be shown to hold is not one. It also makes W-6 the worst moment in the design: years of records, first sight, all at once, nobody left to ask.
+
+**W-4 survives, and one consequence of that is load-bearing.** For a pre-threshold `self` edge, `principal.purposes` is **never consulted** — a minor declaring a purpose over their own `L4` record is the ward authorizing itself, and honouring the declaration would defeat *a ward may request, never authorize* with a keyword argument. Only a guardian's signature widens. W-5 survives because nothing here lifts a cap for good behaviour; a cap set identically for every student at enrolment is not drift.
+
+**Two things this closing found**, recorded because of how:
+
+- **A forged `self` edge.** `Edge("self", "staff-nguyen", "student-ben", …)` would entitle a staff member through the subject's own door. The kind names a relationship and nothing was checking that the relationship held. Guarded in `is_self_edge()`, ablated, and named in `LANE-MODEL.md` as a fourth stated-and-unenforced invariant — the first added by *widening* the schema rather than by reading it, since a CHECK cannot reach `lane.subject_id`.
+- **The tripwire could not fire.** `test_a_student_CANNOT_read_their_own_record_documented_not_hidden` closed with `assert not any(k in ("self", "subject_of") for k in ("guardian_of", "staff_of"))`, written to fail once a `self` edge existed. It compares two hardcoded tuples: a tautology that passed after the edge shipped. §16's *cannot fire* mode, in the test written to detect the change, in this repository, after it had already quoted `willow-mcp` #211's version of the same defect. Replaced by `test_the_subjects_standing_is_an_edge_and_is_not_ambient`, which asserts both halves against the predicate.
+
+**Carried forward, not closed by this.** A safeguarding read — a counsellor opening a record because of a referral — appears in the subject's own log like any other, and there is no suppression mechanism. That is deliberate: a `suppressed_from_subject` flag is a backdoor that ends up on everything, and a *"one entry is withheld"* count tips off as loudly as the entry would. It is a real tension and it is named here rather than solved by a field nobody asked for. Whether a **guardian** may read the lane's log is also open and is not this item — a guardian reading it learns which staff member is looking at a record, which is nearer §13's prohibited standing scores than it appears, and guardians already hold receipts.
+
+The `Widening` is a **fourteenth table, as a type**, on the same footing as the crossing envelope's thirteenth: written in `records/standing.py`, not in `docs/schema/`, and for the same reason.
+
+**13 · `PLAN-GUARDIANSHIP.md`'s gate set is incomplete in two places.**
+**State: open, found by ablation 2026-07-30. Small, and a decision only in the sense that someone must write the gates down.**
+Building `records/sending.py` against G1–G11 and then ablating it left two mutants alive. Neither is covered by any of the eleven gates, because **every gate in the plan is about a *restriction* and none is about the standing edge itself**:
+
+- **G12 — an ended guardianship must not be messaged.** Refusal 3 ends guardianship by setting `invalid_at`. G1–G11 all test restrictions on a *live* guardian; none ends the guardianship. A predicate ignoring edge dates entirely passed all eleven.
+- **G13 — only guardians are messaged.** A predicate that messaged every edge holder — `judge_at`, `clinician_for`, `staff_of`, `director_of` — also passed all eleven. *"Ben will be at the away game in Dayton until 10pm"* delivered to a judge is §4.1's own worked harm.
+
+Both now have tests in `tests/test_sending.py`. The item stands until the plan itself carries them, because a gate that exists only in a test file is one refactor from being deleted as redundant.
+
+**14 · The classification procedure omits the re-identification gate its own class table requires.**
+**State: corrected in `SENSITIVITY.md` 2026-07-30; recorded here because of how it was found.**
+`SENSITIVITY.md`'s class table has always said `DERIVED_ANON` is `L2` *"only after the re-identification check"* and *"inherits `max` of inputs until it passes."* Its five-step *Classifying a new field* procedure carried no such step, so a derived field answered *no* at step 2 and landed at `L2` with nothing having looked at it.
+
+**A document disagreeing with itself, where one half is a table and the other a procedure.** Both were written in the same file on the same day and neither review caught it, because reading a procedure and reading a table are different acts and nobody did both against each other. It surfaced within minutes of implementing the procedure in `records/classify.py`, which is the argument for slices in one line.
+
+The fail-open is not theoretical: a count is exactly the shape that re-identifies. *"One student in this section carries an auto-injector"* names nobody and identifies a child if the section has three members — and §17's small-cell suppression exists because this fleet already knows that.
+
+Step 2a added. `records/classify.py` implements it, and a derived field now inherits `max` of its inputs until the check passes.
+
+**15 · Who witnesses the anchor.**
+**State: open, and upstream of everything else this repository does. Needs a decision.**
+The purpose of this system is provability — an institution that does not follow its own rules, and no way to show it. Every mechanism below rests on a record being **believable later**, and a record its author controls is weak evidence. The institution's response to an inconvenient log is not to dispute an entry; it is to say the log is yours, you built it, you can make it say anything.
+
+§5 specifies a `(head, count)` anchor and never says where it lives. `records/witness.py` now supplies the shape — anchors carry a digest, a count and a time and **nothing else**, which is why publishing one may cross the egress boundary at all; cadence is derived from the calendar rather than from activity, because an anchor series that tracks activity is `corpus-lens`'s shape-of-a-week leak; and an unwitnessed log reads as `UNWITNESSED`, never as fine.
+
+**What is not decided is the counterparty.** Candidates, with what each actually survives:
+
+| | mechanism | trusts | note |
+|---|---|---|---|
+| 1 | **OpenTimestamps** — Merkle-aggregated, committed to a public chain | nobody | free, no account, one call carrying 32 bytes |
+| 2 | **RFC 3161 timestamp authority** | the TSA | legally legible; may not outlive the vendor |
+| 3 | **Public append-only publication** — the anchor committed to a public repository | the host | cheap, matches how this fleet already works; arguably still yours |
+| 4 | **Certified mail to self, or annual deposit with an attorney** | the postal service, a lawyer | a jury understands it without being taught what a hash is |
+| 5 | **Guardian receipts** — each guardian holds a receipt for entries about their own child | nobody | the only counterparty whose interest is genuinely adverse to the institution's, and it falls out of the lane model |
+
+**They fail differently, so the answer is probably not one of them.** A dispute two years out uses whichever survived. The shape worth arguing about is cheap-and-frequent plus legible-and-rare plus adverse-interest: 1 weekly, 4 annually, 5 continuously.
+
+**Row 5 is built** — `records/receipts.py`, 2026-07-30 — and building it changed what this table should say about it. It is not merely a fifth candidate of equal kind: **it gives a property no anchor gives at all.** Positions are per-lane, so a guardian holding receipts for 1, 2, 3 and 5 can see that 4 is missing — without the institution's cooperation, without a third party, and without learning anything about any other student. Every other row on this list detects tampering only when someone thinks to compare the log against the witness, and the party motivated to compare is the one holding the log. Row 5 puts the detection in the hands of the party who is not.
+
+Its own limit is the mirror of that strength and is asserted by name in `tests/test_receipts.py`: **receipts detect removal, never omission.** An entry never written produces no receipt, and a guardian holding 1..N cannot tell whether N is everything. This is the same limit as the paragraph below, arriving from the other side — which is the argument for the plural answer rather than against row 5.
+
+Authenticity is weaker than the rest of the module and says so: issuance is HMAC-tagged because the stdlib carries no asymmetric primitive, so the institution can verify its own receipts and a mismatch is something it must explain — but anyone with the key can mint one, and a third party cannot attribute. **A deployment wants Ed25519 here**; until then row 5's weight comes from distribution and adversity, not from unforgeable maths. That is a dependency this item now carries and did not before.
+
+**Building it also found a defect in §5's own implementation**, recorded because of how it was found. `disclosure.Log` was a single global chain carrying a `subject_id` per entry — §5 line 271 requires that any chained artifact inherit *per-subject partitioning*, and a column naming which student a row concerns is rule 8's roster-column shape in the audit table. It leaks in exactly the way that matters here: a guardian holding global positions 5, 12 and 40 learns that thirty-four entries concerned other children. `Ledger` supplies one chain per lane. **The general shape is that a mechanism designed to be handed to an outside party audits the store that feeds it**, and nothing before this slice had that pressure on the log.
+
+**And the limit no witness removes**, recorded here rather than discovered later: anchoring proves what was written existed. It cannot prove everything was written. Selective recording defeats every scheme, because an anchor attests to what a log contained and never to what the world contained. The partial mitigations are real and are not proof — recording happens at the predicate rather than by a human choosing to type, and refusals are logged as durably as disclosures so a gap is anomalous. `tests/test_witness.py` asserts the limitation by name so nobody mistakes `WITNESSED` for *complete*.
 
 ### The three to state, which do not block day one
 

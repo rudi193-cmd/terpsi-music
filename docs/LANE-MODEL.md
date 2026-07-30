@@ -178,6 +178,41 @@ stays in its lane. Enforcement is one predicate, compiled once, funnelled
 through the single read method — §7's resolver shape, with #127's
 authenticate-at-the-read so a fourth read added later inherits the gate.
 
+> **And the crossing itself has no table — found by reading W-3 at source,
+> 2026-07-30.** The full clause is *"Between wards, default deny; **a crossing
+> requires a guardian-signed envelope naming both lanes, purpose, and
+> expiry.** A shared event is two lane entries with one referent."* This
+> document encoded the third sentence and the first; the middle one is absent
+> from all twelve tables — `envelope` and `crossing` appear zero times in the
+> DDL.
+>
+> The distinction matters because the two halves fail differently. Default deny
+> unenforced means an *illegitimate* crossing is not stopped, which is recorded
+> above. No envelope table means a **legitimate** crossing is not
+> *representable* — there is nowhere to put the guardian's signature, the
+> purpose, or the expiry, so the only way to serve a real sibling case is to
+> not record that it happened.
+>
+> This is exactly the risk §18 item 3 named: the schema was built from a
+> paraphrase, and the paraphrase kept the prohibition and dropped the
+> permission. **A ward clause that forbids without providing the sanctioned
+> path is not the clause** — W-5's *"agency grows by signature"* has the same
+> shape and would fail the same way. Fixing it is a thirteenth table and it is
+> not written here, because the DDL stays in `docs/schema/` until item 3's
+> other gates clear.
+
+**The `self` edge's holder.** Added to `edge_kind` 2026-07-30 (§18 item 12).
+Its defining property is that `holder_id` **is** the lane's `subject_id`, and a
+CHECK cannot reach through `target_lane_id` to `lane.subject_id` to say so — so
+this is the one edge kind whose meaning the table states and cannot hold. A row
+reading `('self', <staff person>, <Ben's lane>)` is accepted by the DDL and
+would, unchecked, entitle a staff member through the subject's own door.
+`records/standing.py`'s `is_self_edge()` is the middle, called by the read
+predicate before any edge matches, and ablated in `tests/ablate.py` as *"a
+forged self edge."* A `BEFORE INSERT OR UPDATE` trigger is the DDL-side answer
+when this migration stops being proposed. **A fourth entry on this list, and the
+first one added by widening the schema rather than by reading it.**
+
 **The rung ceiling.** `access_grant.max_rung` records the ceiling and the
 registry is now populated for all 93 columns, so the lookup has something to
 resolve against. What is missing is the code that performs it at serving time.

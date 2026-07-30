@@ -24,21 +24,65 @@ are `P2 Cited` (§15) — taken from §6 and §15 of the architecture, which too
 them from `marching-arts` PR descriptions. None has been confirmed against
 source, and §18 item 0 applies in full.
 
-| Fact | Source as cited |
-|---|---|
-| At `L3` and above the payload is `NULL` in the SELECT list; only a derived instruction is served | #112, via §6 |
-| `L5` is never served to anyone under any grant | #112, via §6 |
-| Sensitivity composes by `max` — a record holding one `L5` field is `L5` | §15 |
+| Fact | Source as cited | Verified at source 2026-07-30 |
+|---|---|---|
+| At `L3` and above the payload is `NULL` in the SELECT list; only a derived instruction is served | #112, via §6 | **True of a different ladder.** `DERIVE_AT = Band.ACCOMMODATION`, band 3 of seven |
+| `L5` is never served to anyone under any grant | #112, via §6 | **True of a different ladder.** `NEVER_SERVED = {Band.SAFEGUARDING}`, band 5 of seven |
+| Sensitivity composes by `max` — a record holding one `L5` field is `L5` | §15 | not sourced to the spike; unaffected |
 
-> **One of those needs checking before it is built on, and it is the first.**
+> **Both citations were transplanted by number across two different scales.**
+> `marching_arts/bands.py` declares seven bands, `L0`–`L6` — `SELF · ROSTER ·
+> CRAFT · ACCOMMODATION · HEALTH · SAFEGUARDING · FAMILY` — and this file
+> declares five rungs, `L1`–`L5`. The spike's `L3` is ACCOMMODATION; this
+> file's `L3` is *Attributed*, "anything identifying a student." They are not
+> the same rung and the rules do not carry across.
+>
+> That is §15's own hazard — *"scales never compare as bare integers"* —
+> committed in the sourcing of the ladder §15 governs. The spike compounds it
+> with `IntEnum`, so its bands compare as bare integers by construction.
+>
+> **The rungs below are unaffected**, because they were written from the
+> problem rather than from #112, and because the spike retires (§18 item 2).
+> What is corrected is this file's account of where they came from: **the five
+> rungs are original to this document and were never inherited.** A reader who
+> took the table above as showing the ladder's derivation was misled by it.
+
+> **The first of those is now decided rather than cited. `L3`+ NULL is
+> SCOPED — to principals without an entitlement edge. Decided 2026-07-30,
+> closing §18 item 1a.**
+>
 > As quoted, "the payload is `NULL` in the SELECT list" is unqualified — it does
 > not say *on which paths*. Read absolutely, a guardian could not be served
 > their own child's name, which cannot be the shipped behaviour of a roster
-> application. Read as scoped to principals without an entitlement edge, it is
-> exactly right. The definitions below assume the scoped reading and say so at
-> `L3`. **If the absolute reading turns out to be correct, `L3` and `L4` below
-> are wrong and this file is the defect.** That is one file to open in
-> `apps/marching-arts` and the highest-value item in the item-0 pass.
+> application. Scoped is the only coherent reading, and the definitions below
+> now **state** it rather than assume it.
+>
+> **Why this stopped being a read.** It was filed as one file to open in
+> `apps/marching-arts` and the highest-value item in the item-0 pass. That
+> framing rested on treating #112 as an implementation to be consulted.
+> `marching-arts` was a **spike** — a first test of whether the shape could
+> stand up — so opening that file would have established what a prototype
+> happened to do, which is not the same question. The rule was never decided
+> anywhere; it was observed once and quoted as though settled.
+>
+> **Decided here, not inherited.** If `marching-arts` turns out to have
+> implemented the absolute reading, that is a fact about the spike and does not
+> reopen this. The rungs below are now canonical on their own authority.
+>
+> **Read at source 2026-07-30, after the decision.** The spike's rule is
+> `CASE WHEN facts.band >= 3 AND facts.subject_id != :viewer THEN NULL ELSE
+> facts.payload END`. Scoped, so the disposition holds — but the framing was
+> malformed twice over. Band 3 is ACCOMMODATION, not *Attributed*, so the rule
+> never governed this file's `L3` at all; and the scoping is by **subject
+> identity**, not by entitlement edge.
+>
+> **That second difference is open and is not a correction.** Under the spike
+> only the data subject ever receives their own payload — a guardian reading
+> their child's accommodation gets the instruction. `L4` below is looser: an
+> entitled principal with a declared purpose receives the payload, which is
+> what makes the bus-chaperone example work. Whether the spike's stricter rule
+> is right, or whether the declared-purpose escape is the deliberate
+> improvement, is a live design question. **Recorded, not resolved.**
 
 ---
 
@@ -84,7 +128,8 @@ aggregates that have survived a re-identification check.
 
 Names or identifies an individual, or is trivially resolvable to one. Served in
 full only to a principal holding a **current entitlement edge** to that subject
-(§7's `guardian_of`, `staff_of`, `director_of`, `judge_at`, `clinician_for`).
+(§7's `self`, `guardian_of`, `staff_of`, `director_of`, `judge_at`,
+`clinician_for`).
 On any path without such an edge the payload is `NULL` and, where an operational
 need exists, a derived instruction is served in its place.
 
@@ -110,12 +155,66 @@ diagnosis.
 > staff member, on the same device, ten minutes earlier under an attendance
 > purpose, does not.
 
+> **The subject is a capped case at this rung and not at `L3`.** A `self` edge
+> reaches `L3` in full — a student sits in their own chair, and serving them the
+> derived form about their own name is not protection. At `L4` the subject is
+> served the instruction like any entitled principal without a declared purpose,
+> and their own purpose declaration is **not** read (W-4: a ward may request,
+> never authorize). A guardian may sign a per-category widening; the cap lifts at
+> W-6's threshold. `records/standing.py` is canonical; §18 item 12 has the
+> argument.
+
 > **This is the rung that makes the ladder worth having.** `L4` is not "`L3`
 > but more so." It is the claim that most operational needs around sensitive
 > categories are satisfied by an instruction rather than by the datum, and that
 > serving the datum is a decision requiring its own declared reason. A design
 > that renders the diagnosis to everyone who might need to act on it has not
 > classified anything; it has added a label to a leak.
+
+### Protected status — the categories that reach `L4` without a class
+
+**Decided 2026-07-30, closing §18 item 11.** Item 11 asked whether §6's
+vocabulary needs new classes for the categories §20 of the capability map
+names. It does not. They reach `L4` through step 3 of *Classifying a new
+field*, because **"a category the law follows" is a definition and the four
+familiar examples are illustrative.** Read as a closed enumeration it would
+make every future protected category a schema change, which is the wrong
+failure direction for exactly the population this program is most obliged to
+protect.
+
+| Field carries | Rung | Served as |
+|---|---|---|
+| Confidential address program participation (Safe at Home) | `L4` | the substitute address, and the fact that mail routes differently |
+| McKinney-Vento housing status | `L4` | the fee waiver, the transport arrangement, the instrument locker |
+| Foster placement, and a change of placement | `L4` | the current contact edges, dated — never the placement history |
+| Immigration or documentation status | `L4` | the trip requirement met or unmet — never the status |
+
+Each is `L4` for the same reason `HEALTH` is: **the operational need is
+satisfied by the instruction, and serving the datum needs its own declared
+purpose.** A liaison acts on the locker without the housing status crossing a
+screen. This is why `L5` is wrong for all four — enforcement-only is never
+served, and a status nobody may render cannot produce a fee waiver.
+
+> **The chosen-name inversion.** Item 11 listed *"chosen name distinct from the
+> SIS legal record"* among the five, and its own prose already named the danger
+> correctly — *"a legal name served to the program-printing path is the
+> outing."* Made explicit, because the two halves pull opposite ways:
+>
+> - **The chosen name is not elevated.** It stays at its class rung. The harm
+>   here is *non-use* — a printed program that deadnames a student — and
+>   restricting the chosen name makes that **more** likely, because the
+>   program-printing path then falls back to the legal name it can still reach.
+> - **The SIS legal record is `L4`**, by this section. It is the protected
+>   half.
+>
+> Four of item 11's five are facts to protect. The fifth is a fact to *use*,
+> whose counterpart is the fact to protect. Classifying it like the other four
+> would have inverted the guarantee while appearing to strengthen it.
+
+**What this does not license.** Reaching `L4` by clause rather than by class
+means a human decides at schema-definition time, and step 5 still applies — the
+§6 class is recorded alongside the rung, and these fields remain `PII_MINOR` or
+`PII_GUARDIAN` for egress and retention. The rung moved; the class did not.
 
 ### `L5` — Enforcement-only
 
@@ -281,7 +380,18 @@ Three things this table is not:
 
 1. **Can it be published?** → `L1`.
 2. **Does it name, or resolve to, a person?** No → `L2`. Yes → continue.
-3. **Is it health, money, discipline, or likeness?** No → `L3`. Yes → `L4`.
+   **2a. Is it derived from other fields?** If so, `L2` applies **only after the
+   re-identification check**; until it passes, the field inherits the `max` of
+   its inputs. *Added 2026-07-30 — §18 item 14.* The class table has always said
+   this of `DERIVED_ANON`; the numbered steps did not, so a derived field passed
+   step 2 and reached `L2` with nothing having looked at it. That is a fail-open
+   in the one place re-identification risk actually lives: *"one student in this
+   section carries an auto-injector"* names nobody and identifies a child if the
+   section has three members.
+3. **Does it carry a category the law follows?** No → `L3`. Yes → `L4`.
+   Health, money, discipline and likeness are the common four. **They are
+   examples of the clause, not the whole of it** — see *Protected status*
+   below, which reaches `L4` through this step and not through a class.
 4. **Would rendering it reveal a refusal, expose enforcement substance, or
    disclose key material?** → `L5`, by the rule that applies.
 5. **Record the class from §6 alongside the rung.** The rung governs serving;
@@ -296,13 +406,22 @@ step 2, and still land at `L5` because rendering it would identify who declined.
 
 ## What this document does not decide
 
-- **Whether the `L3`+ NULL rule is absolute or scoped to unentitled paths.**
-  The definitions assume scoped. Flagged at the top; one file in
-  `apps/marching-arts` settles it.
+- ~~**Whether the `L3`+ NULL rule is absolute or scoped to unentitled paths.**~~
+  **Decided 2026-07-30: scoped.** See the top of this file. It moved out of
+  this list rather than off it, because a reader who remembers the caveat needs
+  to find where it went (rule 20).
 - **Whether the class vocabulary needs a ninth member for `L5`.** This document
   assigns `L5` per record by rule instead, on the grounds that its three
   triggers have nothing in common as *kinds of data* — a signing key and a
   declination record are the same rung for entirely different reasons.
+- **How a classifier evaluates step 3's general clause.** *Protected status*
+  settles that the clause governs and the four examples do not bound it. It
+  does not settle what checks that. A lookup table is mechanically verifiable;
+  a general clause is a judgment, and rule 19 says a guard that cannot be shown
+  to fail has not been shown to work. The likely shape is that the clause stays
+  human-evaluated at schema-definition time and the *enumeration of decided
+  cases* — the table above — is what the build checks, growing by human act.
+  That is a real decision and it is not made here.
 - **The numbering of the middle trust rungs.** See the caveat above.
 - **Where the derived instruction for an `L4` field is authored.** That a
   diagnosis yields an accommodation is asserted here; who writes that mapping,
