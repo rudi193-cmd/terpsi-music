@@ -443,7 +443,10 @@ Given this repo's MCP wiring: an agent with tool access and a network route is a
 
 - Anything touching `PII_*`, `HEALTH`, or `MEDIA_MINOR` is served by a **local** model inside Zone A. No exceptions, no "just this once for the summary." This explicitly includes commentary transcription (§8.2), which is where the pressure to make an exception will actually come from.
 - External model APIs are a destination like any other: allowlisted for `PUBLIC` / `DERIVED_ANON` only, gated, logged.
+- **`privacy_tier` in a SAFE manifest is not a validated invariant, so this app needs its own check.** Across the store, `"privacy_tier": "client_only"` coexists with `"permissions": ["cloud_llm_free", …]`, and several apps declare `client_only` alongside `"local_processing": 0.96` — the manifest conceding four percent is not local while the tier claims otherwise. Nothing rejects the combination. terpsi-music must ship a test that **fails the build** if any cloud or network permission appears in its own manifest, because the vocabulary will not enforce it.
 - **The existing fallback chain must be disabled, not merely unused.** `willow-seed` documents a "free fleet fallback": when local Ollama is unavailable, inference routes to Groq → Cerebras → SambaNova on keys from `credentials.json`. That is a sensible default for a personal box and a **silent FERPA disclosure** on a school hub — it fires exactly when the local model is down, which is when nobody is watching, and it produces no error. A rule that says *local models only* is satisfied by a running Ollama and defeated by a stopped one. Remove the fallback keys, assert their absence in install acceptance, and let local inference **fail loudly** instead of degrading to a third party.
+
+  There is a second instance, and it is committed to a public repo: `apps/semantic-translator/.mcp.json` sets **`"WILLOW_INFERENCE_PROVIDER": "auto"`** (alongside absolute `/home/<user>/…` paths, which is the fleet's own R15 violated in public). **An app holding student records cannot have an inference provider that selects itself.** Provider must be named explicitly, and `auto` must be rejected at startup rather than resolved at first call.
 - Agent tool-calls are constrained by the same authorization tuples as the human they act for — an agent cannot read what its principal cannot read.
 - Agents knock like anyone else (§7.2), and being the least trusted rung, they are the loudest.
 
@@ -518,11 +521,36 @@ Its **exclusion list is the more instructive half.** `frank_ledger`, `hook_execu
 
 This is the one place in this domain where the failure is a safety failure rather than a bug, and it is worth having the mechanism before the case arrives — because when it arrives it will arrive urgently.
 
+### 7.3 `quiet-corner` is the known-bad precedent, and it is the closest sibling this app has
+
+`quiet-corner` is a local-first K–12 student-records application by the same author — observations, standards, meetings, IEP status, behavioral notes. It is the nearest thing in the fleet to terpsi-music, and its central defect is precisely the one this design must not repeat.
+
+Its config schema declares a **`session_scope`** with a per-field visibility vocabulary:
+
+`roster_visible` · `attendance_visible` · `standards_visible` · `knowledge_graph_visible` · `iep_visible` · `behavior_visible` · `parent_contact_visible` · `archive_visible`
+
+**Nothing enforces any of it.** The records view references none of those keys and loads every store unconditionally; IEP status renders as a decorative label. `docs/backend-architecture.md` states the gate exists — *"A 'session scope' preference system gates sensitive data visibility (IEPs, behavioral notes, etc.), implemented at the frontend request layer"* — and a frontend request layer is not an access control at all.
+
+Two lessons, and they point opposite directions:
+
+- **The vocabulary is good and worth taking.** Those eight fields are a well-chosen sensitivity partition for exactly this domain, arrived at by someone who has held the data. They map cleanly onto the L-ladder.
+- **The enforcement location is the failure.** A scope that lives in the client is a preference. This is why §7's resolver compiles to one SQL predicate, and why §7.2's gate sits at the read: the same author, on the same kind of data, has already shipped the client-side version and documented it as though it were a control.
+
+`quiet-corner`'s own `ROADMAP.md` states the gap without flinching — *"No accounts / auth. Data lives in one browser profile with no lock,"* called **"the most serious trust gap for a tool holding minors' records"** — and notes no written FERPA/COPPA posture exists, *"cheap to write now while the answer is simply 'nothing leaves the device.'"* There is no encryption at rest, and the documented backup path is a plaintext JSON export the guide suggests a teacher move by USB or **email to themselves**.
+
+That last detail is the sharpest argument in this document for §11.1's exit line being a *designed* artifact. An export is going to exist. If nobody specifies it, it will be a plaintext blob of minors' records travelling by email.
+
+And one more instance of the tracked pattern: the same roadmap asserts *"the app makes zero third-party requests at runtime and holds no data off-device"* while the data layer ships a complete REST client against `http://127.0.0.1:8432` behind a `USE_API` flag defaulting false, targeting a backend that does not exist in the repo. **A dormant network path is still a network path**, and in this design it is the seam that later becomes confidential transport (§4.2) — so it gets designed deliberately or not created.
+
 **The fleet has already named this as its hardest open problem.** `corpus-lens` scopes itself to *owner == subject* — studying yourself — and says so explicitly: *pointing it at another person (a child, a partner, an employee) is a different consent object and is out of scope by design.* Its "named and deliberately unbuilt" list puts it plainly:
 
 > The guardian-consent model (owner ≠ subject) — **the biggest gap between this toolkit and any family-facing instrument**; not solved, so not shipped.
 
 Every persona in this document is owner ≠ subject. A school holds records *about* minors; a director reads data they are not the subject of; a guardian consents on behalf of someone else. `marching-arts` P2 is the fleet's first real attempt at that model — guardianship edges, consent never requested by its beneficiary, expiry at majority. **This app is where that gap either gets closed or gets shipped unsolved**, and §7.1's dated termination is the part of it still missing.
+
+A sweep of the rest of the fleet confirms there is nothing to inherit. The coded consent model is the SAFE manifest's `data_streams`, whose retention vocabulary has exactly **two values — `session` and `permanent`** — and **no dated or revocable consent exists anywhere in the fleet.** The only staged model the author has written lives in a lesson plan, not in code: `DispatchesFromReality` distinguishes *legal* consent (clicking "I Agree") from *informed* consent, and walks six lifecycle checkpoints — Creation, Indexing, Monetization, Scraping, Training, Deployment — under the question **"At which stage should you have been asked?"**, with three audit questions: *Who knows this is happening? Who agreed to it? Who benefits?*
+
+Those are the right questions and they are the right shape — a consent with stages and a time axis. They have simply never been implemented. **§7.1 has no precedent to copy; it has to be invented here**, and the lesson plan is the closest thing to a specification.
 
 ### 7.2 The knock — sessions are reconciled, not merely authorized
 
@@ -620,6 +648,8 @@ Commentary
 
 **Anchor to score position, not just time.** "At 4:32" means nothing to a musician; "measure 112, at the tempo change" is the addressable unit. Get there by aligning audio to the score where one exists, or by giving the judge a tap-to-mark control and letting them anchor as they speak. This is the hard part and the whole value — unanchored commentary is just a tape with extra steps.
 
+**There is a transplantable model for this already.** `story-timeline` uses record types `timeline`, `timeline_entry`, and a first-class **`provenance`** record, with a relation vocabulary including `derived_from`, `appears_on_timeline`, `supports_scene`, and — the one worth taking verbatim — **`contradicts_or_tensions_with`**. Three judges disagreeing about the same passage is that relation exactly, and it is the structure that makes a disagreement queryable instead of a reader's impression. What the model lacks is time-coding: its entries carry no timestamps, so score-position anchoring (§8.1) is the piece terpsi-music adds rather than inherits.
+
 **Rubrics, captions, ratings, and scores are projections over commentary**, not parallel structures beside it. Caption scoring is structured judgment; the festival tape is unstructured judgment; both are assessment attached to a moment in a performance. Modeled this way, a symphonic festival is a *configuration* — a different rubric, ratings instead of caption numbers, more talking and fewer digits — rather than a second application. Marching, indoor, and concert festival all fall out of one model.
 
 What this unlocks, none of which the tape could do: deliver each section only the remarks touching their parts; scrub to a comment and hear the ensemble at that instant; diff the same passage across judges who disagreed; and — the genuinely new one — query every comment about brass balance across a full season to see whether the thing you have been fixing since September is actually moving.
@@ -673,6 +703,10 @@ Not legal advice — the state-law column in particular varies enough that the d
 **`willow-2.0/TRUST.md` is the privacy notice, already drafted.** Three tables — *what stays local* (with the specific store named), *what can leave, opt-in only* (with the exact condition per feature), and *how to verify the code yourself* — plus an explicit honesty note that demo data is seeded and labelled. Retarget it at guardians and at a district technology review and it is most of what either audience needs. Its structure is the valuable part: not a policy, a **map of every path data can take, each with the switch that opens it.**
 
 **`willow-2.0/SECURITY_AUDIT.md` is a reusable acceptance rubric.** Fifteen numbered checks — SQL construction, shell injection, path traversal, credentials in version control, CORS, XSS, unsigned execution, MCP tool auth, exception swallowing, temp-file predictability, race conditions, manifest correctness, dependency pinning, hardcoded home paths — with findings carrying IDs, severity, and status. Run it against this app before a school install, and treat the result as an install gate rather than a document.
+
+**The rubric is missing the two checks this app needs most.** R1–R15 covers injection, traversal, credentials, CORS, XSS, unsigned execution, API auth, swallowed exceptions, temp paths, races, entry points, dependency pinning, and dev paths. It has **no check for encryption at rest** and **no check that an egress test exists**. Both are the point of this design, so the recommendation is concrete: add **R16 — data at rest is encrypted, with the key escrowed (§5)** and **R17 — a structural no-egress test exists and fails when neutralised (§6, §10)** to the fleet rubric rather than to a local fork of it.
+
+It also carries the fleet's canonical fail-closed idiom, worth stating as house style: *fail at startup, not at request time. A missing secret is a hard configuration error.* Every gate in this document should behave that way — `SAP_PGP_FINGERPRINT` unpinned (§7.2), `WILLOW_INFERENCE_PROVIDER` set to `auto` (§6), and a manifest declaring a cloud permission should each refuse to start.
 
 **Add a line the rubric does not have: the verification apparatus was itself verified.** `willow-mcp` #211 reports that across three merged PRs in one session, **six defects were found in the verification apparatus and zero in the code under verification** — a differential reference generated before the thing it checked changed; a fixture writing a hash chain with the same function it read it back with, so a rename was invisible *and self-consistent*; a fixture that could not fail; a killed mutation harness that left a mutation in the tree and turned every subsequent number into fiction; three mutations that renamed a SQL trigger rather than disabling it, so it kept firing under the new name; and counts in prose that nothing checks.
 
@@ -796,6 +830,11 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §15 scale-direction convention | — | **Open.** `T0–T4` and `L1–L5` already oppose; no prefix rule or mapping table exists yet |
 | §11.1 exit plan | `awesome-sovereign-software` | **Criterion exists**, five-point test plus a required exit line. No exit line written for this app yet |
 | Owner ≠ subject consent | `corpus-lens` (names it unsolved), `marching-arts` P2 | **The fleet's stated hardest gap.** This app is where it closes or ships unsolved |
+| §7.3 sensitivity field vocabulary | `quiet-corner` `session_scope` | **Vocabulary worth taking, enforcement is the known-bad precedent** — declared per-field, enforced nowhere |
+| Dated / staged consent | `DispatchesFromReality` (prose only) | **No code anywhere in the fleet.** `data_streams` retention has two values; must be invented here |
+| §8.1 commentary relations | `story-timeline` (`provenance`, `contradicts_or_tensions_with`) | **Transplantable**, minus time-coding |
+| §15 `P2` liveness sweep | `almanac-template` (`status` + `observed` + daily reachability job) | **Exists as a pattern**, files an issue when a source rots |
+| Export / publication boundary | `yggdrasil-training-data` | **Pattern exists**, fail-closed on unknown — but carries a trusted-source bypass not to reproduce |
 | Cloud inference fallback | `willow-seed` (Groq/Cerebras/SambaNova) | **Must be disabled, not unused.** Fires exactly when the local model is down |
 | Trust-root placement | `willow-config` + `kart-sandbox.json` | **Half closed.** `mcp_apps/` is ro-bound against sandboxed tasks; still in git, on a remote, and host-writable |
 | Sandbox mount policy | `kart-sandbox.json` | **Exists**, versioned and data-driven — no-network tasks get zero credentials, sovereign data read-only, tmpfs `/tmp` |
@@ -868,6 +907,10 @@ The fleet's `measured | fitted | assumed` with the two rungs it currently collap
 > So `P2` requires storing enough to survive its source disappearing: not a URL, but a resolved content hash, a pinned commit, or the quoted claim itself. `oakenscrolls-office` is closest — a pinned catalog commit at least records *what was read* even when it can no longer be re-fetched. **"Catalog, don't host" has exactly this vulnerability**, and a program relying on a cited eligibility rule or a licensing term three seasons later will meet it.
 >
 > Minimum viable check: a periodic liveness pass that demotes an unresolvable `P2` to `P5` **loudly**, rather than letting it keep the higher rung by inertia.
+>
+> **That check already exists in the fleet and should simply be adopted.** `almanac-template` pairs every catalogued entry with a `status` and an **`observed` date**, and runs a daily reachability job that **files a GitHub issue when a source rots**. That is provenance with a liveness timestamp instead of a bare URL, plus an escalation path — exactly the mechanism `P2` needs. Anything here that cites an external authority (state standards, circuit rubrics, licensing terms, district calendars) should carry `status` + `observed` and be swept on the same cadence.
+>
+> The tally, meanwhile, keeps growing: beyond the SAP RFC and the canonical Grove repo, **fifteen further store manifests name a `repository` that does not exist** — `safe-app-private-ledger`, `safe-app-the-squirrel`, `safe-app-utety-chat`, `safe-app-ask-jeles`, and a dozen more. Eighteen-odd dead canonical links is not an accident rate; it is a missing sweep.
 
 **Estimated** matters because extrapolating from a different ensemble at a different venue is a categorically different claim than fitting to this one — and in this domain that distinction is the difference between a defensible design decision and a guess wearing a number.
 
