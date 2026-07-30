@@ -859,7 +859,8 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §15 rendering the scales | `safe-design` | **Exists.** Semantic tokens, lookup-time aliases, structurally guaranteed backend parity, ASCII path |
 | §5 exclusion of family data from the corpus | `willow-compose` | **Exists as stated policy.** This app is a family-data app by its definition |
 | Fifth authorization mechanism | `openclaw-sap-gate` (SAP/1.0) | **Exists**, with a fail-open default fingerprint and revocation-by-deletion |
-| §17 district / equity data | `almanac-data/education-almanac` | **Not yet.** One national UNESCO entry; the NCES and state coverage the README describes is not in the catalog |
+| §17 district / equity data | `almanac-data/education-almanac` | **Seeded, not worked.** One UNESCO entry. Five sibling verticals are worked and US-federal-heavy, so the pattern and the machinery both exist |
+| §15 citation decay vocabulary | `almanac-template/schema/catalog-entry.schema.json` | **Solved, adopt wholesale.** Seven decay states, observed-vs-status separation, fingerprint drift, recovery authenticity ladder |
 
 **Read before building:** `willow-grove`'s `FLEET_SEAMS.md` and `DESIGN_CONSTRAINTS.md`. The fleet already maintains a repo whose entire job is recording where two components each do half a job and the halves do not meet, with `file:line` citations and a re-verify command per finding. A new app is exactly the thing that creates a fifth such seam.
 - Is "corporate" the circuit/association, the district, or a vendor? Changes what aggregates mean and who signs off on them.
@@ -924,7 +925,17 @@ The fleet's `measured | fitted | assumed` with the two rungs it currently collap
 >
 > Minimum viable check: a periodic liveness pass that demotes an unresolvable `P2` to `P5` **loudly**, rather than letting it keep the higher rung by inertia.
 >
-> **That check already exists in the fleet and should simply be adopted.** `almanac-template` pairs every catalogued entry with a `status` and an **`observed` date**, and runs a daily reachability job that **files a GitHub issue when a source rots**. That is provenance with a liveness timestamp instead of a bare URL, plus an escalation path — exactly the mechanism `P2` needs. Anything here that cites an external authority (state standards, circuit rubrics, licensing terms, district calendars) should carry `status` + `observed` and be swept on the same cadence.
+> **That check exists in the fleet, and it is better than the one proposed above — adopt it wholesale.** `almanac-template`'s `catalog-entry.schema.json` is a worked solution to citation decay, and it makes distinctions this document had not:
+>
+> **Decay has seven states, not two.** `status` ∈ `live · revised · moved · redirected · superseded · dark · frozen`. A source that still resolves but stopped being updated (`frozen`) is a different claim from one that moved, one that was replaced (`superseded`), and one that is gone (`dark`). "Resolvable" was never the right binary — the climate vertical already carries a `frozen` entry alongside sixteen live ones.
+>
+> **Machine facts and interpretation are separated.** *`observed` records only machine facts; `status` derives interpretation from those facts* — and `status_source` ∈ `auto · curator` records which of the two set it. That is the same discipline as #128's correction trigger landing a `draft` stub because the database can see *that* something changed and cannot know *what was wrong*.
+>
+> **Drift is detected, not just reachability.** `observed.fingerprint_result` ∈ `match · drift · no-baseline`. A source that returns HTTP 200 with different content is caught, and `no-baseline` handles entries catalogued after the failure — the fingerprint *"captures baseline metrics while the resource was live"* and is deliberately absent otherwise. That is §5's emptied-is-not-absent rule, applied to citations.
+>
+> **Recovery has its own authenticity ladder**, ordered and separate from the measurement ladder above: `recovery.authenticity` ∈ `hash-verified · cross-archive · timestamped · asserted`, with the schema noting that recovery candidates are ranked *"by authenticity tier, never by authority or operator."* When a cited rubric or licensing term goes dark and you fall back to an archived copy, that copy's own trustworthiness is a separate axis from the original's — and `asserted` is the floor, which is `P5` by another name.
+>
+> A daily job probes every source and opens a GitHub issue when one goes dark (`scripts/check_links.py`, `link-check.yml`). Anything here citing an external authority — state standards, circuit rubrics, licensing terms, district calendars — should carry this shape rather than a URL, and be swept on the same cadence.
 >
 > The tally, meanwhile, keeps growing: beyond the SAP RFC and the canonical Grove repo, **fifteen further store manifests name a `repository` that does not exist** — `safe-app-private-ledger`, `safe-app-the-squirrel`, `safe-app-utety-chat`, `safe-app-ask-jeles`, and a dozen more. Eighteen-odd dead canonical links is not an accident rate; it is a missing sweep.
 
