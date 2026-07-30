@@ -783,7 +783,8 @@ One caution the same list supplies: its **Delisted** section records sovereignty
 10. **Narrate the read, gate the export** (§7.2) — the harm is in data leaving, not in someone glancing at a schedule. Concentrating ceremony at the boundary is both less obstructive and more honest.
 11. **The exit line is written before the first install** (§11.1) — sovereignty is the ability to leave, and if the line cannot be written honestly that is the finding.
 12. **A guard that cannot be shown to fail has not been shown to work** (§10) — acceptance is mutation, not a green suite; the observed failure mode in this fleet is defects in the verification apparatus rather than in the code it verifies.
-13. **Ordinal scales never compare as raw integers, and provenance never gates** (§15) — two existing five-level scales already run in opposite directions; a third arrives only with prefixes and a single mapping table.
+13. **Ordinal scales never compare as raw integers, and provenance never gates** (§15)
+14. **Every pair gets a named, mutation-tested middle** (§16) — the fleet builds in halves, and every failure in this document is a reconciler that was absent, mis-aimed, or unable to fire. — two existing five-level scales already run in opposite directions; a third arrives only with prefixes and a single mapping table.
 
 ## 13. Open questions
 
@@ -966,3 +967,82 @@ That join is what makes judge calibration (§13) a measurement rather than a rhe
 The repo also documents the cost of not doing this: twenty-one terminal UIs in `safe-app-store` re-derived the same palette by hand, and `story-timeline/app.py` alone carries sixty hardcoded colors.
 
 **One requirement this document adds.** None of these three scales may be encoded by colour alone. A sensitivity band, a trust rung, and a `P`-rung each need a glyph or a label carrying the same information — for colour-vision deficiency, for the printed program, for a phone in direct sun at a stadium, and for the `TERM=dumb` ASCII path `safe-design` already supports. `field-acoustics` gets this right by writing the word `ASSUMED`; the rule should be general.
+
+---
+
+## 16. The bilateral pattern, and the middle
+
+This section is a reading key for the rest of the document. It was the last thing noticed and it should probably have been the first.
+
+### The fleet builds in pairs
+
+Almost every structure in this constellation is two-sided, deliberately:
+
+| One side | Other side | Where |
+|---|---|---|
+| Blueprint | The populated box | `willow-data-vault` — *"Repo = how to build the box. Box = the instance that stays home."* |
+| Canonical | Vendored | `libs/subject-consent` ↔ UTETY; `oakenscrolls-office` ↔ its store copy |
+| Python core | TypeScript port | `marching-arts` |
+| Repo copy | Bundled copy | willow-mcp's `PreToolUse` hook |
+| Local organ | Remote proxy | `jeles` ↔ `jeles-remote` |
+| The learner | The sources | UTETY ↔ Jeles |
+| Private | Public | `private-ledger` ↔ `public-ledger` |
+| SOIL | LOAM | Local structured state ↔ knowledge graph |
+| `facts` (about a person) | `rationale` (about the software) | #125 — *"two tables, two gates, and the difference is the design"* |
+| `observed` (machine fact) | `status` (interpretation) | `almanac-template` |
+| `tier` (ordinal) | `confidence` (continuous) | evidence-tiers migration |
+| `valid_at` | `invalid_at` | The bitemporal migration |
+| Core | Seam | `safe-app-common` |
+| Enforcement | Ledger | `willow-gate`'s two modes |
+| Propose | Ratify | Dual Commit |
+| Declaration | Enforcement | Manifests ↔ gates, everywhere |
+| Owner == subject | Owner ≠ subject | `corpus-lens`'s scoping |
+| Thirteen fields in | Thirteen fields out | The knock (§7.2) |
+
+Even the sigil is a pair: **Δ and Σ** — the difference and the sum.
+
+### A pair is only as good as its middle
+
+Splitting a thing in two creates a new obligation: **something must reconcile the halves.** Where the fleet builds that middle, it works well —
+
+- the knock's exit diff, comparing declared intent against outcome (§7.2)
+- `test_bundled_hook_is_identical_to_the_repo_copy`
+- `test_the_consent_core_is_the_canonical_copy_not_a_fork`, which refuses any load path containing `utety`
+- the five-tier differential holding two acoustic implementations to 4.97e-13 dB
+- `fingerprint_result` ∈ `match · drift · no-baseline`, comparing a live baseline against current content (§15)
+- `check_links.py`'s daily sweep, opening an issue when a source goes dark
+
+### Every failure in this document is a middle that was absent, mis-aimed, or unable to fire
+
+That is the whole diagnosis, and the three modes are worth separating because they need different fixes:
+
+| Mode | Instance | Fix |
+|---|---|---|
+| **Absent** | `catalog.json` advertises encryption `u2u` does not implement; a docstring says four guards where five are wired; `oakenscrolls-office`'s "keep in sync" with nothing syncing it; `quiet-corner`'s `session_scope` declared per-field and honoured nowhere | Build the middle, or stop making the claim |
+| **Mis-aimed** | #120's differential reported 14,650 disagreements that were **entirely SQL text** — zero row sets, zero counts. Real, and comparing spelling rather than behaviour | Re-aim at the property that matters, and say which one it compares |
+| **Cannot fire** | #211's tripwire fixture *"with no row the principal could not already see, so [it] could not fail"*; §7's refusal indistinguishability, which passes even if the predicate returns nothing to anyone | Mutate it and confirm it goes red (§10) |
+
+A middle that cannot fail is worse than no middle, because it reports success.
+
+### What this obliges here
+
+terpsi-music will create pairs — it cannot avoid them, and mostly should not:
+
+| Pair | Its middle |
+|---|---|
+| Canonical store ↔ sidecar (§5) | A promotion path a human signs, with the sidecar never silently becoming canonical |
+| Core ↔ seam (§6) | `assert_does_not_import`, direction enforced seam→core |
+| Read ↔ export (§7.2) | The knock's reconciliation, exports counted as exports |
+| Declared purpose ↔ actual session (§7.2) | The exit diff |
+| Guardian edge ↔ send list (§7.1) | One predicate deriving both, never two lists |
+| Commentary claim ↔ acoustic prediction (§13) | Shared coordinates, so they can disagree in a queryable way |
+| Judge's stated score ↔ later outcome (§13) | The calibration ledger |
+| Cited authority ↔ its current state (§15) | `status` + `observed` + the sweep |
+
+**The rules that follow:**
+
+1. **Name every pair you create, and name its middle in the same commit.** A pair shipped without a reconciler is a divergence with a delay fuse.
+2. **The middle must be mutation-tested.** §10's rule is this rule; a reconciler that has never been shown to fail has not been shown to work.
+3. **The middle must state which property it compares** — spelling or behaviour, reachability or content, presence or equality. #120's lesson is that a differential *cannot tell you which it did*.
+4. **Prefer not creating the pair.** The cheapest middle is the one you do not need. Every vendored copy, every port, every duplicate store is a standing obligation, and this codebase has four such pairs already carrying known drift.
+
