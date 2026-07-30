@@ -60,6 +60,23 @@ MUTATIONS = [
      "refusal to guess a rung", "tests/test_classify.py"),
     ("records/classify.py", "if d.is_key_material:", "if False:",
      "L5 override rule 1", "tests/test_classify.py"),
+    ("records/disclosure.py", "if e.digest != expected:", "if False:",
+     "chain tamper detection", "tests/test_disclosure.py"),
+    ("records/disclosure.py", "if len(log.entries) < count:", "if False:",
+     "truncation via the anchor", "tests/test_disclosure.py"),
+    ("records/sealing.py", "if name.lower() in _NOT_A_PERSON:", "if False:",
+     "a role is not a name", "tests/test_sealing.py"),
+    ("records/sealing.py", "return self.state is State.SEALED and self.over == _digest(self.body)",
+     "return self.state is State.SEALED",
+     "seal does not survive an edit", "tests/test_sealing.py"),
+    ("records/sealing.py", "if rec.state is State.REJECTED:", "if False:",
+     "rejected cannot be sealed", "tests/test_sealing.py"),
+    ("records/dispositions.py", "if by == req.office:", "if False:",
+     "office cannot extend itself", "tests/test_dispositions.py"),
+    ("records/dispositions.py", "if req.disposition is not Disposition.OPEN or when < req.due_by:",
+     "if True:", "silence escalates", "tests/test_dispositions.py"),
+    ("records/dispositions.py", "if office == escalates_to:", "if False:",
+     "self-escalation refused", "tests/test_dispositions.py"),
 ]
 
 
@@ -85,8 +102,9 @@ def ablate(target: str, pattern: str, repl: str, label: str, suite: str) -> str:
 
 def main() -> int:
     print("  control".ljust(38), end="")
-    healthy = all(run(s) for s in ("tests/test_serving.py", "tests/test_sending.py",
-                                   "tests/test_classify.py"))
+    healthy = all(run(s) for s in (
+        "tests/test_serving.py", "tests/test_sending.py", "tests/test_classify.py",
+        "tests/test_disclosure.py", "tests/test_sealing.py", "tests/test_dispositions.py"))
     print("green" if healthy else "RED — every result below is meaningless")
     if not healthy:
         return 1

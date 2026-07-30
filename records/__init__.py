@@ -5,10 +5,21 @@ this package reaches the network, loads a model, or opens a store: it decides,
 and the caller supplies the rows.
 """
 
+from .classify import Classification, Decision, Descriptor, classify, unclassified
+from .disclosure import Entry, Log, verify_against
+from .dispositions import Disposition, Request, answer, ask, extend, state_at
 from .rungs import DERIVE_AT, NEVER_SERVED, Rung, at_least, compose, outranks, parse
+from .sealing import Record, State, draft, redraft, reject, seal
+from .sending import ContactRestriction, Payload, SendList, Standing, deliver, recipients, who_could_see
 from .serving import Edge, Field, Outcome, Principal, Serving, serve
 
 __all__ = [
     "Rung", "DERIVE_AT", "NEVER_SERVED", "at_least", "outranks", "compose", "parse",
     "Edge", "Field", "Principal", "Serving", "Outcome", "serve",
+    "ContactRestriction", "Payload", "SendList", "Standing", "deliver", "recipients",
+    "who_could_see",
+    "Descriptor", "Classification", "Decision", "classify", "unclassified",
+    "Log", "Entry", "verify_against",
+    "Record", "State", "draft", "seal", "reject", "redraft",
+    "Request", "Disposition", "ask", "answer", "state_at", "extend",
 ]
