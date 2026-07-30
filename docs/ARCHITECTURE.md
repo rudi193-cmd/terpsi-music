@@ -177,9 +177,32 @@ Two consequences worth carrying into anything else that chains:
 
 Any new chained artifact in this system — the disclosure log, the egress log of §6, adjudication commentary — inherits all three requirements: per-subject partitioning, fail-closed on unscoped access, and an anchor that distinguishes emptied from never-written.
 
-### Escrow — the failure mode that ends the program
+### What the vault already provides
 
-Encrypted student records with lost keys are destroyed student records. The root key must be recoverable without any single person: split it (Shamir, 2-of-3 or 3-of-5) across the director, a district/board administrator, and a sealed offline share. Test the reconstruction annually, on the calendar, as a drill. **An untested restore is not a backup, and an untested key recovery is not escrow.**
+`willow-data-vault` is the box, and it is Zone A under a different name — "the *named boundary*" that gate `store_scope`, kart bubblewrap, and consent were already protecting. It adds a lifecycle axis this document did not have:
+
+| Layer | Lifecycle |
+|---|---|
+| Compute / agents — MCP server, Kart sandbox | ephemeral, replaceable |
+| Apps — `SAFE/apps/<app_id>/` | replaceable payloads |
+| **The vault** — schemas, KB, DBs, secrets, user files | **persistent, sovereign** |
+
+Secrets are Fernet ciphertext in `vault.db`, meaningless without `vault.key` (mode `0600`, generated locally, never committed). The framing is exactly this document's thesis, arrived at independently: *copy the box's `vault.db` without the key and every secret is unreadable — which turns "agents can't carry it out" from a policy promise into a cryptographic one.* `willow-mcp` fails closed on a keyless vault, and `vault.db` + `vault.key` are written only as an atomic pair.
+
+Two things that follow, and neither is covered yet:
+
+- **This seals secrets, not records.** `vault.key` protects the Fernet secret store. A SOIL collection's `store.db` — where a roster, medical notes, and adjudication commentary would live — is not described as encrypted at rest. The per-record DEK hierarchy above is therefore still a proposal, not a restatement. Decide deliberately whether student records need more than filesystem permissions plus a `0700` box, because "the box is sovereign" and "the box is encrypted" are different claims and only the first is currently true.
+- **There is no escrow.** See below; it is the largest remaining gap in this design.
+
+### Escrow — the failure mode that ends the program, and the one thing nothing covers
+
+`vault.key` is generated locally, lives only in the box, is `0600`, and is never committed. Every one of those properties is correct and together they mean **a single file loss destroys every secret in the box, irrecoverably, by design.**
+
+For a personal sovereign box that is an acceptable trade: the owner bears their own risk. For an organization holding minors' education records it is not. The director who owns the box changes jobs, the box's drive fails in October, the person who knew where the key was is on leave. Encrypted student records with lost keys are destroyed student records, and a program cannot answer a FERPA inspection request with "the key was on the machine that died."
+
+So this remains a genuine addition rather than a restatement: the box's key material must be recoverable **without any single person**. Split it (Shamir, 2-of-3 or 3-of-5) across the director, a district or board administrator, and a sealed offline share. Test the reconstruction annually, on the calendar, as a drill. **An untested restore is not a backup, and an untested key recovery is not escrow.**
+
+Note that escrow is in tension with sovereignty and the tension is real, not sloppy: every share is a copy that can be compelled or stolen. The resolution is that shares are held by parties inside the institution that already holds the records, not by a vendor — recovery stays within the same trust boundary the data already sits in.
 
 ---
 
@@ -187,20 +210,32 @@ Encrypted student records with lost keys are destroyed student records. The root
 
 The hub's application containers have **no route to the internet**. The only reachable external destination is the local broker. This is enforced at the network namespace, not by asking the code nicely.
 
-### Two enforcement points, and the inner one is stronger
+### Three rings, and the inner one is strongest
 
-`marching-arts` does not gate egress. It makes egress **inexpressible**: stdlib-only and import-pure, with an AST walk proving no module can reach the network and a check that importing the core pulls in no third-party package (#112). There is no destination to allow or deny because there is no client to call one.
+`marching-arts` does not gate egress. It makes egress **inexpressible**: stdlib-only and import-pure, with an AST walk proving no module can reach the network (#112). There is no destination to allow or deny because there is no client to call one. That check is not app-local — it is `safe_app_common.no_egress`, the fleet's canonical implementation, with `DEFAULT_FORBIDDEN` as a frozen set of egress-capable module roots.
 
-That is the stronger position and it should be preserved wherever it can be. The network-namespace broker below is the *outer* ring — necessary for the parts of the system that genuinely must talk to the world (payment tokenization, the drop, circuit submissions, OS updates), and for any component composed in from elsewhere that has its own opinions about calling home.
+The middle ring is the one this document originally missed. `safe-app-common` has apps declare a **core/seam partition**: the seams are the outward-facing files, they are named explicitly, and the direction is enforced — `assert_does_not_import(core, modules, {"web", "serve", "willow_bridge"})` means seam→core and never the reverse. A seam is still held to `assert_file_no_egress`.
 
-The relationship between them:
+UTETY shows what that buys, in a student-data app that is the closest existing analogue to this one. `knowledge.py` is the single place anything leaves the device, deliberately outside `core/`, and its send path takes only a concept-query string. **Student PII cannot be transmitted because it is not a parameter.** That is categorically stronger than gating a call that *could* carry PII: there is no argument to review, no policy to get right, and no way to pass the wrong thing by mistake.
 
 | Ring | Mechanism | Applies to |
 |---|---|---|
-| Inner | Import purity, AST-proven, tested | The app core. Cannot express egress at all. |
-| Outer | Network-namespace broker, allowlist | Host processes, sync, exports, third-party components |
+| Core | Import purity, AST-proven (`safe_app_common.no_egress`) | Data, schema, math. Cannot express egress at all. |
+| Seam | Named, narrow, no egress-capable imports, typed so sensitive values are not passable | The one or two places something legitimately leaves |
+| Perimeter | `willow-gate` — trust ladder, export gating, PGP ledger | Agents and tool calls |
 
-A component that fails the inner test is not thereby acceptable at the outer ring — it is a component that needs a reason.
+A component that fails the core test is not thereby acceptable at the seam — it is a component that needs a reason.
+
+### The perimeter is `willow-gate`, and it is not a network broker
+
+This document proposed a destination-allowlisting network-namespace broker. That is not what exists, and what exists is aimed at the more relevant threat. `willow-gate` gates **agents**: symmetric 13-field check-in/check-out, identity bound by HMAC over the header rather than asserted, a claimed `trust_level` capped at a registered ceiling, export gating, and a PGP-encrypted ledger.
+
+Two properties to carry into this design:
+
+- **`bind_tools` makes gating structural rather than remembered.** It returns a `GatedSession` holding the tool callables privately, so `call()` authorizes before invoking and there is no un-gated path to the function. This is the same move as #127's authenticate-at-the-read: *the module can be bypassed, the gate cannot.* Two independent components arriving at that pattern is a strong signal it should be the default for anything new here.
+- **Enforcement and audit are different states of the same component.** Wired into a pre-tool hook, a denied call never runs. Un-wired, `willow-gate` is a loud ledger that records and announces but cannot stop what it is never asked about. Any claim in this document that something is "gated" must say which of the two it means.
+
+A destination allowlist is still wanted for the genuinely outward traffic of §6's policy model — payment tokenization, the drop, circuit submissions — but it is a smaller, later thing than this document implied, and it sits outside the app rather than around it.
 
 ### Policy model
 
@@ -400,11 +435,37 @@ Not legal advice — the state-law column in particular varies enough that the d
 
 ## 13. Open questions
 
-- **The auth model is scoped to a single process.** #127 holds the signing key in memory with nothing at rest, so tokens die with the process — correct for an app with no server, and stated as the design. The hub topology in §3 is a long-running multi-user process where sessions must survive a restart. Either the app stays single-process and the hub is a separate thing that fronts it, or authentication needs a second mode. Worth resolving before the hub exists, not after.
+- **Whose consent is it?** This was filed as "the auth model is scoped to a single process," which misread it. #127's memory-only signing key is not a limitation working around the absence of a server — it is SAFE's thesis: *Session-Authorized, Fully Explicit*, consent expiring with the session, the app asking again tomorrow. Tokens dying with the process is the framework behaving correctly. The real question is narrower and harder: **SAFE's model is a data subject authorizing access to their own data, and this domain is an institution holding records about minors.** A parent viewing their student's balance fits the session model cleanly. A director opening the roster at 6 a.m. is not the data subject and cannot be asked to re-consent on the students' behalf every morning; the consent that governs them is the guardian's, granted elsewhere and enforced by predicate. Both mechanisms are built. What is not written down is which one governs which surface, and a system that guesses will eventually ask the wrong person.
+- **Does a 200-household deployment change the session model's shape?** Not its principle — its ergonomics. Re-authorizing per stream per session is right; re-authorizing eight streams every morning before seeing a schedule change is how a family stops opening the app.
 - **Does `rationale` (#125) generalize into the disclosure story?** It ships the reasoning beside the data, gated by a human seal rather than a predicate, with `draft | internal | shipped` states. FERPA §99.32 wants a disclosure record and §6 assumes the egress log supplies it — but "why were you refused" is a `rationale` question, not an egress-log question. The two may want to meet.
 - The current build targets caption scoring. Does its model treat captions as projections over anchored commentary (§8.1), or as the base structure? If the latter, that is the one thing worth revisiting early — festival ratings and clinician feedback both fall out for free under the former.
 - Score-position anchoring: align audio against a stored score, or judge-driven tap-to-mark, or both? Affects how much of the music library must be machine-readable.
 - **Can `field-acoustics` and commentary share coordinates?** A judge's remark is anchored to a moment and a seat; the acoustic model predicts what arrived at that seat. Pairing them gives a claim no drill designer can currently make — and gives the model's `ASSUMED` rear hemisphere a source of validation data that would otherwise have to be measured in the field.
+- **Does the practice loop violate a fleet ground rule?** UTETY's ground rule 2 is *feedback is about the work, never the learner* — no praise of the person, no leaderboards — with a policy test linting content against self-directed praise. The capability map proposes practice streaks, cumulative-hour milestones, and chair-challenge standings. Some of that is about the work and survives; some of it is a leaderboard with a different name. Reconcile before building, because the rule is enforced by test in a sibling app and this would be the second student-facing app in the fleet.
+
+---
+
+## 14. Fleet components this maps onto
+
+Written after reading the READMEs of the components below; contents inferred from those, not from source.
+
+| This document | Component | Status |
+|---|---|---|
+| §5 the box / Zone A | `willow-data-vault` | **Exists.** Three-layer lifecycle, `vault.key` + Fernet, fail-closed on a keyless vault |
+| §5 at-rest sealing of *records* | — | **Open.** The vault seals secrets; collection stores are not described as encrypted |
+| §5 escrow | — | **Open, and the largest gap.** Single-file key loss is unrecoverable by design |
+| §6 core purity | `safe-app-common.no_egress` | **Exists**, canonical, with the core/seam partition this document lacked |
+| §6 the un-passable seam | UTETY `knowledge.py` | **Exists** as a proven pattern in a student-data app |
+| §6 perimeter | `willow-gate` | **Exists**, as an agent trust gate rather than a network broker |
+| §6 destination allowlist | — | **Open**, and smaller than this document implied |
+| §7 authorization + consent | `marching-arts` P1/P2, `libs/subject-consent` | **Exists** |
+| §7.1 dated guardianship | — | **Open** |
+| §10 COPPA / under-13 | SAFE `HARD_STOPS`, UTETY ground rule 4 | **Exists** as governance, above app level |
+| §8.1 commentary primitive | — | **Open** |
+| §1–§2 practice + mastery | UTETY (BKT, item sets, on-device store) | **Adjacent.** Different subject matter, same shape — worth reading before rebuilding |
+| Library vs. learner split | UTETY ↔ Jeles | **Settled pattern.** UTETY holds the learner, Jeles holds the sources — the repertoire library may want the same seam |
+
+**Read before building:** `willow-grove`'s `FLEET_SEAMS.md` and `DESIGN_CONSTRAINTS.md`. The fleet already maintains a repo whose entire job is recording where two components each do half a job and the halves do not meet, with `file:line` citations and a re-verify command per finding. A new app is exactly the thing that creates a fifth such seam.
 - Is "corporate" the circuit/association, the district, or a vendor? Changes what aggregates mean and who signs off on them.
 - Does the org control its own hardware, or is the hub a district-managed VM? Changes the physical-trust assumption underneath Zone A.
 - Are agents an implementation detail of the build, or a user-facing feature (a director querying their program in plain language)? The latter needs a local model of real capability inside Zone A.
