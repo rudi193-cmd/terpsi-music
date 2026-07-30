@@ -3,7 +3,7 @@
 **Status:** plan. Governs nothing; `docs/ARCHITECTURE.md` governs. No numbered
 sections — a `§N` here is always the architecture's.
 
-**One page on purpose.** There are 14,621 lines under `docs/` at time of
+**One page on purpose.** There are 14,730 lines under `docs/` at time of
 writing, this file included — derived, not quoted (#17). If this file
 grows past two screens it has stopped being a plan and become another thing to
 read. Everything here is a pointer to a decision or a task, never a restatement.
@@ -40,7 +40,7 @@ Three reads. **All three are now performable from here**, and two are done.
 
 | | task | closes | output |
 |---|---|---|---|
-| A1 | Open the 36 repos; confirm or downgrade every *Exists* row | item 0 | **In progress 2026-07-30** — 20 repos read, 8 of §14's 40 exists-rows verified at source plus one verified *negative*. Tier 1 complete; the remainder either read, absent, or unreachable cross-tier. §14 now carries `VERIFIED`/`UNVERIFIED` per row, enforced by `tests/test_component_map.py`. Rows carry `VERIFIED <date> at <commit>` |
+| A1 | Open the 36 repos; confirm or downgrade every *Exists* row | item 0 | **2026-07-30** — 28 repos read, 8 of §14's 40 exists-rows verified at source plus one verified *negative*. Tier 1 complete; the remainder either read, absent, or unreachable cross-tier. §14 now carries `VERIFIED`/`UNVERIFIED` per row, enforced by `tests/test_component_map.py`. Rows carry `VERIFIED <date> at <commit>` |
 | ~~A2~~ | ~~Open `Willow`'s `PROTECTED_AGENTS.md` Part III~~ | item 3 | **Done 2026-07-30** at `c8c96b4`. §7.4 renders all seven clauses faithfully. Found: the DDL encodes W-3's prohibition and drops its permission — no crossing-envelope table |
 | ~~A3~~ | ~~Read the `L3`+ NULL rule in `apps/marching-arts`~~ | item 1a | **Closed 2026-07-30 — scoped, decided not inherited.** It was never a read |
 

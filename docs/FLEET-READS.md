@@ -690,3 +690,112 @@ and the *"~65 institutional search APIs"* count is **65** `search_` functions
 exactly. Worth noting the near-miss: `sources.py` says *"up to 16 sources run in
 parallel"*, which reads like a source count and is a concurrency limit. A tally
 taken by grepping the first plausible number would have reported 16.
+
+---
+
+## The last seven — six claims hold, one is wrong in the unsafe direction
+
+| Repository | Commit | Claim | Result |
+|---|---|---|---|
+| `willow-seed` | `a9274e8` | cloud fallback chain, must be disabled | **holds, and is harder than §14 says** |
+| `openclaw-sap-gate` | `82d80d9` | SAP/1.0, *"fail-open default fingerprint"* | **WRONG — it is fail-closed, with a test** |
+| `yggdrasil-training-data` | `c183222` | fail-closed on unknown, trusted-source bypass | **holds, both halves** |
+| `awesome-sovereign-software` | `1039334` | five-point test, required exit line | **holds** |
+| `oakenscrolls-office` | `7cd5067` | working calibration ledger | **holds** — Brier and log-score in `calibration.py` |
+| `DispatchesFromReality` | `4655d6d` | dated consent, prose only | **holds** — zero Python files |
+| `willow-compose` | `821d3db` | 29,432 pieces, family data excluded | **holds**, count exact |
+
+### `openclaw-sap-gate` — §14 describes it as less safe than it is
+
+§14 reads *"**Exists**, with a **fail-open** default fingerprint and
+revocation-by-deletion."* The source says the opposite, twice, and tests it:
+
+```
+# Fail-closed preserved: if NEITHER is set, _EXPECTED_FP is "" and _verify_pgp
+# denies ("SAP_PGP_FINGERPRINT not configured").
+```
+
+`gate.py:102` — *"unset ⇒ fail-closed deny"*. `gate.py:10` — *"Any failure →
+deny + log."* And `tests/test_gate.py:92` is
+`test_no_fingerprint_pinned_fails_closed`.
+
+Note the word **"preserved"** in that comment: it reads like a property that was
+once lost and restored. So §14's claim may have been true of an earlier revision
+— which is §15's `P2` decay exactly, a citation whose source moved on while the
+label stayed. **Corrected in §14.** Revocation-by-deletion is confirmed and
+correctly flagged: it is what refusal 3 forbids, which is why this repository
+takes the four-step chain and not that.
+
+### `willow-seed` — the claim holds and understates the work
+
+`README.md:148` and `docs/QUICKSTART.md:181` carry the chain verbatim —
+`Ollama → Groq → Cerebras → SambaNova`, keys from `credentials.json`. §14's
+*"must be disabled, not unused"* is right. Three things make it harder than that
+sentence implies:
+
+- **`willow-seed` contains no code implementing it.** README, QUICKSTART, a
+  requirements comment, and a template docstring. Disabling it there is
+  impossible because there is nothing there to disable.
+- **The implementation is in `willow-2.0`, spread across at least six files** —
+  `sap/core/inference.py` has `chat_groq` / `chat_openrouter` / `chat_codex` /
+  `chat_ollama` as peer functions, and Cerebras/SambaNova appear in five more.
+  **No single switch was found** by grep for `disable`, `local_only`, `offline`
+  or `WILLOW_INFERENCE_PROVIDER` in either repository. Absence of a grep hit is
+  not proof of absence; it is what was looked for and not found.
+- **The only dispatch chain located tries cloud first and never tries local.**
+  `archive/legacy/sap/sap_mcp_v1.py:1527` is
+  `chat_groq(...) or chat_openrouter(...)`. It is archived, so it may not run —
+  but no live call site for `chat_ollama` was found at all.
+
+And the framing is the dangerous part. `QUICKSTART.md:194` presents it as
+reassurance: *"**Local-first:** Your data lives on your machine. The fleet
+fallback uses free-tier cloud APIs only when local inference is unavailable…
+nothing is stored."* That sentence is what refusal 1 exists to refuse, written
+as a safety property. A reader adopting `willow-seed` inherits the chain while
+reading the words "local-first".
+
+### `yggdrasil-training-data` — a second instance of the class
+
+§14 says *"fail-closed on unknown — but carries a trusted-source bypass not to
+reproduce."* Both halves hold. `route()` returns `"unknown"` for anything
+outside two allowlists and unknown records are **not written**. Then:
+
+```python
+if hint == "slm":
+    dest = "slm"
+else:
+    dest = route(record)
+```
+
+Three of the four `SOURCE_FILES` are tagged `"slm"`, so **every record in them
+is exported without `route()` ever running.** The per-record classifier is
+correct, fails closed, and is skipped wholesale by a per-file trust declaration
+upstream of it.
+
+**That is the same shape as `catalog_lint.py:71-73`**, which skips the manifest
+check for catalog entries without a local `path`. Two independent instances,
+found by reading, of *a middle that exists, is correct, and cannot fire for a
+whole class of inputs*. §16 names three failure modes — absent, mis-aimed,
+cannot fire — and this is a fourth worth stating separately: **bypassed by a
+declaration upstream.** The guard is never wrong; it is never asked.
+
+### The other four, briefly
+
+- **`awesome-sovereign-software`** — *"sovereignty **is** the ability to
+  leave"*, five criteria every entry must pass **all** of, and an exit line
+  required per entry. §11.1's criterion is real and this repository still has no
+  exit line, which §18 item 5 already says.
+- **`oakenscrolls-office`** — `calibration.py` implements Brier and log score
+  over `(confidence, outcome)` pairs, with confidence bounded to `[0.5, 0.99]`.
+  A working calibration ledger, as claimed. §14 is right that adjudicator
+  calibration is nonetheless a prohibited scope here (`SA-3`): the mechanism
+  being good is not the objection.
+- **`DispatchesFromReality`** — **zero Python files.** §14's *"prose only… no
+  code anywhere in the fleet"* is exact, and dated/staged consent must still be
+  invented here.
+- **`willow-compose`** — `29,432` appears in `README.md`, `engine/build_holdings.py`
+  and the data dump; the count is exact rather than rounded. Its stated exclusion
+  is explicit: *"Family specifics, medical, legal, schedules, names — surfaced
+  during the assembly, kept out of every durable artifact on purpose."* §14's
+  note that this app is a family-data app *by definition* stands: the corpus's
+  exclusion is precisely this repository's subject matter.
