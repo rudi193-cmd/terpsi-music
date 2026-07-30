@@ -516,12 +516,60 @@ It does not write the song and it does not grade it.
 - Concreteness: the ratio of sensory detail to stated abstraction, per section
 - Singability: closed vowels on long or high notes, consonant clusters at speed
 
-**Music diagnosis**
-- Melodic contour: range, where the peak sits, whether it is approached or stumbled into
-- Motivic development — one idea examined from several angles, or four unrelated ideas
-- Voice leading in a student's harmonization, which is the skill nobody notices until it is wrong
+**Music diagnosis — melody**
+- Contour: the arc, where the single peak sits, whether it is approached or stumbled into
+- Range *and* tessitura, which are different problems. A melody whose extremes are fine but which lives at the top of them exhausts a singer by the second chorus
+- Melodic rhythm in isolation — a good tune is recognisable with every pitch flattened, and one that is not is usually the problem
+- Leap-to-step ratio, and whether large leaps resolve back
+- Motivic economy: one cell examined from several angles, or four unrelated ideas in a row
+- Breath. Where the singer actually inhales, which is checkable and almost never checked
+
+**Music diagnosis — harmony**
+- Voice leading: smallest available motion, common tones held. The skill nobody notices until it is wrong, and the one that separates chords that sound inevitable from chords that sound stacked
+- Parallel fifths and octaves, the oldest check in the pedagogy and one `music21` performs today
+- Cadence type and placement against where the form says a section should close
+- Harmonic rhythm, and whether it shifts at section boundaries or grinds on unchanged
+- Direction: a progression that goes somewhere versus a loop of individually nice chords
+- Surprise budget. Zero borrowed chords reads as bland; four reads as incoherent. One, well placed, is usually the answer
+
+**Music diagnosis — rhythm, meter, form**
+- Where the strong beats fall, which is the input the lyric side needs and cannot derive alone
+- Syncopation density, and whether the groove and the melody are arguing
+- Section proportion, time-to-hook, whether the bridge departs and whether the final chorus varies
 - Repetition analysis: state, restate, depart
-- Tension placement against the sections that are supposed to carry it
+
+**Music diagnosis — arrangement and orchestration**
+
+This is the strongest case in the whole section, because almost none of it is a matter of taste.
+
+- **Range and playability per part, against the actual players.** A trumpet part written to a high D for a section whose best player tops out at A is not a stylistic disagreement, it is a chart that cannot be performed, and student arrangers and directors write them constantly. §19's *repertoire recommendation calibrated to measured ensemble ability* is the same data pointed at a different question
+- Register collision: two parts in the same octave doing different things, which is where mud comes from
+- Doubling — what is doubled, and whether it needs to be
+- Texture over time: does anything ever drop out, or does everything play from bar one
+- Entrance and exit points as an arc, which is the difference between an arrangement and a stack
+- Transposition errors, key-signature errors, and out-of-range percussion assignments — unglamorous, and the actual content of most failed school charts
+
+### The join — where lyric and music meet, and why it is the whole point
+
+Everything above splits cleanly into two halves. **The interesting capability is neither half; it is the seam**, and the seam has a name: prosody.
+
+Seven things are checkable there, and **not one of them can be checked from either side alone:**
+
+| Seam | The check | Needs |
+|---|---|---|
+| Stress ↔ meter | Natural speech stress lands on strong beats | Syllable stress + the metric grid |
+| Vowel ↔ pitch | Open vowels on long or high notes | Phonetics + note duration and register |
+| Breath ↔ phrase | The singer can inhale where the syntax allows it | Punctuation and clause structure + rests |
+| Syllables ↔ notes | A seven-syllable line does not fit a six-note phrase without crushing something | Line scansion + melodic rhythm |
+| Consonants ↔ tempo | Clusters that cannot be articulated at this speed | Phonetics + BPM |
+| Rhyme ↔ cadence | Rhyme closure agreeing, or deliberately disagreeing, with harmonic closure | Rhyme scheme + cadence placement |
+| Register ↔ register | The lyric's emotional turn and the music's harmonic turn arriving on the same word | Both, and taste |
+
+**And the join is exactly the gap the field left open.** The lyric corpora are enormous and the symbolic music corpora are excellent, and the *aligned* data between them is thin. Analysis tools take audio or they take text. The generators produce both at once and explain neither. A tool that only reads lyrics cannot see a beat; a tool that only reads scores cannot see a syllable. **The most common defect in songwriting is invisible to every existing tool because it lives between two of them**, which is the entire argument for building this here rather than assembling it from parts.
+
+**What the join cannot reach.** The last row of that table is Pattison's prosody in the wide sense — form serving content — and it is where the art actually lives. Lifting to the relative major on the word the warmth arrives is a decision no checker proposes and none can score. The tool handles the mechanical seam and should say so plainly rather than implying the rest follows. Getting the stress right is a floor, not a song.
+
+**One dependency, and it is already an open item.** Every check in that table anchors to a position in *both* the text and the score, which requires score-position anchoring — stored-score alignment, tap-to-mark, or both. That is §13 of the architecture's open question and §18 item 7, and it is unchosen. **This capability cannot be built past the lyric-only checks until it is**, which promotes item 7 from a separable body of work to a prerequisite.
 
 **Revision is the actual product**
 - Draft-to-draft diff, because the revision is where the craft lives and the first draft never is
