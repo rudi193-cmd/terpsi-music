@@ -1390,8 +1390,34 @@ The DDL has been **executed** against PostgreSQL 16 and every constraint attacke
 - **It is gated on blockers 2 and 4**, which is why the file sits in `docs/schema/` rather than `migrations/`.
 
 **4 · Which surfaces exist.**
-**State: blocking for layout. Needs a decision.**
+**State: blocking for layout. Deferred 2026-07-30 — being worked separately, not unanswered.** Two corrections to this item's own statement landed while it was discussed, and both hold whichever way it goes.
 Six personas (§4), `safe-design` ready with tokens and structurally-parity backends, and nothing recorded about whether this is a TUI, a browser application, both, or a TUI plus the parent PWA of §4.2. The answer sets the first directory layout and determines which of `safe-design`'s backends is load-bearing.
+
+> **(i) The enumeration above is missing a surface, and it is the untrusted
+> one.** "TUI, browser, both, or TUI plus the parent PWA" has no place for
+> clinicians and judges. §4 already settled what they get — *"a kiosk device
+> the org owns and wipes, or their own device on a guest SSID reaching the hub
+> directly"* — and a judge on a borrowed tablet for one evening is not running
+> a TUI. That is a **third surface, browser by necessity**, and §7 singles it
+> out as the session most worth narrating precisely because it is least
+> trusted. Most of the six personas are already decided in §4; this item reads
+> as more open than it is, and the part genuinely undecided is narrower: what
+> operators use, and whether the guest surface is a separate app or a
+> restricted mode of the same one.
+>
+> **(ii) `surfaces` is a manifest field, and this fleet's precedent for it
+> failed.** §4.3 records `safe-app-willow-grove` declaring `"surfaces":
+> ["tui"]` with `lan_listen`/`lan_send` and *"portless means portless"*, while
+> `bridge/__main__.py` starts an aiohttp server on `0.0.0.0:8560`. Whatever is
+> decided here becomes a declaration of the same kind, for an app with more
+> surfaces than that one and at least two that listen. **Rule 12 applies in the
+> same commit:** a test enumerating listening sockets that fails on any the
+> manifest does not account for. Without it this repository ships the exact
+> declaration-without-enforcement pair its own §16 is written about.
+>
+> Egress purity is not the obstacle to a browser surface and should not be
+> raised as one: §6's inner ring forbids *outbound* — there is no client to
+> call out. A local listener is `lan_listen`, a permission.
 
 **~~11 · The class vocabulary does not cover the categories §20 of the capability map names.~~**
 **State: closed 2026-07-30. The vocabulary does not need new members. `docs/SENSITIVITY.md` *Protected status* is canonical for the resolution.**

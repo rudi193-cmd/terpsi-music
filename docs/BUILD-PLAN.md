@@ -3,7 +3,7 @@
 **Status:** plan. Governs nothing; `docs/ARCHITECTURE.md` governs. No numbered
 sections — a `§N` here is always the architecture's.
 
-**One page on purpose.** There are 13,909 lines under `docs/` at time of
+**One page on purpose.** There are 13,941 lines under `docs/` at time of
 writing, this file included — derived, not quoted (#17). If this file
 grows past two screens it has stopped being a plan and become another thing to
 read. Everything here is a pointer to a decision or a task, never a restatement.
@@ -54,7 +54,7 @@ Three decisions. Each is a paragraph of judgment, not a project.
 |---|---|---|
 | ~~B1~~ | ~~Item 11 — the rung for protected categories~~ | **Closed 2026-07-30.** Step 3's clause governs; the four examples are illustrative. `SENSITIVITY.md` *Protected status* is canonical |
 | ~~B2~~ | ~~Item 2 — disposition of `apps/marching-arts`~~ | **Closed 2026-07-30.** Spike; it retires. Findings carry forward, code does not. First commit is an empty tree |
-| B3 | Item 4 — which surfaces exist | gates layout, and gates any dispatcher |
+| B3 | Item 4 — which surfaces exist | **Deferred 2026-07-30** — worked in a separate session, not unanswered. Still gates layout and any dispatcher |
 
 **B1's hold is lifted.** Fields in those categories may now be classified, at
 `L4`. Neither this plan's earlier suggestion nor item 11's own conclusion
@@ -92,16 +92,22 @@ building them first means building against a guess.
 fully specified, and unbuildable until B3 says what a surface is and A2 says
 what W-3 actually requires.
 
-**A1, A2 and B3 remain. Three items.** B1, B2 and 1a closed on 2026-07-30, and
-two of the three closed by asking rather than by reading. They are the whole
-critical path, and the reason this plan is one page rather than a programme.
+**A1 and A2 remain, and B3 is deferred rather than open.** B1, B2 and 1a closed
+on 2026-07-30, two of the three by asking rather than by reading.
+
+**Both remaining items need the local machine.** Nothing on the critical path
+can be advanced from a remote session — which is the same constraint this plan
+opens with, arrived at from the other end. Two findings on B3 landed anyway and
+are recorded at §18 item 4: its enumeration omits the guest surface that
+clinicians and judges need, and `surfaces` is a manifest field whose fleet
+precedent shipped a declaration nothing enforced.
 
 ---
 
 ## Order
 
 1. ~~**A3**, **B1**, **B2**~~ — all closed 2026-07-30.
-2. **B3** — which surfaces exist. The last decision, and it gates layout and any dispatcher.
+2. **B3** — deferred, in hand elsewhere. It gates layout and any dispatcher, so nothing downstream of layout starts before it lands.
 3. **A2** — turns the lane model from a paraphrase into a clause.
 4. **A1** — the long read; start it early because it runs alongside everything. Expect some rows to need deciding rather than reading, per A3.
 5. Then, and only then, §9's list in its existing order — noting foundation 1 and 2 are now **to build**, not built.
