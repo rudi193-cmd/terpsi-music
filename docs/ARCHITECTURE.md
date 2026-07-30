@@ -267,6 +267,23 @@ Secrets are Fernet ciphertext in `vault.db`, meaningless without `vault.key` (mo
 
 **Resource caps are real** — a delegated cgroup parent where available, `prlimit`/`ulimit` inside the sandbox otherwise. That is not a nicety on a single-box hub: commentary transcription and acoustic simulation are the two genuinely expensive things this system will run, and neither may be permitted to starve attendance-taking on a competition morning. Cap them, and make the cap part of install acceptance rather than something discovered under load.
 
+#### `kart-sandbox.json` is the boundary in concrete form
+
+The mount policy is a versioned data file, extensible "for new fleet paths without code changes," with security notes carrying decision dates and FRANK citations. Several of its properties should be inherited directly:
+
+- **A no-network task gets zero credentials.** `~/.config/gh`, `~/.netrc`, and every entry in `credential_env_prefixes` are bound only under `allow_net`. Credentials follow the network grant rather than the process.
+- **Private keys never enter the sandbox** — `~/.ssh` is unbound; SSH git works through `SSH_AUTH_SOCK` with `known_hosts` read-only, and only on `allow_net`.
+- **`/tmp` and `/dev/shm` are private tmpfs, not host binds** — which matters directly here, because transcription and audio alignment write large intermediates derived from `MEDIA_MINOR`.
+- **The sovereign data is read-only to arbitrary tasks** — the SAFE store, agents, and data vault are bound read-only under a note that names the reason: *the sovereign data must not be mutable by an arbitrary task.* That is §5's canonical-versus-sidecar rule enforced at the mount layer rather than by convention.
+
+**One gap this design has to close.** The tier that makes local inference work is `allow_localhost`, and the file is honest about what it costs:
+
+> `# allow_localhost` shares the host network namespace (loopback Ollama works) but still strips credentials and does not bind gh/netrc/ssh. **Weaker than `--unshare-net` isolation**; prefer over `allow_net` for embed-only work.
+
+Sharing the host network namespace means a task holding `MEDIA_MINOR` audio can reach the network — it simply has no credentials to authenticate with. For embedding work on a personal box that is a sensible trade. For judge commentary over a performance by identifiable minors it is not, because §6's guarantee is *this data cannot leave*, not *this data cannot leave authenticated*. The fix is a tier that reaches Ollama without the host netns — a unix socket into the sandbox, or a loopback-only namespace — and until it exists, local transcription is running one policy tier weaker than §6 claims.
+
+**And a school profile must be its own file, not this one.** The operator desk binds `~/github` read-write as a single-session host, offers personal paths (`Desktop`, `.kaggle`, `.fly`, `Ashokoa`), and lists `ANTHROPIC_`, `OPENAI_`, `AWS_`, `DISCORD_`, and `GITHUB_` among its credential prefixes. A hub holding education records should ship a much shorter policy whose credential list is empty, and the diff between the two is itself an install-acceptance artifact.
+
 ### The canonical store is read-only to the app; apps write sidecars
 
 Two independent builds state this rule, which makes it a fleet convention rather than one app's preference. `law-gazelle`: *Nest SQLite (canonical private data) → Law Gazelle (reads only) → LLM/TUI*, with a separate `gazelle_state.db` taking sidecar writes, and explicitly **agent write path: sidecar only**. `nest-seed`: *the DB is canonical — apps read it, never mutate it*, with fleet promotion as a later, separate layer.
@@ -349,9 +366,18 @@ For a personal box, off-by-default is a reasonable trade. For a hub holding mino
 - **the trust root not in a git repository at all**, and not on a remote
 - `diagnostic_summary`'s `checks.net_lease.self_writable` clean, checked as part of install acceptance rather than trusted
 
-That second bullet is not hypothetical, and it is the reason to state it as a requirement rather than a preference. `willow-config` **is** `~/.willow`, version-controlled and pushed — and `mcp_apps/`, the manifest ACL that grants `task_net`, is tracked inside it. willow-mcp's own severance documentation says exactly why that is the wrong place: *the trust root must live somewhere neither this process nor the Kart sandbox can write; a repo directory is the wrong place for it, however convenient, because repos are bound read-write into task sandboxes.*
+That second bullet is not hypothetical. `willow-config` **is** `~/.willow`, version-controlled and pushed — and `mcp_apps/`, the manifest ACL that grants `task_net`, is tracked inside it.
 
-So the fleet's guidance and the fleet's own home disagree, and the home is what runs. A committed authorization surface is writable by anything that can write the working tree, restorable by anything that can `git checkout`, and mirrored to a remote. For a personal box that is a manageable trade. For a hub holding education records it is not, and a school install must not inherit the layout by copying it.
+**The sandbox half of that concern is already closed, and this document previously overstated it.** `kart-sandbox.json` binds `{{HOME}}/.willow` read-write, then lays a read-only bind back over the trust root specifically:
+
+> `$WILLOW_HOME/mcp_apps` (willow-mcp gate ACLs + `_identity_bindings`) is ro-bound over the fleet-home rw mount inside bwrap so Kart tasks cannot rewrite manifests or mint confirmed OAuth bindings (FRANK baf2f63a / #777). Host stdio/serve still writes via process outside the sandbox.
+
+So a sandboxed task cannot rewrite a manifest or mint an identity binding, and the "repos are bound read-write into task sandboxes" objection does not apply here as written. What remains is narrower and still real for a school install:
+
+- The authorization surface is in **git, on a remote** — restorable by anyone who can `git checkout`, and mirrored off the box.
+- The **host process outside the sandbox still writes it**, which is willow-mcp's own B-32 residual, unchanged.
+
+For a personal box both are manageable. For a hub holding education records, keep the grants out of version control regardless of the sandbox binding — the bwrap layer protects against a task, not against a checkout, a clone, or a restore.
 
 Worth separating cleanly for that install: **contract and config are exactly the things that benefit from version control** — `willow.md`, `settings.global.json`, `kart-sandbox.json`, personas, skills, templates. The *grants* are not. Track the first set; keep `mcp_apps/` and `_net_leases/` out of the tree, owned by a uid the application does not run as.
 
@@ -771,7 +797,9 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §11.1 exit plan | `awesome-sovereign-software` | **Criterion exists**, five-point test plus a required exit line. No exit line written for this app yet |
 | Owner ≠ subject consent | `corpus-lens` (names it unsolved), `marching-arts` P2 | **The fleet's stated hardest gap.** This app is where it closes or ships unsolved |
 | Cloud inference fallback | `willow-seed` (Groq/Cerebras/SambaNova) | **Must be disabled, not unused.** Fires exactly when the local model is down |
-| Trust-root placement | `willow-config` | **Counter-example.** `~/.willow` is a tracked repo with a remote, and `mcp_apps/` is in it — against willow-mcp's own severance guidance |
+| Trust-root placement | `willow-config` + `kart-sandbox.json` | **Half closed.** `mcp_apps/` is ro-bound against sandboxed tasks; still in git, on a remote, and host-writable |
+| Sandbox mount policy | `kart-sandbox.json` | **Exists**, versioned and data-driven — no-network tasks get zero credentials, sovereign data read-only, tmpfs `/tmp` |
+| Network-isolated local inference | — | **Open.** `allow_localhost` shares the host netns, so a `MEDIA_MINOR` task can reach the network uncredentialed |
 | Contract + sandbox policy | `willow-config` (`willow.md`, `settings.global.json`, `kart-sandbox.json`) | **Exists.** These are the right things to version; the grants are not |
 | §15 rendering the scales | `safe-design` | **Exists.** Semantic tokens, lookup-time aliases, structurally guaranteed backend parity, ASCII path |
 | §5 exclusion of family data from the corpus | `willow-compose` | **Exists as stated policy.** This app is a family-data app by its definition |
