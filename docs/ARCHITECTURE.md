@@ -901,11 +901,20 @@ Written after reading the READMEs of the components below; contents inferred fro
 > - **`UNVERIFIED`** — nobody has opened it. This is the honest state of most of
 >   the table and is not a defect; it is the thing that used to be invisible.
 >
-> **8 of 40 as of 2026-07-30.** `tests/test_component_map.py` enforces the
-> convention — a row claiming existence with neither token fails the build, as
-> does a `VERIFIED` without a commit. It deliberately does **not** assert a
-> coverage ratio, because a test that demanded more green would be an incentive
-> to mark things verified rather than to read them.
+> **VERIFIED-COUNT: 10 of 40** (2026-07-30). `tests/test_component_map.py`
+> enforces the convention — a row claiming existence with neither token fails the
+> build, as does a `VERIFIED` without a commit. It deliberately does **not**
+> assert a coverage ratio, because a test that demanded more green would be an
+> incentive to mark things verified rather than to read them.
+>
+> **The figure above is derived and enforced, after drifting once.** This line
+> read *"8 of 40"* while the table held ten verified rows and a pull request
+> body quoted ten — a figure in prose the code moved past, which is the exact
+> defect §18 item 0 exists to name, sitting inside the note that exists to fix
+> it. The machine-readable `VERIFIED-COUNT:` marker is now compared against the
+> parser's own tally by `test_the_header_figure_matches_the_table`, so the
+> sentence cannot drift from the rows again. Rule 18: this paragraph used to be
+> a ledger and is now a gate.
 >
 > The shape is taken from `kartikeya.resolve_sandbox_config`, which solved the
 > identical problem for sandbox policy — *return the value with the source that
@@ -1317,6 +1326,16 @@ A thing that belongs to every face cannot sit on one. Giving it an org of its ow
 
 So the fleet has **two** shared edges and is promoting one. Either `subject-consent` joins that tier or the rule for what earns its own org needs stating out loud — and given that it is the guardian-consent core for systems holding minors' records, it has the stronger claim of the two.
 
+> **Settled 2026-07-30 (§18 item 8): the rule gets stated; `subject-consent` stays a library.** The paragraph above argued its way to *"it has the stronger claim of the two"* and that framing is what needed correcting — the two claims are not the same kind of claim, so comparing their strength was the wrong question.
+>
+> **The rule: an org of its own is earned by being depended upon *as infrastructure*, not by being shared.** Precisely — a component gets sole occupancy when consumers must be able to *pin, audit and reason about its supply chain independently of any application that uses it.* Nestor qualifies because it is the thing that says whether other things are correct: a consumer who cannot audit Nestor's provenance separately from the app under test has no verification at all, only a claim. That is a property of what Nestor **is**, and it is why §17's sentence about it — *"a thing that belongs to every face cannot sit on one"* — is about position rather than about breadth of use.
+>
+> **`libs/subject-consent` is shared and is not infrastructure.** It is a domain library about guardianship, which is a *subject* — the same category as almanacs being about public data and `hornbook-knowledge` about learners. Being needed by several faces makes it a **dependency**, and the fleet already has a good answer for those: version it, pin it, resolve it by URL. Sole occupancy would say something about it that is not true, and §17's own criterion — *"the one component in the fleet that is not **about** something"* — excludes it by name.
+>
+> **The half of the original argument that survives, and it is the load-bearing half.** *"The guardian-consent core for systems holding minors' records"* is a statement about **stakes**, not about placement, and stakes are answered by the version discipline rather than by the org chart. So the obligation transfers rather than disappearing: `subject-consent` must be **pinned to an immutable ref by every consumer**, which is exactly the defect §17 already records against Nestor one row above — `nestor @ git+…/Nestor@master`, an unpinned mutable branch, *"violates the fleet's own R14 in the dependency every app imports."* A library holding the consent core for minors' records resolving to `master` is the same defect with higher stakes, and moving it to its own org would not have fixed it. **That is the finding this item produces**, and it is worth more than the placement decision was.
+>
+> **What this costs, stated rather than discovered:** `subject-consent` stays somewhere apps reach into, so the vendoring pressure that produced this fleet's four drifting canonical/vendored pairs still points at it. Rule 12 is the mitigation and it is not automatic — the moment a second app copies it instead of depending on it, the pair exists and needs a named middle in the same commit. **`terpsi-music` will be that second app**, so this is a live obligation here and not a note about somebody else.
+
 **What this costs §17's template:** propagation now crosses an org boundary. Locally that is free — everything is a peer under `~/github/`, and `kart-sandbox.json` binds by path with no org in it. For CI it is fine, since public repos resolve by URL. The tax lands on remote and cloud agent sessions, where `add_repo` refuses cross-tier and a session can hold one owner's repos or another's, not both. So a conformance suite that lives with the template and is *run* by instances in a different org is reaching across the one boundary that is awkward for agents — which argues for the suite being **installed as a dependency** (versioned, pinned, resolvable by URL) rather than read from a sibling checkout.
 
 ### A template without a conformance check is just the first copy
@@ -1360,7 +1379,7 @@ Everything above argues about design. This section is the short list of things t
 
 ### 0 · Read §14 as a claim, not as ground truth
 
-**State: standing caveat, and its stated obstacle was false — corrected 2026-07-30.** `docs/FLEET-READS.md` said the pass could not be run remotely because there was no organisation to read the repositories from. They are on GitHub under the same account as this one, several of them public; three have now been cloned and read from a remote session, and four rows are verified. The pass is open, not blocked — **twenty-eight repositories read as of 2026-07-30, with every exists-row now marked `VERIFIED` or `UNVERIFIED`**, including one verified *negative* (`willow-tech-manual` does not carry the L-ladder, so `SENSITIVITY.md` was correctly written from scratch). Of the 36 names, eight do not resolve at all and two are unreachable cross-tier; see `docs/FLEET-READS.md`. §14's component map was assembled from READMEs and merged pull-request descriptions — **not from reading or running source.** Every row asserting that something exists is a `P2 Cited` claim (§15) whose source was read and never executed.
+**State: standing caveat, and its stated obstacle was false — corrected 2026-07-30.** `docs/FLEET-READS.md` said the pass could not be run remotely because there was no organisation to read the repositories from. They are on GitHub under the same account as this one, several of them public; three have now been cloned and read from a remote session, and ~~four~~ **ten** rows are verified (the *four* was true when written and drifted; the figure is now derived and enforced — see §14's note). The pass is open, not blocked — **twenty-eight repositories read as of 2026-07-30, with every exists-row now marked `VERIFIED` or `UNVERIFIED`**, including one verified *negative* (`willow-tech-manual` does not carry the L-ladder, so `SENSITIVITY.md` was correctly written from scratch). Of the 36 names, eight do not resolve at all and two are unreachable cross-tier; see `docs/FLEET-READS.md`. §14's component map was assembled from READMEs and merged pull-request descriptions — **not from reading or running source.** Every row asserting that something exists is a `P2 Cited` claim (§15) whose source was read and never executed.
 
 That is the exact defect #124 named: *a figure carried from a summary rather than from the thing that produced it.* Before anything is built on the strength of that table, one pass should open the code behind each **Exists** row and either confirm it or downgrade it — and the pass itself should leave a record, because an unverified table and a verified one look identical.
 
@@ -1575,19 +1594,57 @@ Authenticity is weaker than the rest of the module and says so: issuance is HMAC
 
 ### The three to state, which do not block day one
 
-**5 · The exit line is unwritten.** §11.1 requires it *before* the first install and it does not exist. W-6 (§7.4) additionally requires the per-graduate version, which is the harder of the two and is a precondition of enrolment rather than an end-of-life feature.
+**~~5 · The exit line is unwritten.~~**
+**State: written 2026-07-30. `docs/EXIT.md` is canonical; `records/export.py` is the code.** The line is deliberately shorter than §11.1's model sentence, because most of what that sentence describes does not exist and writing it would be the failure this item exists to prevent. **One PASS, one PASS-and-ABSENT, three UNKNOWN** against the five-point test — the per-student export is built and tested, the whole-program export has no store to read.
 
-**6 · No conformance suite.** §17 requires that instances run the template's suite and that promotion writes a record. Neither exists; `promote_check.py` returns an exit code and writes nothing. Until it exists, "template" means "the first copy."
+The harder half is the one that landed. W-6's per-graduate bundle renders as CSV and plain text with a checksummed manifest, carries the exit terms in the words written at opening, and **drops nothing by rung** — `L5` is the single exception and is *named and counted in the manifest*, never silently omitted, because a quiet drop is how a "safe subset" export gets built by accident and the recipient could not tell.
 
-**7 · Score-position anchoring is unchosen** (§13) — stored-score alignment, judge-driven tap-to-mark, or both. It determines how much of the music library must be machine-readable, which is a large and separable body of work.
+**`records/export.py` touches no filesystem**, and that is §6's core/seam partition rather than a style choice: it returns `(name, media type, text)` and the caller writes. A module that opened files would be a write path nothing declared, which is a check `tools/conform.py` now runs. `docs/EXIT.md` also opens the **regression ledger** §11.1 asks for, empty, with a note that an empty table is a claim like any other.
+
+**~~6 · No conformance suite.~~**
+**State: the ledger half is built 2026-07-30 — `tools/conform.py`. The propagation half stays open and is now item 6b.**
+
+§17 measured the gap as *"the gate exists; the ledger does not,"* and the ledger is what this adds: thirteen checks against §17's propagating guarantees, each reporting `PASS`, `FAIL`, `UNKNOWN` or `ABSENT`, written to a dated, commit-pinned, never-overwritten record under `docs/conformance/`. *"Does it conform"* is answerable from any one record; *"when did it stop"* only from the series.
+
+**Today it reads 6 pass · 0 fail · 7 unknown, and a run that read all-pass would be the thing §17 warns about.** `UNKNOWN` is not a pass (rule 13), and `tests/test_conform.py` asserts that unknowns still exist — so *the work got done* and *the checks got softened* stop looking identical from outside. Seven of §17's guarantees are genuinely undecidable here (no manifest, no store, no allowlist, no wired knock), and `FAIL` fails the build while `UNKNOWN` does not, because a gate that always fails is a gate that gets switched off.
+
+**6b — an instance must run the *template's* suite, not a copy of it.** That is the second of §17's two requirements and it needs the versioned-dependency shape §17 already argues for, which needs a template repository to depend on. Not blocked on anything here; blocked on the migration.
+
+> **Found while building it, and it is the item's own subject.** §14's note claimed *"8 of 40"* verified rows while the table held ten and PR #7's body quoted ten — a figure in prose the code moved past, inside the note written to stop exactly that. Worse, the test meant to watch it asserted `0 <= len(verified) <= len(ex)`: a subset count is always within its own bounds, so the guard could not fail on any table. **The third tautology found in this repository's own tests.** The note now carries a machine-readable `VERIFIED-COUNT:` marker compared against the parser's tally, and the mutation lives on the *document* — the first attempt mutated the test and asked the same test to notice, which the harness correctly reported as `SURVIVES`.
+
+**~~7 · Score-position anchoring is unchosen~~**
+**State: chosen 2026-07-30 — both, designed together. `records/marking.py` is canonical.**
+
+One `Mark` carries a required timecode and seat and an **optional, derived** score position, so the two cannot diverge into a migration later. The asymmetry is the design and is not a convenience: **a tap is `P1 measured` and an alignment is `P3 fitted`.** An alignment may *add* a position and may never *replace* the timecode — if the alignment is wrong the remark is still anchored, whereas a timecode derived from the score would move a judge's words to a passage they were not about, which is what makes an adjudication record worthless in a dispute. `align()` refuses a position whose provenance outranks the observation it came from.
+
+**Rule 12's middle is `drift()`**, in the same commit: it compares what the alignment says the position's time is against the tap that is actually true, and reports `AGREES`, `DIVERGED`, `STALE` or `UNALIGNED` rather than presenting whichever half the caller read. **Staleness is checked before drift**, because a position derived against a superseded score can agree perfectly and still point at a bar a cut removed — reporting `AGREES` there is the more dangerous answer. Every derived position names the score edition it was taken against, for the same reason `sealing.py` digests a body: a derived thing must not outlive the thing it was derived from.
+
+W-3 is structural here rather than remembered — a `Mark` carries a shared `referent` and marks naming a student are lane-scoped, with no participant list, because that list is the roster column W-1 forbids.
 
 > **Reclassified 2026-07-30: still not day-one, no longer separable.** §24 of the capability map's craft-feedback capability rests on seven checks at the lyric/music seam — stress against meter, vowel against pitch, breath against phrase — and every one anchors to a position in *both* the text and the score. None can be built without this. It remains outside the first commit; it stops being a body of work that can be deferred indefinitely without deciding what it blocks. Left in this list rather than moved up, with the change recorded here.
 
 ### The three that need a choice, not research
 
-**8 · `libs/subject-consent`'s placement** (§17) — the second cross-face dependency, still a folder in an app store.
-**9 · Practice logging against UTETY's no-leaderboard rule** — §1 of the capability map proposes streaks and standings; `ask-jeles`'s record-the-shape-not-the-content pattern resolves most of it, but the line has to be drawn by someone.
-**10 · Whose consent governs which surface** (§13) — SAFE's session-expiring model fits a guardian reading their own student's record and does not fit a director opening the roster at 6 a.m. Both mechanisms are built; the mapping is not written.
+**~~8 · `libs/subject-consent`'s placement~~ (§17)**
+**State: settled 2026-07-30. The rule is stated in §17; `subject-consent` stays a library.** An org of its own is earned by being depended upon *as infrastructure* — a component consumers must pin and audit independently of any application using it — not by being widely shared. Nestor qualifies because it is the thing that says whether other things are correct. `subject-consent` is a domain library about guardianship, which is a subject, and §17's own criterion excludes it by name.
+
+**The finding is worth more than the placement was.** *"The guardian-consent core for systems holding minors' records"* is a claim about **stakes**, and stakes are answered by version discipline rather than by the org chart — so the obligation transfers: it must be **pinned to an immutable ref by every consumer**. That is the identical defect §17 already records one row above against `nestor @ git+…/Nestor@master`, with higher stakes, and moving it would not have fixed it.
+
+**~~9 · Practice logging against UTETY's no-leaderboard rule~~**
+**State: closed 2026-07-30 — and two things in the framing were wrong, both of which made it easier. `records/practice.py` and `records/conflict.py`.**
+
+**The standings half was never a UTETY question.** It is already forbidden here by CLAUDE.md refusal 6 and W-7 — *never compute a priority between two students* — and chair-challenge standings are exactly that. The item asked whether to adopt a sibling app's ground rule while our own charter had already refused it, which is the stronger authority. **And the content half was already covered**: `voice.py` refuses `evaluative_praise`, `peer_comparison` and `ordering_two_students` in prose, with a policy version stamped on every refusal.
+
+**What neither covered is what this closes: a leaderboard is not prose.** It is a sorted list, and no text rule can see one — `ORDER BY minutes DESC` produces no sentence to refuse. The enforcement had to be structural, and the lane model already supplied it: **every own-work statistic reads one lane and every comparison needs two, so W-3's seal already forbids the ranking.** §13 never noticed because it filed the question under content. `_one_lane()` is the middle and it raises rather than filtering, because a filtered aggregate returns a number that looks like an own-work statistic and is not.
+
+**W-7 had no implementation anywhere** — quoted in four documents, enforced by nobody, rule 18's distinction with nothing on the enforcement side. `records/conflict.py` is the type that makes it structural: an `Escalation` **cannot carry an order**, there is no field for one, and reaching for `.recommendation` raises with the clause attached rather than returning `None` for somebody to paper over. It covers both halves of refusal 6, including the frequent one — a student's interest against staff convenience.
+
+**~~10 · Whose consent governs which surface~~ (§13)**
+**State: written 2026-07-30. `records/consent.py` is canonical.**
+
+**The axis is not "is this the data subject."** That was the obvious reading and it is wrong on §13's own example — a *parent* is not the data subject and fits the session model cleanly. The axis is **whether this principal holds the authority the consent is about**: `self` and `guardian_of` hold it and are asked at the door under SAFE's session-expiring model; `staff_of`, `director_of`, `judge_at` and `clinician_for` exercise an authority granted elsewhere and are never prompted.
+
+**It is rung-dependent for the subject**, which falls out of item 12 rather than being invented: a minor holds the authority over their own record to `L3` and not above, so the same principal on the same lane is governed by the session model for a call time and the delegated model for a diagnosis. **And `UNKNOWN` is not askable** — the counterintuitive half, since a prompt feels like the conservative move when unsure. It is not: a prompt shown to someone who does not hold the authority manufactures a consent record that looks valid, which is §13's *"eventually ask the wrong person"* arriving as a safety feature.
 
 ### What is not on this list
 

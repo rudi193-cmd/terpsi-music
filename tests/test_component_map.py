@@ -115,17 +115,47 @@ def test_the_check_can_actually_fail():
     assert m and m.group(1) == "2026-07-30" and m.group(2) == "abc1234"
 
 
-def test_the_coverage_is_reported_not_hidden():
-    """Not an assertion about the ratio — 32 of 40 unverified is the honest
-    state today and forcing it upward would only encourage marking things
-    verified. This asserts the ratio is *derivable*, so a reader can see how
-    much of §14 is still a citation rather than having to count by hand."""
+#: The machine-readable figure in §14's note. Prose and table drifted apart
+#: once — the note said "8 of 40" while the table held ten and a pull request
+#: quoted ten — so the sentence now carries a marker the parser can compare.
+_HEADER_COUNT = re.compile(r"VERIFIED-COUNT:\s*\*{0,2}(\d+)\s+of\s+(\d+)")
+
+
+def test_the_header_figure_matches_the_table():
+    """**Rule 18 applied to §14's own note.** The paragraph claiming how many
+    rows are verified used to be a ledger: nothing compared it to the rows, and
+    it drifted by two while sitting inside the note written to stop exactly this
+    — item 0's *"a figure in prose the code moved past."*
+
+    Replaces `test_the_coverage_is_reported_not_hidden`, whose only assertion
+    was `0 <= len(verified) <= len(ex)`. A subset count is always within its own
+    bounds, so that guard could not fail on any table — the third tautology
+    found in this repository's own tests, and the reason the count drifted while
+    a green suite said nothing.
+    """
+    sec = section_14()
+    text = "\n".join(sec) if isinstance(sec, list) else sec
+    m = _HEADER_COUNT.search(text)
+    assert m, (
+        "§14's note no longer carries a `VERIFIED-COUNT: <n> of <total>` marker; "
+        "without it the figure is unenforceable again"
+    )
+    claimed_v, claimed_total = int(m.group(1)), int(m.group(2))
+
     ex = exists_rows()
     verified = [l for l in ex if _VERIFIED.search(l)]
-    assert ex, "no exists-rows — parser broken"
-    assert 0 <= len(verified) <= len(ex)
-    # A future reader should be able to run this file and read the number off.
+    assert (claimed_v, claimed_total) == (len(verified), len(ex)), (
+        f"§14's note claims {claimed_v} of {claimed_total}; the table holds "
+        f"{len(verified)} of {len(ex)}. Update the note — the rows are the truth."
+    )
     print(f"§14: {len(verified)}/{len(ex)} exists-rows verified at source")
+
+
+def test_the_header_check_can_actually_fail():
+    """Rule 19, and pointedly: the guard this replaced could not."""
+    assert not _HEADER_COUNT.search("VERIFIED-COUNT: some of them")
+    m = _HEADER_COUNT.search("> **VERIFIED-COUNT: 10 of 40** (2026-07-30).")
+    assert m and (m.group(1), m.group(2)) == ("10", "40")
 
 
 if __name__ == "__main__":
