@@ -1370,15 +1370,45 @@ The DDL has been **executed** against PostgreSQL 16 and every constraint attacke
 **State: blocking for layout. Needs a decision.**
 Six personas (§4), `safe-design` ready with tokens and structurally-parity backends, and nothing recorded about whether this is a TUI, a browser application, both, or a TUI plus the parent PWA of §4.2. The answer sets the first directory layout and determines which of `safe-design`'s backends is load-bearing.
 
-**11 · The class vocabulary does not cover the categories §20 of the capability map names.**
-**State: open. Needs a decision, and it is larger than it looks.**
+**~~11 · The class vocabulary does not cover the categories §20 of the capability map names.~~**
+**State: closed 2026-07-30. The vocabulary does not need new members. `docs/SENSITIVITY.md` *Protected status* is canonical for the resolution.**
+
+~~Resolved against this item's own third option rather than its conclusion.~~
+The decision: **step 3 of *Classifying a new field* is a definition and its four
+familiar examples are illustrative**, so confidential addresses, McKinney-Vento
+housing status, foster placement and documentation status reach `L4` *through
+the clause* rather than through a class. This item reasoned its way to "`L4`
+with a declared purpose" correctly and then inferred "which means new classes";
+that inference is what was wrong. Read as a closed enumeration, the clause would
+make every future protected category a schema change — the wrong failure
+direction for this population.
+
+**One member left the list.** Chosen name is inverted relative to the other
+four: the harm is *non-use*, and elevating it makes a deadnaming program
+**more** likely by pushing the printing path back to the legal name. The
+protected half is the **SIS legal record**, which is `L4`. This item's own prose
+had it — *"a legal name served to the program-printing path is the outing"* —
+without drawing the consequence.
+
+**Carried forward:** what *checks* a general clause. A lookup table is
+mechanically verifiable; a clause is a judgment (rule 19). Recorded in
+`SENSITIVITY.md`'s "does not decide" list, not here.
+
+~~The original statement follows.~~
+**State: was open; needs a decision, and it is larger than it looks.**
 §6's eight classes were mapped onto the ladder in `docs/SENSITIVITY.md` faithfully, and the mapping is sound for what the classes describe. The problem is what they omit. §20 of the capability map lists **confidential address programs (Safe at Home), McKinney-Vento housing status, undocumented families, foster placement changes, and chosen name distinct from the SIS legal record.** None has a class. Every one lands at `PII_MINOR` or `PII_GUARDIAN`, and therefore at `L3` — the rung whose rule is *served in full to any principal holding a current edge*.
 
 That is wrong by at least one rung in every case and dangerously wrong in two. A Safe at Home address exists because disclosing it can get someone killed; `L3` serves it to every staff member with a roster edge. A legal name served to the program-printing path is the outing that §20 of the capability map asks to be handled deliberately. And §18 of the capability map's *"fee waivers that are structurally invisible to peers"* is already load-bearing on `L5`'s rule 3, which arrived from a different direction and covers only the refusal, not the status.
 
 Three ways to close it, and this is the decision: add classes to §6's vocabulary; add a per-field rung override that outranks the class mapping; or treat "protected status" as a fourth `L5` trigger alongside the existing three. The third is cheapest and probably wrong, because these must be *served* to somebody — a chaperone needs the accommodation even when nobody may see the status. That points at `L4` with a declared purpose, which means new classes.
 
-**Nothing should classify a field in these categories until this closes.** The ladder is right; the vocabulary feeding it has a hole in exactly the population the program is most obliged to protect.
+~~**Nothing should classify a field in these categories until this closes.** The ladder is right; the vocabulary feeding it has a hole in exactly the population the program is most obliged to protect.~~
+
+**That hold is lifted as of 2026-07-30.** Fields in these categories may now be
+classified, at `L4`, against `SENSITIVITY.md`'s *Protected status* table. The
+diagnosis in the struck sentence was half right: the ladder is indeed right, and
+the vocabulary feeding it had no hole — the *route into* the ladder did, because
+classification consulted the class mapping and never reached step 3's clause.
 
 ### The three to state, which do not block day one
 

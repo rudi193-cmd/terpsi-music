@@ -117,6 +117,51 @@ diagnosis.
 > that renders the diagnosis to everyone who might need to act on it has not
 > classified anything; it has added a label to a leak.
 
+### Protected status — the categories that reach `L4` without a class
+
+**Decided 2026-07-30, closing §18 item 11.** Item 11 asked whether §6's
+vocabulary needs new classes for the categories §20 of the capability map
+names. It does not. They reach `L4` through step 3 of *Classifying a new
+field*, because **"a category the law follows" is a definition and the four
+familiar examples are illustrative.** Read as a closed enumeration it would
+make every future protected category a schema change, which is the wrong
+failure direction for exactly the population this program is most obliged to
+protect.
+
+| Field carries | Rung | Served as |
+|---|---|---|
+| Confidential address program participation (Safe at Home) | `L4` | the substitute address, and the fact that mail routes differently |
+| McKinney-Vento housing status | `L4` | the fee waiver, the transport arrangement, the instrument locker |
+| Foster placement, and a change of placement | `L4` | the current contact edges, dated — never the placement history |
+| Immigration or documentation status | `L4` | the trip requirement met or unmet — never the status |
+
+Each is `L4` for the same reason `HEALTH` is: **the operational need is
+satisfied by the instruction, and serving the datum needs its own declared
+purpose.** A liaison acts on the locker without the housing status crossing a
+screen. This is why `L5` is wrong for all four — enforcement-only is never
+served, and a status nobody may render cannot produce a fee waiver.
+
+> **The chosen-name inversion.** Item 11 listed *"chosen name distinct from the
+> SIS legal record"* among the five, and its own prose already named the danger
+> correctly — *"a legal name served to the program-printing path is the
+> outing."* Made explicit, because the two halves pull opposite ways:
+>
+> - **The chosen name is not elevated.** It stays at its class rung. The harm
+>   here is *non-use* — a printed program that deadnames a student — and
+>   restricting the chosen name makes that **more** likely, because the
+>   program-printing path then falls back to the legal name it can still reach.
+> - **The SIS legal record is `L4`**, by this section. It is the protected
+>   half.
+>
+> Four of item 11's five are facts to protect. The fifth is a fact to *use*,
+> whose counterpart is the fact to protect. Classifying it like the other four
+> would have inverted the guarantee while appearing to strengthen it.
+
+**What this does not license.** Reaching `L4` by clause rather than by class
+means a human decides at schema-definition time, and step 5 still applies — the
+§6 class is recorded alongside the rung, and these fields remain `PII_MINOR` or
+`PII_GUARDIAN` for egress and retention. The rung moved; the class did not.
+
 ### `L5` — Enforcement-only
 
 Never rendered on any surface, to any principal, under any grant, including the
@@ -281,7 +326,10 @@ Three things this table is not:
 
 1. **Can it be published?** → `L1`.
 2. **Does it name, or resolve to, a person?** No → `L2`. Yes → continue.
-3. **Is it health, money, discipline, or likeness?** No → `L3`. Yes → `L4`.
+3. **Does it carry a category the law follows?** No → `L3`. Yes → `L4`.
+   Health, money, discipline and likeness are the common four. **They are
+   examples of the clause, not the whole of it** — see *Protected status*
+   below, which reaches `L4` through this step and not through a class.
 4. **Would rendering it reveal a refusal, expose enforcement substance, or
    disclose key material?** → `L5`, by the rule that applies.
 5. **Record the class from §6 alongside the rung.** The rung governs serving;
@@ -303,6 +351,14 @@ step 2, and still land at `L5` because rendering it would identify who declined.
   assigns `L5` per record by rule instead, on the grounds that its three
   triggers have nothing in common as *kinds of data* — a signing key and a
   declination record are the same rung for entirely different reasons.
+- **How a classifier evaluates step 3's general clause.** *Protected status*
+  settles that the clause governs and the four examples do not bound it. It
+  does not settle what checks that. A lookup table is mechanically verifiable;
+  a general clause is a judgment, and rule 19 says a guard that cannot be shown
+  to fail has not been shown to work. The likely shape is that the clause stays
+  human-evaluated at schema-definition time and the *enumeration of decided
+  cases* — the table above — is what the build checks, growing by human act.
+  That is a real decision and it is not made here.
 - **The numbering of the middle trust rungs.** See the caveat above.
 - **Where the derived instruction for an `L4` field is authored.** That a
   diagnosis yields an accommodation is asserted here; who writes that mapping,

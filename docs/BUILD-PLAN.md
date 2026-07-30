@@ -3,7 +3,7 @@
 **Status:** plan. Governs nothing; `docs/ARCHITECTURE.md` governs. No numbered
 sections — a `§N` here is always the architecture's.
 
-**One page on purpose.** There are 13,774 lines under `docs/` at time of
+**One page on purpose.** There are 13,867 lines under `docs/` at time of
 writing, this file included — derived, not quoted (#17). If this file
 grows past two screens it has stopped being a plan and become another thing to
 read. Everything here is a pointer to a decision or a task, never a restatement.
@@ -46,12 +46,19 @@ Three decisions. Each is a paragraph of judgment, not a project.
 
 | | decision | notes |
 |---|---|---|
-| B1 | Item 11 — the rung for protected categories | `scout-25-protected-categories.md` part 1 offers a candidate: a fourth `L5` rule rather than four new classes, with the two objections that defeat it |
+| ~~B1~~ | ~~Item 11 — the rung for protected categories~~ | **Closed 2026-07-30.** Step 3's clause governs; the four examples are illustrative. `SENSITIVITY.md` *Protected status* is canonical |
 | B2 | Item 2 — disposition of `apps/marching-arts` | gates the schema's location |
 | B3 | Item 4 — which surfaces exist | gates layout, and gates any dispatcher |
 
-**Nothing in §20 of the capability map's categories may be classified until B1 closes.** That is item
-11's own instruction and this plan does not soften it.
+**B1's hold is lifted.** Fields in those categories may now be classified, at
+`L4`. Neither this plan's earlier suggestion nor item 11's own conclusion
+survived the discussion: `L5` is unservable and would strand the liaison the
+status exists to help, and new classes were never needed because the route into
+the ladder was the defect, not the vocabulary. **Chosen name left the list** —
+its harm is non-use, and the protected half is the SIS legal record.
+
+One residual, carried into `SENSITIVITY.md` rather than here: **what checks a
+general clause.** A lookup table is verifiable; a clause is a judgment (#19).
 
 ## Track C — buildable now
 
@@ -79,7 +86,7 @@ building them first means building against a guess.
 fully specified, and unbuildable until B3 says what a surface is and A2 says
 what W-3 actually requires.
 
-**A1–A3 and B1–B3 are six items. None takes a week.** They are the whole
+**A1–A3 and B2–B3 are five items, B1 having closed. None takes a week.** They are the whole
 critical path, and the reason this plan is one page rather than a programme.
 
 ---
@@ -87,7 +94,7 @@ critical path, and the reason this plan is one page rather than a programme.
 ## Order
 
 1. **A3** — cheapest, and can invalidate `SENSITIVITY.md`. Do it before anything rests further on the ladder.
-2. **B1** — unblocks classification, which unblocks every field decision.
+2. ~~**B1**~~ — closed 2026-07-30. Classification is unblocked.
 3. **A2** — turns the lane model from a paraphrase into a clause.
 4. **A1** — the long read; start it early because it runs alongside everything.
 5. **B2, B3** — before any surface or migration lands.
@@ -98,7 +105,7 @@ critical path, and the reason this plan is one page rather than a programme.
 - **Does not re-order §9.** §9's ordering principle — expensive-to-retrofit
   first — is sound and is not the problem. What is unverified is its *status
   labels*, which is item 0, which is A1.
-- **Does not schedule.** No dates, because five of the six critical items are
+- **Does not schedule.** No dates, because all five remaining critical items are
   someone else's keystrokes and estimating them here would be fiction.
 - **Does not restate a mechanism.** Every row points at the document that owns
   it. If a mechanism appears to be described here, that is a defect (§16).

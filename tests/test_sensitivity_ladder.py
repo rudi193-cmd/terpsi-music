@@ -203,6 +203,72 @@ def test_sensitivity_file_is_reachable():
     assert SENSITIVITY.is_file(), f"missing {SENSITIVITY}"
 
 
+# --- protected status (§18 item 11, closed 2026-07-30) ---------------------
+#
+# The decision was that step 3's clause governs and its four familiar examples
+# do not bound it. A decision recorded only in prose is a ledger (rule 18), and
+# the specific way this one erodes is predictable: someone reads the four
+# examples as the list, or "tidies" the chosen-name entry to match the other
+# four because the asymmetry looks like an oversight. Both are asserted against.
+
+_PROTECTED_ROW = re.compile(r"^\|\s*([A-Z][^|]*?)\s*\|\s*`(L[1-5])`\s*\|")
+
+#: Substrings identifying the four decided categories. Matched loosely on
+#: purpose -- this checks the decision survived, not the wording.
+PROTECTED = ("confidential address", "mckinney-vento", "foster placement", "immigration")
+
+
+def protected_rungs(text: str) -> dict[str, str]:
+    """{category line: rung} from the Protected status table."""
+    return {
+        m.group(1).lower(): m.group(2)
+        for m in (_PROTECTED_ROW.match(l) for l in _lines(text))
+        if m
+    }
+
+
+def test_the_four_protected_categories_are_decided_and_at_l4():
+    """Item 11's four survivors. `L5` here would be the tempting error -- it
+    reads as stronger and would make every one of them unservable, so a liaison
+    could not act on the fee waiver the status exists to trigger."""
+    rows = protected_rungs(SENSITIVITY.read_text(encoding="utf-8"))
+    for needle in PROTECTED:
+        hits = [rung for cat, rung in rows.items() if needle in cat]
+        assert hits, f"no Protected status row for {needle!r} — decision lost"
+        assert all(r == "L4" for r in hits), f"{needle!r} is at {hits}, expected L4"
+
+
+def test_the_chosen_name_inversion_is_not_tidied_away():
+    """The asymmetry is load-bearing and looks like an oversight, which is
+    exactly what gets 'fixed'. Elevating the chosen name would push the
+    program-printing path back to the legal name -- strengthening the guarantee
+    in appearance and inverting it in fact."""
+    text = SENSITIVITY.read_text(encoding="utf-8")
+    rows = protected_rungs(text)
+    tidied = [cat for cat in rows if "chosen name" in cat]
+    assert not tidied, (
+        f"chosen name appears in the Protected status table as {tidied} — it is "
+        "not elevated; the SIS legal record is the protected half"
+    )
+    assert "legal record" in text.lower() or "legal name" in text.lower(), (
+        "the protected counterpart of the chosen name is not named at all"
+    )
+
+
+def test_the_protected_status_check_can_actually_fail():
+    """Rule 19. Point the parser at a table that dropped a category and at one
+    that filed a category at L5, and confirm both are seen."""
+    dropped = "| Confidential address program | `L4` | x |"
+    assert not [c for c in protected_rungs(dropped) if "mckinney" in c], (
+        "parser invented a row that is not there"
+    )
+    wrong = "| McKinney-Vento housing status | `L5` | x |"
+    rows = protected_rungs(wrong)
+    assert rows and all(r == "L5" for r in rows.values()), (
+        f"parser did not read the rung it was given: {rows}"
+    )
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):
