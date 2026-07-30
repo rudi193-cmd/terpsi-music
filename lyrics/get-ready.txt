@@ -39,9 +39,21 @@ RIGHTS
     without permission or attribution. Not legal advice.
 
 
-v2. The first draft is in git history and is not the version — the father
-arrived in verse three, too late for the bridge to land on him; the pre-chorus
-said one thing twice; and the last chorus was a copy of the first.
+v3. Earlier drafts are in git history and are not the version. v2 fixed
+structure — the father moved up so the bridge could land on him, the pre
+turned instead of restating, the last chorus varied. v3 fixes the mechanics,
+four of which were found by running §24's own checklist over it rather than
+by ear:
+
+    - Verse 3 scanned 6/5/5/5 against 6/6/6/6 everywhere else. Now regular.
+    - Only verse 1 rhymed. All three verses are ABCB now.
+    - Point of view wobbled — a "you" in verse 3 arrived before the bridge's
+      turn to "your father" and spent it early. Verses observe, the pre
+      addresses, the chorus commands, the bridge turns personal.
+    - "Nothing to do but stay" was the one flat abstraction, in a verse's
+      weakest position. Replaced with the thing that shows it.
+
+    Verse 3 also now has verbs. It was four objects sitting still.
 
 VERSE 1
     Frost on the lot at six
@@ -51,9 +63,9 @@ VERSE 1
 
 VERSE 2
     Somebody's father waits
-    Parked where the buses turn
-    Heater on, hazards on
-    Nothing to do but stay
+    Down where the buses park
+    Engine off, hazards on
+    Breath fogging up the dark
 
 PRE
     No signal on the hill, no way to phone it in
@@ -66,14 +78,14 @@ CHORUS
     We go on the eight
 
 VERSE 3
-    Plume in a plastic bag
-    Gloves that don't fit right
-    Tape on a cracked reed
-    Hands you can't feel yet
+    Plume snapped into the hat
+    Two pairs of gloves, too tight
+    Tape wound on a cracked reed
+    Everyone's fingers white
 
 PRE
     No signal on the hill, no way to phone it in
-    Whatever you forgot, you brought
+    He couldn't reach you now
 
 CHORUS
     Ready on the eight
