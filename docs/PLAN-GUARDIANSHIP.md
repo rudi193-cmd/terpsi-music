@@ -69,10 +69,42 @@ Each row is a test that attempts the forbidden act and asserts refusal.
 | G9 | No grant is constructible over a group, a section, or a roster (§7.4 W-2) |
 | G10 | `who_could_see(student, field, at)` answers with a reason, as a query rather than an investigation |
 | G11 | A consent or guardianship backend that errored surfaces as `unknown`, never as "no restrictions" |
+| **G12** | **An ended guardianship is not messaged.** A guardian whose edge carries an `invalid_at` in the past is absent from `recipients(student, at)` |
+| **G13** | **Only guardians are messaged.** A holder of `staff_of`, `director_of`, `judge_at`, `clinician_for` or `self` is absent from a guardian send list |
 
 G4 and G7 are the two that hold when everything else is forgotten, because they
 are properties of the source rather than of behaviour at runtime. G11 is
 rule 13 applied to the one lookup where the failure mode is a send.
+
+> **G12 and G13 were added 2026-07-30, by ablation rather than by review, and
+> the reason they were missing is structural.** Building `records/sending.py`
+> against G1–G11 and then mutating it left two guards alive, because **every
+> one of the original eleven is about a *restriction* and none is about the
+> standing edge itself.** The plan reasoned carefully about what suppresses a
+> recipient and never wrote down what makes one.
+>
+> Both mutants passed all eleven gates:
+>
+> - A predicate **ignoring edge dates entirely** passed, because G1–G3 and G8
+>   all terminate standing by adding a *restriction* to a live guardian; none of
+>   them ends the guardianship. Refusal 3 ends it by setting `invalid_at`, and
+>   nothing here tested that path.
+> - A predicate **messaging every edge holder** passed, because no gate said
+>   *guardian*. `judge_at` expires in 36 hours and `clinician_for` in 24, so the
+>   window is narrow and real — and *"Ben will be at the away game in Dayton
+>   until 10pm"* delivered to a judge is §4.1's own worked harm, arriving
+>   through the send path §4.1 exists to protect.
+>
+> **This is the shape of the gap, not two oversights.** A gate set assembled by
+> asking *"what could go wrong"* enumerates the ways a thing fails and skips the
+> conditions under which it should happen at all. The same reading that produced
+> eleven restriction gates and no standing gate is the reading §7's
+> indistinguishability note warns about one section down: a suite that only ever
+> asserts *nothing was sent* passes when nothing is ever sent.
+>
+> `tests/test_sending.py` carries both. This entry closes §18 item 13 — a gate
+> living only in a test file is one refactor from being deleted as redundant,
+> which is why it had to arrive here.
 
 **And a companion assertion, because indistinguishability proves less than it
 looks.** §7 already records that the resolver's refusal-indistinguishability
@@ -148,9 +180,18 @@ Separating them means two places to get it right.
 ## 6. Sequencing
 
 1. **The safety core.** The edge with both axes, no delete path, derived
-   `recipients()`, and the G4 static check. G1, G2, G4, G6, G7, G11.
+   `recipients()`, and the G4 static check. G1, G2, G4, G6, G7, G11 —
+   **and G12, G13**, which belong here rather than later: they are the two that
+   say who a recipient *is*, and every other gate in this step assumes an answer
+   to that and does not check it.
 2. **Time.** Future dating, reinstatement, `who_could_see`. G3, G5, G8, G10.
 3. **The ward rules.** Decompose student-scoped broadcasts, land the two-lane
    rule for shared events. G9 — and this one is a migration if it waits.
 
 Step 1 is the part worth having before the case arrives.
+
+> **The step-1 list originally read six gates and the two it was missing were
+> the load-bearing ones.** G12 and G13 are cheaper than anything else in the
+> step — an edge-kind check and a date comparison — and a predicate lacking both
+> passed all six. Ordering by *cost* would have put them first; ordering by
+> *what the plan had thought about* left them out entirely.

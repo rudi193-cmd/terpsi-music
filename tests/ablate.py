@@ -166,6 +166,28 @@ MUTATIONS = [
      "a failing check fails the build", "tests/test_conform.py"),
     ("tools/conform.py", "return self.state is State.PASS", "return True",
      "UNKNOWN is not a pass", "tests/test_conform.py"),
+    # The socket checker, against tests/fixtures/decoys — source that really
+    # does open sockets, parsed and never imported.
+    ("tools/sockets.py", "return _UNRESOLVED if value is None else value",
+     "return value or _UNRESOLVED",
+     'bind(("", 8560)) is all-interfaces, not unresolved', "tests/test_sockets.py"),
+    ("tools/sockets.py", "if wider:", "if False:",
+     "a wider host than declared", "tests/test_sockets.py"),
+    ("tools/sockets.py", "if not e.resolved:", "if False:",
+     "an unresolvable bind is not a pass", "tests/test_sockets.py"),
+    ("tools/sockets.py", "return self.port == e.port and self.host == e.host",
+     "return self.port == e.port",
+     "a declared port is not enough", "tests/test_sockets.py"),
+    ("tools/sockets.py", "return self.verdict is Verdict.CLEAN",
+     "return self.verdict is not Verdict.FINDINGS",
+     "a vacuous scan is not a clean one", "tests/test_sockets.py"),
+    ("tools/sockets.py", 'if name == "listen" and host == _UNRESOLVED:',
+     "if False:", "a backlog is not an address", "tests/test_sockets.py"),
+    ("tools/sockets.py", "for e in outbound:", "for e in ():",
+     "outbound is a finding", "tests/test_sockets.py"),
+    ("tools/sockets.py",
+     "            if not any(d.covers(e) for e in listeners):", "            if False:",
+     "a stale declaration is a finding", "tests/test_sockets.py"),
     # Mutate the *document*, not the test. The first attempt here disabled the
     # assertion in test_component_map.py and asked test_component_map.py to
     # notice — circular, and the harness reported SURVIVES for it, correctly.

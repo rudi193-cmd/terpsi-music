@@ -47,6 +47,7 @@ from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 RECORDS = ROOT / "docs" / "conformance"
 
 
@@ -186,6 +187,31 @@ def check_exit_line() -> Check:
                  f"docs/EXIT.md, {len(text.splitlines())} lines")
 
 
+def check_declared_sockets() -> Check:
+    """§18 item 4 note (ii): every listener the source opens must be declared.
+
+    **Built before the manifest, on purpose.** §4.3's worked failure is a
+    declaration that shipped first with nothing pointed at it. A `VACUOUS`
+    result — no manifest, no listeners — reports `UNKNOWN` rather than `PASS`,
+    because a check with nothing to check has not checked anything.
+    """
+    from sockets import Verdict, check as scan_check  # noqa: E402
+
+    r = scan_check([ROOT / "records", ROOT / "tools", ROOT / "voice.py",
+                    ROOT / "personas.py"])
+    what = "listening sockets are declared (§4.3, item 4 note ii)"
+    if r.verdict is Verdict.VACUOUS:
+        return Check("declared-sockets", what, State.UNKNOWN,
+                     "no manifest and no listeners: nothing was checked. The "
+                     "checker is wired and shown to fail (tests/fixtures/decoys), "
+                     "so the first surface item 4 lands is caught on arrival")
+    if r.findings:
+        return Check("declared-sockets", what, State.FAIL,
+                     "; ".join(f.detail for f in r.findings[:3]))
+    return Check("declared-sockets", what, State.PASS,
+                 f"{len(r.listeners)} listener(s), all declared; 0 outbound")
+
+
 def check_component_map() -> Check:
     """Item 0: an unverified table and a verified one must not look identical."""
     r = subprocess.run([sys.executable, str(ROOT / "tests" / "test_component_map.py")],
@@ -227,7 +253,7 @@ UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
 CHECKS: Tuple[Callable[[], Check], ...] = (
     check_no_egress, check_write_paths, check_revocation_is_dated,
     check_suite_runs_standalone, check_ablation, check_exit_line,
-    check_component_map,
+    check_component_map, check_declared_sockets,
 ) + UNDECIDABLE
 
 

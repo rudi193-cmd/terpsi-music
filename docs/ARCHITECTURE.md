@@ -1482,6 +1482,46 @@ Six personas (§4), `safe-design` ready with tokens and structurally-parity back
 > Egress purity is not the obstacle to a browser surface and should not be
 > raised as one: §6's inner ring forbids *outbound* — there is no client to
 > call out. A local listener is `lan_listen`, a permission.
+>
+> **(iii) The enforcement half of (ii) is built, 2026-07-30, and the decision is
+> still open — that ordering is the point.** `tools/sockets.py` enumerates every
+> listener and every outbound connection the source can open and reconciles them
+> against a manifest. There is no manifest yet, because item 4 owns it.
+>
+> **§4.3's failure was not a lie; it was an ordering.** `safe-app-willow-grove`
+> declared `"surfaces": ["tui"]` and *"portless means portless"*, then opened two
+> all-interface listeners and an `8.8.8.8` probe — because the declaration
+> shipped first and nothing was ever pointed at it. A checker that exists before
+> the first manifest means **the manifest cannot be born wrong**: whatever this
+> item decides gets written against something that already refuses.
+>
+> Three properties, each with a decoy in `tests/fixtures/decoys/` that trips it:
+>
+> - **It parses and never imports.** A checker that imported a module to inspect
+>   it would execute the code under inspection, and for a network module that
+>   means opening the socket it was written to detect.
+> - **A declared port is not enough; the host must match, and wider is a
+>   finding.** Declaring `8560` and binding `0.0.0.0:8560` is the willow-grove
+>   case exactly — true to a checker comparing ports, false to anyone on the LAN
+>   segment.
+> - **A bind it cannot resolve is not a pass.** `bind((HOST, PORT))` from the
+>   environment is `UNRESOLVED`, which is a finding — rule 13 at the one place
+>   where guessing means an open port nobody wrote down.
+>
+> **And the vacuous case is reported as vacuous.** No manifest and no listeners
+> means nothing was checked, which is not the same as nothing being wrong;
+> `conform.py` renders it `UNKNOWN`, never `PASS`. The moment a listener appears
+> with nothing declaring it, the result is `FAIL` — nobody has to remember to
+> switch the check on when this item closes.
+>
+> **The decoy earned its keep on the first run**, and the bug is worth recording
+> because it is the shape this repository keeps finding. The literal extractor
+> read `_const(x) or _UNRESOLVED` — the obvious spelling — and an empty string is
+> falsy, so `bind(("", 8560))`, **all-interfaces spelled as a blank**, was
+> silently reclassified as *could not resolve*. Without a decoy the checker would
+> have shipped reporting the exact case it was written for as unknown, and looked
+> like it worked. That is `§16`'s *mis-aimed middle* in three characters of
+> idiom.
 
 **~~11 · The class vocabulary does not cover the categories §20 of the capability map names.~~**
 **State: closed 2026-07-30. The vocabulary does not need new members. `docs/SENSITIVITY.md` *Protected status* is canonical for the resolution.**
@@ -1545,14 +1585,16 @@ classification consulted the class mapping and never reached step 3's clause.
 
 The `Widening` is a **fourteenth table, as a type**, on the same footing as the crossing envelope's thirteenth: written in `records/standing.py`, not in `docs/schema/`, and for the same reason.
 
-**13 · `PLAN-GUARDIANSHIP.md`'s gate set is incomplete in two places.**
-**State: open, found by ablation 2026-07-30. Small, and a decision only in the sense that someone must write the gates down.**
+**~~13 · `PLAN-GUARDIANSHIP.md`'s gate set is incomplete in two places.~~**
+**State: closed 2026-07-30. `PLAN-GUARDIANSHIP.md` §2 now carries G12 and G13, and §6 puts them in step 1 where they belong.**
 Building `records/sending.py` against G1–G11 and then ablating it left two mutants alive. Neither is covered by any of the eleven gates, because **every gate in the plan is about a *restriction* and none is about the standing edge itself**:
 
 - **G12 — an ended guardianship must not be messaged.** Refusal 3 ends guardianship by setting `invalid_at`. G1–G11 all test restrictions on a *live* guardian; none ends the guardianship. A predicate ignoring edge dates entirely passed all eleven.
 - **G13 — only guardians are messaged.** A predicate that messaged every edge holder — `judge_at`, `clinician_for`, `staff_of`, `director_of` — also passed all eleven. *"Ben will be at the away game in Dayton until 10pm"* delivered to a judge is §4.1's own worked harm.
 
-Both now have tests in `tests/test_sending.py`. The item stands until the plan itself carries them, because a gate that exists only in a test file is one refactor from being deleted as redundant.
+Both have tests in `tests/test_sending.py` and are now written into the plan itself, which is what this item was waiting for — a gate living only in a test file is one refactor from being deleted as redundant.
+
+**Writing them down produced one more finding than the gates themselves.** §6's sequencing put six gates in the safety core, and **the two it was missing were the cheapest in the step** — an edge-kind check and a date comparison — while a predicate lacking both passed all six. Ordering by cost would have put them first; ordering by *what the plan had already thought about* left them out. That is the general shape of the defect: **a gate set assembled by asking "what could go wrong" enumerates failures and skips the conditions under which the thing should happen at all**, which is the same reading §7's indistinguishability note warns about one section down — a suite asserting only *nothing was sent* passes when nothing is ever sent.
 
 **14 · The classification procedure omits the re-identification gate its own class table requires.**
 **State: corrected in `SENSITIVITY.md` 2026-07-30; recorded here because of how it was found.**
