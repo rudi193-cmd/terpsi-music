@@ -21,6 +21,11 @@ ROOT = Path(__file__).resolve().parent.parent
 ARCHITECTURE = ROOT / "docs" / "ARCHITECTURE.md"
 CAPABILITY_MAP = ROOT / "docs" / "CAPABILITY-MAP.md"
 CLAUDE = ROOT / "CLAUDE.md"
+SURVEY = ROOT / "docs" / "OPEN-SOURCE-SURVEY.md"
+SURVEY_DIR = ROOT / "docs" / "survey"
+
+# "`scout-07-audio-score.md`" in the survey's index table.
+_SCOUT_FILE = re.compile(r"`(scout-\d{2}-[a-z0-9-]+\.md)`")
 
 # "## 7. Authorization" / "### 7.4 The Ward Case, adopted" -> 7 / 7.4
 _HEADING = re.compile(r"^#{2,6}\s+(\d+(?:\.\d+)*)[.\s]")
@@ -66,6 +71,11 @@ def references(path: Path, default: Path) -> list[tuple[int, str, Path]]:
     return out
 
 
+def indexed_scout_files(path: Path) -> set[str]:
+    """Scout report filenames the survey's index claims exist."""
+    return set(_SCOUT_FILE.findall(path.read_text(encoding="utf-8")))
+
+
 def unresolved(path: Path, default: Path) -> list[str]:
     """Human-readable failures, empty when every reference resolves."""
     known = {ARCHITECTURE: headings(ARCHITECTURE), CAPABILITY_MAP: headings(CAPABILITY_MAP)}
@@ -103,6 +113,42 @@ def test_architecture_self_references_resolve():
 def test_capability_map_references_resolve():
     bad = unresolved(CAPABILITY_MAP, default=CAPABILITY_MAP)
     assert not bad, "\n".join(bad)
+
+
+def test_survey_references_resolve():
+    """OPEN-SOURCE-SURVEY.md points at both canonical documents and is checked on
+    the same terms as CLAUDE.md — otherwise it is a third pointer nobody verifies.
+    Note it reserves §N for the canonical docs: its own parts are cited as
+    "part 4" / "finding 1.2", so that one sigil keeps one meaning (§16)."""
+    bad = unresolved(SURVEY, default=ARCHITECTURE)
+    assert not bad, "\n".join(bad)
+
+
+def test_survey_index_matches_the_tree_in_both_directions():
+    """ARCHITECTURE.md §16: an allowlist that no longer matches the tree fails
+    open. The survey's index is that allowlist, so it is checked both ways — a
+    named file that is gone leaves a dangling citation, and a present file that
+    is unnamed is evidence nothing points at."""
+    named = indexed_scout_files(SURVEY)
+    present = {p.name for p in SURVEY_DIR.glob("scout-*.md")}
+
+    assert named, "survey index named no scout files — regex broken?"
+    assert not (named - present), f"indexed but missing: {sorted(named - present)}"
+    assert not (present - named), f"present but unindexed: {sorted(present - named)}"
+
+
+def test_the_index_check_can_actually_fail():
+    """The both-directions check passes vacuously if the regex matches nothing,
+    so confirm it catches a name with no file behind it."""
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as td:
+        decoy = Path(td) / "DECOY.md"
+        decoy.write_text("See `scout-99-does-not-exist.md`.\n", encoding="utf-8")
+        named = indexed_scout_files(decoy)
+    present = {p.name for p in SURVEY_DIR.glob("scout-*.md")}
+    assert named == {"scout-99-does-not-exist.md"}
+    assert named - present, "checker did not notice a file that is not there"
 
 
 def test_the_check_can_actually_fail(tmp_path=None):
