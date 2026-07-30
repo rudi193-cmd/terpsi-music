@@ -40,6 +40,10 @@ The largest genuinely untapped surface, and the one that touches students daily.
 
 **An existing answer to the surveillance problem.** `ask-jeles`'s learning-event capture is off by default *every launch*, is never persisted across launches, and records only the shape of an activity — query class, hit count, citation count, answer length — never the content. Applied to practice logging that resolves most of the tension with UTETY's no-leaderboard rule: duration, passage, and self-rating are the work; a recording's contents and a ranked standing are not. Guardian visibility should be built on the same distinction.
 
+> **One caution from how that plays out in practice.** Those events land in `~/.willow/jeles_learning_events/`, and `~/.willow` is a tracked git repository with a remote — so a `jeles_learning_events/` directory appears in its committed tree. Consent scoped to *this session* has produced a permanent, pushed history. The capture design is right; the storage location quietly outlived it.
+>
+> The lesson for practice logs, which are the same shape and about minors: **decide the retention of consented data at the same moment you decide the consent.** A session-scoped grant whose output lands somewhere durable and replicated is not a session-scoped grant. Write practice and activity data to a path explicitly excluded from version control, and from any backup replication outliving the consent window.
+
 **Physical practice**
 - Practice room booking, occupancy, and utilization analytics
 - Sectional scheduling, attendance, and student-led sectional plans

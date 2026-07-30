@@ -346,7 +346,14 @@ For a personal box, off-by-default is a reasonable trade. For a hub holding mino
 - `mcp_apps/` and `mcp_apps/_net_leases/` owned by a uid the application does not run as
 - `WILLOW_MCP_STRICT_TRUST_ROOT=1`
 - the trust root outside any directory bound read-write into a task sandbox — *put data in the repo; put the gate outside it*
+- **the trust root not in a git repository at all**, and not on a remote
 - `diagnostic_summary`'s `checks.net_lease.self_writable` clean, checked as part of install acceptance rather than trusted
+
+That second bullet is not hypothetical, and it is the reason to state it as a requirement rather than a preference. `willow-config` **is** `~/.willow`, version-controlled and pushed — and `mcp_apps/`, the manifest ACL that grants `task_net`, is tracked inside it. willow-mcp's own severance documentation says exactly why that is the wrong place: *the trust root must live somewhere neither this process nor the Kart sandbox can write; a repo directory is the wrong place for it, however convenient, because repos are bound read-write into task sandboxes.*
+
+So the fleet's guidance and the fleet's own home disagree, and the home is what runs. A committed authorization surface is writable by anything that can write the working tree, restorable by anything that can `git checkout`, and mirrored to a remote. For a personal box that is a manageable trade. For a hub holding education records it is not, and a school install must not inherit the layout by copying it.
+
+Worth separating cleanly for that install: **contract and config are exactly the things that benefit from version control** — `willow.md`, `settings.global.json`, `kart-sandbox.json`, personas, skills, templates. The *grants* are not. Track the first set; keep `mcp_apps/` and `_net_leases/` out of the tree, owned by a uid the application does not run as.
 
 **Severance is the mechanism for "this org's data stays local," and it is asserted rather than assumed.** Naming the fleet an install is cut off from turns the claim into something checked across four surfaces, with the right asymmetry: store and Postgres hold *data*, so a violation degrades; `trust_root` and `egress` hold *authority*, so a violation breaks. A server reporting `ok` while wired to the fleet would be worse than no check at all. Every school install should assert severance, and an unasserted one should not pass acceptance.
 
@@ -764,6 +771,8 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §11.1 exit plan | `awesome-sovereign-software` | **Criterion exists**, five-point test plus a required exit line. No exit line written for this app yet |
 | Owner ≠ subject consent | `corpus-lens` (names it unsolved), `marching-arts` P2 | **The fleet's stated hardest gap.** This app is where it closes or ships unsolved |
 | Cloud inference fallback | `willow-seed` (Groq/Cerebras/SambaNova) | **Must be disabled, not unused.** Fires exactly when the local model is down |
+| Trust-root placement | `willow-config` | **Counter-example.** `~/.willow` is a tracked repo with a remote, and `mcp_apps/` is in it — against willow-mcp's own severance guidance |
+| Contract + sandbox policy | `willow-config` (`willow.md`, `settings.global.json`, `kart-sandbox.json`) | **Exists.** These are the right things to version; the grants are not |
 | §15 rendering the scales | `safe-design` | **Exists.** Semantic tokens, lookup-time aliases, structurally guaranteed backend parity, ASCII path |
 | §5 exclusion of family data from the corpus | `willow-compose` | **Exists as stated policy.** This app is a family-data app by its definition |
 | Fifth authorization mechanism | `openclaw-sap-gate` (SAP/1.0) | **Exists**, with a fail-open default fingerprint and revocation-by-deletion |
