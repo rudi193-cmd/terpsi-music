@@ -3,6 +3,8 @@
 **Status:** strawman for argument, not a decision record.
 **Scope:** the complete system, so that any single first module can be built without retrofitting.
 
+> **Revision note.** Parts of this document were written before reading `safe-app-store`'s `apps/marching-arts`, which already implements the authorization, consent, and egress-purity story sketched here — in several places more strictly than proposed. Sections 5, 6, and 7 now describe what exists and confine themselves to what does not. Statements about `marching-arts` are drawn from the merged pull request descriptions (#112–#128), not from reading its source; where this document and that code disagree, the code is right.
+
 ---
 
 ## 1. The central tension
@@ -162,6 +164,19 @@ Removing a member from a circle rotates the circle key going forward. It does **
 
 Devices are revoked independently of people: a lost phone's key is burned without disturbing the guardian's other devices.
 
+### Erasure inside a hash chain — solved, and harder than stated above
+
+The paragraphs above treat erasure as a key-management policy question. It is not, and `marching-arts` (#115) hit the real version: a member's consent transitions are **links in a hash chain the whole corps depends on**, so honouring an erasure request either breaks consent verification for everybody or cannot be done at all. Neither is an answer you can give a guardian.
+
+The resolution is to partition the chain at rest, one per subject (`consent/<subject_hash>`), so one member's history is deletable without touching anyone else's. Every consent operation already names a subject, so the scoped view is the whole view for that call, and an **unscoped read or write fails closed** rather than silently falling back to a global chain.
+
+Two consequences worth carrying into anything else that chains:
+
+- **Partitioning breaks rules that match chain names exactly.** Migration 003's guardian trigger matched `chain = 'consent'`; the moment the name gained a suffix the rule stopped firing and a minor could self-consent with nothing raised. The fix matches both the partitions and the bare name — the bare one still matters, because a writer reaching past the module straight to SQL could otherwise insert under the old name and dodge the rule entirely.
+- **Emptied is not absent** (#121). A chain whose rows were deleted must not read as one that never existed, or the strongest attack is also the simplest. The head anchor carries a `count` as well as a hash, and a surviving anchor beside missing rows reads as *tampered*, not *absent* — including on the write path, where a guard written as `if existing and not verify(...)` silently skips on an empty list.
+
+Any new chained artifact in this system — the disclosure log, the egress log of §6, adjudication commentary — inherits all three requirements: per-subject partitioning, fail-closed on unscoped access, and an anchor that distinguishes emptied from never-written.
+
 ### Escrow — the failure mode that ends the program
 
 Encrypted student records with lost keys are destroyed student records. The root key must be recoverable without any single person: split it (Shamir, 2-of-3 or 3-of-5) across the director, a district/board administrator, and a sealed offline share. Test the reconstruction annually, on the calendar, as a drill. **An untested restore is not a backup, and an untested key recovery is not escrow.**
@@ -172,11 +187,30 @@ Encrypted student records with lost keys are destroyed student records. The root
 
 The hub's application containers have **no route to the internet**. The only reachable external destination is the local broker. This is enforced at the network namespace, not by asking the code nicely.
 
+### Two enforcement points, and the inner one is stronger
+
+`marching-arts` does not gate egress. It makes egress **inexpressible**: stdlib-only and import-pure, with an AST walk proving no module can reach the network and a check that importing the core pulls in no third-party package (#112). There is no destination to allow or deny because there is no client to call one.
+
+That is the stronger position and it should be preserved wherever it can be. The network-namespace broker below is the *outer* ring — necessary for the parts of the system that genuinely must talk to the world (payment tokenization, the drop, circuit submissions, OS updates), and for any component composed in from elsewhere that has its own opinions about calling home.
+
+The relationship between them:
+
+| Ring | Mechanism | Applies to |
+|---|---|---|
+| Inner | Import purity, AST-proven, tested | The app core. Cannot express egress at all. |
+| Outer | Network-namespace broker, allowlist | Host processes, sync, exports, third-party components |
+
+A component that fails the inner test is not thereby acceptable at the outer ring — it is a component that needs a reason.
+
 ### Policy model
 
-Every outbound call is a triple: **destination × data class × purpose.** No triple, no traffic.
+Every outbound call at the outer ring is a triple: **destination × data class × purpose.** No triple, no traffic.
 
-Data classes, tagged on every field at schema definition time — retrofitting classification across an existing schema is miserable, which is why it belongs in the first module:
+### Classification, and how it meets the L-ladder
+
+`marching-arts` already carries a **sensitivity ladder** that is load-bearing in the resolver: at L3 and above the payload is `NULL` in the SELECT list and only a derived instruction is served, and **L5 is never served to anyone under any grant** (#112). That ladder answers *how much of this may ever be rendered*, and it is authoritative.
+
+The classes below answer a different question — *what kind of data is this, and what law follows it* — and exist to drive egress policy and retention, not serving decisions. **They are attributes on a field, mapped to an L-level; they are not a parallel ladder.** Do not introduce a second ranking that can disagree with the first.
 
 - `PUBLIC` — performance dates, venue, ensemble name
 - `INTERNAL` — non-identifying operational data
@@ -186,6 +220,8 @@ Data classes, tagged on every field at schema definition time — retrofitting c
 - `FINANCIAL` — balances, payment references
 - `MEDIA_MINOR` — photos and recordings containing identifiable students
 - `DERIVED_ANON` — aggregates that survive a re-identification check
+
+Tag at schema-definition time. Retrofitting classification across an existing schema is miserable, which is why it belongs in the first module — and why the mapping from these classes onto the existing L-levels should be written down once, in the schema, rather than inferred per feature.
 
 ### Enforcement tiers
 
@@ -213,7 +249,21 @@ Given this repo's MCP wiring: an agent with tool access and a network route is a
 
 Roles alone will not express this. The defining requirement is **outsiders holding narrow, time-boxed access into someone else's program**, which is a relationship problem, not a role problem.
 
-Use relationship-based access control (Zanzibar-style — OpenFGA or SpiceDB, or a modest hand-rolled tuple store to keep dependencies thin):
+This is the section most superseded by what exists. `marching-arts` P1/P2 is the resolver, and it is stricter than what follows.
+
+### What the resolver already guarantees
+
+- **One predicate: `(allow₁ OR allow₂ OR …) AND NOT (deny₁ OR deny₂ OR …)`.** Denies negate the *union* of allows. Dropping the parentheses around the joined denies binds only the first term, the rest silently stop applying, nothing raises, and every row they were meant to withhold becomes visible. That specific failure has a regression test — which is the right response to a bug whose signature is *silence*.
+- **Guarantees are mechanisms, not prose.** `source` is `NOT NULL` with a non-blank `CHECK`; a sealed grant without a signer is refused by `CHECK`; `COUNT(*)` runs under the predicate rather than beside it; **roles grant nothing on their own**.
+- **Refusal is indistinguishable from absence.** A member who declined and a member who is absent produce the same rows, the same count, and the same subject list — tested as indistinguishability, because if they differed, declining would itself become the signal and every member who exercised the choice would be marked by exercising it. This is the same principle §18 of the capability map asks for around fee waivers, generalized: **the system must not leak the fact of a refusal.** Any new surface — a roster view, an export, an aggregate count — inherits that obligation.
+- **Consent is never requested by its beneficiary**, enforced by trigger, with a registered guardian as the single carve-out.
+- **Minor status is a birthdate, not a flag** — a flag stays true until somebody remembers to run the job that clears it. Expiry at majority therefore needs no job at all: it is a predicate evaluated inside the grant lookup on every read.
+- **Conversion at majority is derived from the data, not from a bookmark** (#122). A "convert anyone who crossed since last open" window would be a second copy of the truth, and a birthdate corrected two seasons late puts majority in the past, so every window query answers *nobody* — silently and permanently.
+- **The principal is authenticated at the read, not at the door** (#127). A `Principal` carries an HMAC proof over its identity, roles, and expiry, verified in `Store.predicate` — the one method every read already funnels through, so a fourth read added later inherits the gate. `Principal` stays freely constructible on purpose: a private constructor would move the check back to the door, where a caller who skips the door skips the check.
+
+### What this document still adds
+
+The guest-access shape, which is where the personas outside the program live. Expressed as relationship edges with expiry:
 
 ```
 guardian_of      : Person:Ann      → Student:Ben
@@ -224,6 +274,22 @@ clinician_for    : Person:Frank    → Session:Brass_Sep03    [expires +24h]
 ```
 
 Properties worth insisting on: every grant carries an expiry (guest grants die on their own); permissions derive from edges rather than being stamped on people; the family circle is a set of individual guardian edges, so one guardian's revocation never touches another's; and every access decision is answerable after the fact — "who could see Ben's medical form on October 12, and why."
+
+Following the existing design, each of these should be a **predicate over dated facts** rather than a row somebody remembers to delete — the same reason majority expiry needs no job.
+
+### 7.1 The gap: guardianship that ends by order rather than by arithmetic
+
+Majority expiry works because the end date is computable from a birthdate the record already holds. **Court-ordered contact restrictions have the same shape and no such arithmetic.** They arrive mid-season, from outside, against one guardian and not the other.
+
+If a terminated guardianship is a `DELETE` while majority is a predicate, the two behave differently in exactly the ways that matter:
+
+- A deleted edge leaves no dated record, so "who could see this on October 12, and why" becomes unanswerable for the one case where a court may actually ask.
+- A restriction that must take effect at a future date has nowhere to live until it does.
+- Reinstatement — orders get modified — has to reconstruct what deletion discarded.
+
+The recommendation is that guardianship carry `effective_from` / `effective_until` and terminate by **setting a date, never by removing the edge**, so that revocation-by-order and revocation-by-majority are the same mechanism with different sources. Erasure of a guardianship record remains available separately, under §5's per-subject partitioning, as a distinct act with its own authority.
+
+This is the one place in this domain where the failure is a safety failure rather than a bug, and it is worth having the mechanism before the case arrives — because when it arrives it will arrive urgently.
 
 ---
 
@@ -278,14 +344,14 @@ Pipeline, entirely inside the trust boundary: ingest judge audio and performance
 The ordering principle: build the things that are expensive to retrofit first, regardless of which module ships first.
 
 **Foundation — hard to add later, so add it now**
-1. Person / relationship graph with time-boxed edges (§7)
-2. Data classification on every field (§6)
-3. Envelope + key hierarchy, even while everything is still on one LAN (§5)
-4. Egress broker as the only network path — trivial when there are two destinations, miserable when there are twenty
-5. Append-only audit log
+1. Person / relationship graph with time-boxed edges (§7) — **built** (P1/P2), less the dated-guardianship gap in §7.1
+2. Data classification on every field (§6) — the L-ladder is **built**; the class-to-L mapping is not
+3. Envelope + key hierarchy, even while everything is still on one LAN (§5) — chain integrity and per-subject erasure are **built**; at-rest sealing across the Zone A boundary is not
+4. Egress purity in the core (§6, inner ring) — **built**, AST-proven. The outer broker is not, and is only needed once something must legitimately talk to the world
+5. Append-only audit log — the hash-chained disclosure log is **built**, with the count-anchor truncation defence
 
 **Then, in whatever order the program's pain dictates**
-6. First vertical module (yours — whichever it is, it plugs into 1–5)
+6. First vertical module — `field-acoustics` is the first real capability
 7. Parent PWA + the drop
 8. Money, inventory, forms, calendar/attendance
 9. Adjudication: commentary capture + anchoring, guest grants, local transcription pipeline
@@ -328,13 +394,17 @@ Not legal advice — the state-law column in particular varies enough that the d
 2. **The relay can't read anything** — makes its compromise survivable and makes the transport swappable.
 3. **Relationships over roles, every grant expires** — the only model that handles judges and clinicians cleanly.
 4. **Classification at schema-definition time** — the one thing that is genuinely miserable to retrofit.
-5. **No direct internet route from application code** — enforced by the network, not by convention.
+5. **Egress inexpressible in the core, gated at the perimeter** — import purity first, network policy only where the world must genuinely be reached.
 6. **Commentary is the adjudication primitive; captions and ratings are projections over it** (§8.1) — the difference between supporting symphonic festival as a configuration and rebuilding for it later.
+7. **Revocation is a dated predicate, never a deletion** (§7.1) — majority already works this way; guardianship termination by court order must work the same way.
 
 ## 13. Open questions
 
+- **The auth model is scoped to a single process.** #127 holds the signing key in memory with nothing at rest, so tokens die with the process — correct for an app with no server, and stated as the design. The hub topology in §3 is a long-running multi-user process where sessions must survive a restart. Either the app stays single-process and the hub is a separate thing that fronts it, or authentication needs a second mode. Worth resolving before the hub exists, not after.
+- **Does `rationale` (#125) generalize into the disclosure story?** It ships the reasoning beside the data, gated by a human seal rather than a predicate, with `draft | internal | shipped` states. FERPA §99.32 wants a disclosure record and §6 assumes the egress log supplies it — but "why were you refused" is a `rationale` question, not an egress-log question. The two may want to meet.
 - The current build targets caption scoring. Does its model treat captions as projections over anchored commentary (§8.1), or as the base structure? If the latter, that is the one thing worth revisiting early — festival ratings and clinician feedback both fall out for free under the former.
 - Score-position anchoring: align audio against a stored score, or judge-driven tap-to-mark, or both? Affects how much of the music library must be machine-readable.
+- **Can `field-acoustics` and commentary share coordinates?** A judge's remark is anchored to a moment and a seat; the acoustic model predicts what arrived at that seat. Pairing them gives a claim no drill designer can currently make — and gives the model's `ASSUMED` rear hemisphere a source of validation data that would otherwise have to be measured in the field.
 - Is "corporate" the circuit/association, the district, or a vendor? Changes what aggregates mean and who signs off on them.
 - Does the org control its own hardware, or is the hub a district-managed VM? Changes the physical-trust assumption underneath Zone A.
 - Are agents an implementation detail of the build, or a user-facing feature (a director querying their program in plain language)? The latter needs a local model of real capability inside Zone A.
