@@ -554,6 +554,33 @@ The related trap is the expertise reversal effect: worked examples help novices 
 - **The rules are Anglo-American popular song craft, and the tool must know that.** Stress-timed prosody does not transfer to a syllable-timed language. Flagging a Spanish or Mandarin lyric against English stress rules is not a limitation, it is a wrong answer delivered confidently to a child. §18's language-access requirement bites harder here than anywhere else in this map, and a rule set that cannot name the tradition it encodes should refuse rather than guess (§6 of the architecture — absence surfaces as unknown, never as a result).
 - **Homogenisation is the failure mode nobody will notice.** Thirty students corrected toward the same tradition write the same song. The declare-intent mechanic is the only defence in the design, which is thin, and it should be watched rather than assumed sufficient.
 
+### The tree — everyone in it writes something
+
+The scaffold above was described for a student writing a song, which is the bottom rung and the obvious one. It is not the only one. **Every person in a music program produces a made thing, every one of those things has a craft, and above the student rung almost nobody has ever been taught it.**
+
+| Rung | What they make | The craft nobody teaches them |
+|---|---|---|
+| Student | The song, the solo, the audition take, the reflection | Prosody, contour, structure, revision |
+| Peer / section | The critique of each other's work | How to say a useful thing about someone else's work without either flattering or flattening it |
+| Student leader | The sectional plan, the correction on the field | Giving a note that is specific, actionable, and does not humiliate — at seventeen, to a friend |
+| Staff / tech | The rehearsal plan, the sectional | Sequencing a rehearsal so the hard thing happens while attention is still available |
+| Arranger / designer | The chart, the drill, the show concept | Writing to a *measured* ensemble ability rather than an imagined one |
+| Director | The season arc, repertoire selection, program notes | The multi-year shape; and program notes, which are almost universally bad |
+| Adjudicator / clinician | The commentary itself | Writing a remark a fifteen-year-old can act on before Tuesday |
+| Guardian | The story they tell about the program | — (receives, retells; the audience the case is made to) |
+| Admin / district | The schedule defence, the staffing case | Making an argument from evidence they already hold and never assemble |
+| Board / exec | The narrative that decides whether the program exists | Concreteness over abstraction, under time pressure, to people who do not play |
+
+**Three things make this one capability rather than ten.**
+
+**One primitive covers the whole tree.** §8.1 of the architecture already models commentary as *anchored, addressed, dimensioned* — a remark attached to a position, aimed at an ensemble, a section, a part, or one person, optionally against a rubric criterion. A judge's note at bar 112, a section leader's correction on a drill page, a director's margin note on an arrangement, and a student's own reflection on their second verse are **the same object with different authors and different anchors.** Nothing new is needed to hold them.
+
+**Above the student rung, the craft being scaffolded is giving feedback — and that is the genuinely untaught thing.** A student gets years of instruction in playing and none in critique. A section leader is handed authority over eight peers at seventeen with no training in how to use words. An adjudicator has usually never been taught how to write a comment that a teenager can act on, which is why so much adjudication commentary is unactionable — *more energy, watch your ensemble, needs maturity.* The same scaffold applies without modification: flag the abstraction, name what a specific version would look like, let the author declare intent, and fade as they stop needing it.
+
+**The same defect recurs at every rung, which is why one tool reaches all of them.** It is the failure named for lyrics at the bottom of the tree — *"I'm lonely" is a report; the untouched second toothbrush is the thing that lands* — and it is identical at the top. A board hears *the arts build well-rounded students* and forgets it before the next agenda item. A board hears *forty-one kids spent nine months on eleven minutes* and does not. **Concreteness over statement is one rule, and it decides both whether a lyric works and whether the program is funded next year.**
+
+**And the tree runs both directions.** I-7 in §7.4 of the architecture — *entries authored by the governed about the office are as durable as entries authored by the office about the governed* — means feedback travels up as well as down: a student's account of a rehearsal, a section's note on a chart that does not sit well, a staff member's account of a decision. A scaffold that only helps authority address subordinates is a management tool wearing a pedagogy costume. **It has to work upward or it is the wrong thing.** W-7 holds throughout: no rung is ever ranked against another, in any surface, under any grant.
+
 **Most of the substrate exists and is open.** `music21` for symbolic analysis, ChoCo for harmony, WASABI and LyricSense for lyric corpora, Essentia and `librosa` for audio. The pedagogy is formalized — Pattison's prosody and object writing have been taught at Berklee since the 1970s — and the cognition has a research program in Huron's ITPRA model of expectation. What is missing is the wiring: the taught rule has never been connected to the corpus that could check it, and the generation tools went from blank page to finished track without stopping to build the critic. **This is the part that does not exist yet, which is the only reason it is worth building here.**
 
 ---
