@@ -213,8 +213,56 @@ def test_the_pair_declares_its_middle():
     """Rule 12: a vendored pair without a named reconciler is the defect."""
     p = personas.PROVENANCE
     assert p["authoritative"].startswith("terpsi-music:")
-    assert p["non_authoritative"].startswith("quick-stupids:")
+    assert p["non_authoritative"].startswith("quick-stupids")
     assert p["relationship"] == "rebuilt, not copied"
+
+
+def test_the_far_side_of_the_pair_carries_a_dated_check():
+    """The half the assertion above could not reach, and did not know it could not.
+
+    Until 2026-07-30 this file asserted only that the two strings had the right
+    prefixes. `quick-stupids:band/persona.py` satisfied that and does not exist
+    — the repository holds no Python at all — so the pair's middle was checking
+    its own shape and calling it verified. That is the defect
+    `tests/test_claimed_artifacts.py` exists to catch, one repository over,
+    where that test cannot see.
+
+    A cross-repo claim genuinely cannot be verified from this repository's CI.
+    So the guard is not "the far side exists" — it is **"somebody looked, and
+    said when."** An undated or stateless declaration fails; a declaration
+    recording `absent` passes, because recording absence is the correct outcome
+    of having looked (rule 13).
+    """
+    far = personas.PROVENANCE.get("far_side")
+    assert far, "the pair names a far side with no record of anyone checking it"
+    assert far.get("state") in {"present", "absent", "unknown"}, (
+        f"far_side.state must be present/absent/unknown, got {far.get('state')!r}"
+    )
+    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", far.get("checked", "")), (
+        "far_side.checked must be an ISO date — an undated check decays silently (§15)"
+    )
+    assert "@" in far.get("at", ""), (
+        "far_side.at must pin repo@commit; 'I looked once' is not a citation"
+    )
+
+
+def test_the_far_side_check_can_fail():
+    """Rule 19. A declaration that forgot its check must be seen to fail."""
+    import copy
+
+    for broken in ({}, {"state": "present"}, {"state": "nope", "checked": "2026-07-30", "at": "x@y"}):
+        p = copy.deepcopy(personas.PROVENANCE)
+        p["far_side"] = broken
+        failed = False
+        try:
+            far = p["far_side"]
+            assert far
+            assert far.get("state") in {"present", "absent", "unknown"}
+            assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", far.get("checked", ""))
+            assert "@" in far.get("at", "")
+        except AssertionError:
+            failed = True
+        assert failed, f"a far_side of {broken!r} passed the check"
 
 
 def test_there_is_a_register_for_every_audience_the_card_serves():

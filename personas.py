@@ -12,17 +12,41 @@ fleet nouns for the same reason the modules take plain domain nouns.
 """
 
 #: The pair, and its middle (rule 12). This card was drafted in the
-#: `quick-stupids` playground as `band/persona.py` and rebuilt here against
-#: this repo's conventions — five scales prefixed, no fleet nouns, the gate
-#: separated from the card, acceptance by mutation. **This copy is
-#: authoritative.** The playground copy is non-authoritative and carries a
-#: tombstone pointing here; it is kept only as the history of how the card got
-#: this way. `tests/test_voice.py` asserts this declaration names both sides,
-#: so the pair cannot quietly lose its middle.
+#: `quick-stupids` playground and rebuilt here against this repo's conventions
+#: — five scales prefixed, no fleet nouns, the gate separated from the card,
+#: acceptance by mutation. **This copy is authoritative.**
+#:
+#: **Corrected 2026-07-30, by reading the other repository.** The two claims
+#: this block used to make were both false:
+#:
+#: 1. It named the draft `quick-stupids:band/persona.py`. **That path does not
+#:    exist.** `quick-stupids` at `a92389c` holds fourteen files — an `app/`
+#:    browser-shell skeleton in JavaScript, a README, a CLAUDE.md — and no
+#:    `band/`, no `persona.py`, and no Python at all.
+#: 2. It said the playground copy *"carries a tombstone pointing here."* It does
+#:    not. The only supersession language in that README is line 41 **retracting**
+#:    an earlier supersession claim, and it is about `app/` — a different
+#:    component that was *"briefly confused"* for this one.
+#:
+#: So the far side of this pair is unlocated. It may have been renamed, removed,
+#: or never committed. What is certain is that nothing at the named path backs
+#: the declaration, and the guard below could not see that: it asserted the
+#: *shape* of these strings, never their truth.
+#:
+#: `far_side` records the check rather than the assumption — value plus
+#: provenance plus date, the shape `kartikeya.resolve_sandbox_config` uses for
+#: the same reason. A cross-repo claim cannot be verified from this repo's CI,
+#: so the honest guard asserts the check is *recorded*, not that it passed.
 PROVENANCE = {
     "authoritative": "terpsi-music:personas.py",
-    "non_authoritative": "quick-stupids:band/persona.py",
+    "non_authoritative": "quick-stupids (draft; exact path unlocated)",
     "relationship": "rebuilt, not copied",
+    "far_side": {
+        "state": "absent",
+        "checked": "2026-07-30",
+        "at": "quick-stupids@a92389c",
+        "note": "no band/persona.py; no Python in the repository; no tombstone",
+    },
 }
 
 STUDENT, STAFF, GUARDIAN, DIRECTOR = "student", "staff", "guardian", "director"

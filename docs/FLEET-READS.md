@@ -175,6 +175,8 @@ opened in a clone at the named commit, not summarised.
 | `corpus-lens` | `0c2a124` | `README.md`, `tests/test_wall.py` | **§4.2 CONFIRMED verbatim**, both halves including the test |
 | `UTETY` | `b953e84` | `README.md`, `docs/build-plan.md` | **CONFIRMED**, and the rule is sharper than §18 item 9 records |
 | `kartikeya` | `de77d67` | `src/kartikeya/sandbox.py`, `execute.py` | **CONFIRMED.** bwrap isolation, fails closed. **And it contains item 0's fix** |
+| `quick-stupids` | `a92389c` | whole tree | **REFUTES this repository's own claim.** No `band/persona.py`, no Python, no tombstone |
+| `almanac-template` | — | — | **UNREACHABLE.** `add_repo` refuses cross-tier; `almanac-data` is a different org |
 
 ### The divergence, and why it is the most important thing here
 
@@ -536,3 +538,56 @@ That is the same line this repository draws in refusals 4 and 6 — no standing
 cross-context score, never a priority between two students — reached from
 education research rather than from authority doctrine. **Item 9 is closer to a
 citation than to a decision**, and the choice it asks for may already be made.
+
+## `quick-stupids` — the pair this repository declared, and could not see was broken
+
+`personas.PROVENANCE` named `quick-stupids:band/persona.py` as the
+non-authoritative half of its pair, and PR #4 stated the playground copy *"now
+carries a tombstone pointing here."* Both were checked at `a92389c`. **Both were
+false.**
+
+- **There is no `band/persona.py`.** The repository holds fourteen files: an
+  `app/` browser-shell skeleton in JavaScript, `README.md`, `CLAUDE.md`,
+  `.gitignore`. No `band/`, no `persona.py`, **no Python at all**.
+- **There is no tombstone.** The only supersession language in that README is
+  line 41 *retracting* an earlier supersession claim — and it is about `app/`, a
+  different component *"briefly confused"* for this one.
+
+**The guard could not have caught it.** `test_the_pair_declares_its_middle`
+asserted that the two strings had the right prefixes. A path that does not exist
+satisfies that perfectly. The middle was checking its own *shape* and reporting
+it as verified — which is `tests/test_claimed_artifacts.py`'s entire subject,
+committed one repository over, where that test cannot reach.
+
+Worth stating plainly: **PR #5's thesis was that a report claiming an artifact
+must ship it. PR #4, merged the same day, claimed an artifact in another
+repository that was not there.** The discipline was present and its scope
+stopped at the repository boundary — the same shape as scout-13's original
+finding, one level out.
+
+**Fixed as far as it can be from here.** `PROVENANCE.far_side` now records
+`state` / `checked` / `at` / `note` — value plus provenance plus date, the shape
+`kartikeya.resolve_sandbox_config` uses for the same reason. A cross-repo claim
+genuinely cannot be verified from this repository's CI, so the new guard does
+not assert the far side exists. It asserts **somebody looked and said when**,
+and it fails on an undated, stateless or unpinned declaration. Recording
+`absent` passes, because recording absence is the correct outcome of having
+looked (rule 13).
+
+## `almanac-template` — genuinely unreachable, and this is the real cross-tier case
+
+`add_repo` refused: *"cross-tier adds are not supported in v1: requested
+`almanac-data/almanac-template` but session already has repos from owner(s)
+[rudi193-cmd]."*
+
+This is the constraint the struck section at the top of this file warned about —
+attached to the wrong repository. `Nestor` was named as the cross-tier risk and
+is on the same account; the `almanac-data` org is the actual boundary. So the
+warning was not wrong about the *mechanism*, only about where it applies, and
+the cost of getting that wrong was deterring twelve reads that worked.
+
+**Consequence for §14's verification column.** `almanac-template`'s
+`catalog-entry.schema.json` is named as the model to adopt wholesale and cannot
+be read from this session. But `kartikeya.resolve_sandbox_config` supplies the
+same shape from a reachable repository — claim plus source, with a named
+sentinel for nothing-supplied-this — so the column is not blocked on it.
