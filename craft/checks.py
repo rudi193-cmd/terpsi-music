@@ -413,11 +413,19 @@ def run_diff(before: str, after: str) -> tuple[list[Finding], list[str]]:
 
 
 def load_intents(text: str) -> dict[str, str]:
-    """`<finding-id>  <reason>` per line. `#` comments, blanks ignored."""
+    """`<finding-id>  <reason>` per line. Blank lines and whole-line `#`
+    comments are ignored.
+
+    Comments must own their line. An inline `#` is *not* a comment, because
+    finding ids contain one — `SING:CHORUS#2:S0:L2:hands` distinguishes the
+    second chorus from the first, and stripping at the first `#` truncated it
+    to `SING:CHORUS`, so every declared intent on a repeated section silently
+    failed to apply and the finding stayed open with no indication why.
+    """
     out = {}
     for raw in text.splitlines():
-        line = raw.split("#", 1)[0].strip()
-        if not line:
+        line = raw.strip()
+        if not line or line.startswith("#"):
             continue
         fid, _, reason = line.partition(" ")
         out[fid.strip()] = reason.strip() or "(no reason given)"

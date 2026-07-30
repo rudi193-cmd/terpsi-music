@@ -89,6 +89,10 @@ def test_rhyme_pairs_that_matter():
     assert rhymes("park", "dark") == "perfect"
     assert rhymes("tight", "white") == "perfect"
     assert rhymes("park", "work") == "slant"
+    # Regression: "ei" was absent from the vowel table, so "eight" fell through
+    # to short-E and the checker reported that the song's own hook did not
+    # rhyme with its own third line.
+    assert rhymes("eight", "wait") == "perfect"
 
 
 def test_rhyme_pairs_the_loose_version_got_wrong():
@@ -302,6 +306,27 @@ def test_a_declared_finding_moves_but_is_not_hidden():
 def test_intent_file_parsing():
     got = load_intents("# a note\n\nRHYME:VERSE-3:S0  deliberate\nSING:X\n")
     assert got == {"RHYME:VERSE-3:S0": "deliberate", "SING:X": "(no reason given)"}
+
+
+def test_an_id_containing_a_hash_survives_the_comment_stripper():
+    """Regression, and a collision between two features added an hour apart.
+    Finding ids use `#` to distinguish repeated sections; the intent parser used
+    `#` for inline comments. Every declared intent on a second CHORUS was
+    silently truncated to SING:CHORUS and never applied."""
+    got = load_intents("SING:CHORUS#2:S0:L2:hands  deliberate\n")
+    assert got == {"SING:CHORUS#2:S0:L2:hands": "deliberate"}
+
+
+def test_every_declared_intent_actually_matches_a_finding():
+    """The failure above was invisible because a mis-typed or mis-parsed id just
+    leaves the finding open. This asserts the repo's own intent file applies in
+    full, so a future id change cannot quietly orphan it."""
+    text = SONG.read_text(encoding="utf-8")
+    intents = load_intents((ROOT / "lyrics" / "get-ready.intent").read_text(encoding="utf-8"))
+    r = run_all(text, intents)
+    applied = {f.id for f, _ in r.declared}
+    orphaned = set(intents) - applied
+    assert not orphaned, f"declared but matched nothing: {sorted(orphaned)}"
 
 
 def test_revision_reports_both_directions():

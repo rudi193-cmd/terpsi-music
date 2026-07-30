@@ -249,7 +249,8 @@ _DIGRAPHS = [("tch", "\x01"), ("ch", "\x01"), ("sh", "\x02"), ("th", "\x03"),
 # and "yet" both spell an e, and calling them a near-rhyme was enough to
 # report every verse of a correctly-schemed song as inconsistent.
 _VOWEL_CLASS = {
-    "a": "A", "ai": "AY", "ay": "AY", "au": "AW", "aw": "AW",
+    "a": "A", "ai": "AY", "ay": "AY", "ei": "AY", "eigh": "AY",
+    "au": "AW", "aw": "AW",
     "e": "E", "ee": "EE", "ea": "EE", "ey": "EE", "ie": "EE",
     "i": "I", "igh": "IE", "uy": "IE",
     "o": "O", "oa": "OH", "ow": "OH", "oe": "OH",

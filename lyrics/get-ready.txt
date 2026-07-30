@@ -39,21 +39,32 @@ RIGHTS
     without permission or attribution. Not legal advice.
 
 
-v3. Earlier drafts are in git history and are not the version. v2 fixed
+v4. Earlier drafts are in git history and are not the version. v2 fixed
 structure — the father moved up so the bridge could land on him, the pre
-turned instead of restating, the last chorus varied. v3 fixes the mechanics,
-four of which were found by running §24's own checklist over it rather than
-by ear:
+turned instead of restating, the last chorus varied. v3 fixed mechanics:
+verse 3 scanned 6/5/5/5 against 6/6/6/6 everywhere else, only verse 1
+rhymed, the point of view wobbled, and one flat abstraction sat in a verse's
+weakest position. Four of those five were found by counting rather than by
+ear, and the fifth by the checker.
 
-    - Verse 3 scanned 6/5/5/5 against 6/6/6/6 everywhere else. Now regular.
-    - Only verse 1 rhymed. All three verses are ABCB now.
-    - Point of view wobbled — a "you" in verse 3 arrived before the bridge's
-      turn to "your father" and spent it early. Verses observe, the pre
-      addresses, the chorus commands, the bridge turns personal.
-    - "Nothing to do but stay" was the one flat abstraction, in a verse's
-      weakest position. Replaced with the thing that shows it.
+v4 is by ear alone, because after v3 the checker had nothing left to say.
+Three lines:
 
-    Verse 3 also now has verbs. It was four objects sitting still.
+    - "Hands cold, don't wait" → "Hands cold, horns up". The old third line
+      was filler that rhymed, which is the worst kind: it existed because
+      -ait was easy, and it told the listener nothing they did not already
+      know. "Horns up" is what a drum major actually says, it is the physical
+      instant before sound, and it deliberately breaks the chorus's AAAA so
+      the one non-hook line stops sounding like the hook.
+    - Same in the out-chorus, keeping "cold" → "warm" as the only word that
+      changes across the song.
+    - "He couldn't have called you from there" → "And he couldn't call you
+      from there". Same syllable count, one fewer conditional. A lyric has no
+      room for the past perfect.
+
+    None of this was checkable, which is the point. The checker found five
+    defects in v2 and v3 and proposed no replacement for any of them; it had
+    nothing at all to say about v4.
 
 VERSE 1
     Frost on the lot at six
@@ -74,7 +85,7 @@ PRE
 CHORUS
     Ready on the eight
     Ready on the eight
-    Hands cold, don't wait
+    Hands cold, horns up
     We go on the eight
 
 VERSE 3
@@ -85,12 +96,12 @@ VERSE 3
 
 PRE
     No signal on the hill, no way to phone it in
-    He couldn't have called you from there
+    And he couldn't call you from there
 
 CHORUS
     Ready on the eight
     Ready on the eight
-    Hands cold, don't wait
+    Hands cold, horns up
     We go on the eight
 
 BRIDGE
@@ -105,7 +116,7 @@ BRIDGE
 CHORUS (out)
     Ready on the eight
     Ready on the eight
-    Hands warm, don't wait
+    Hands warm, horns up
     We go on the eight
 
 TAG
