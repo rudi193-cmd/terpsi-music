@@ -14,7 +14,29 @@ Quoted excerpt only, retained for the branch it named. Not licensed for redistri
 
 ---
 
-"Ready on the Eight" — original, unpublished. No rights reserved by anyone but the author.
+"Ready on the Eight" — machine-generated. No copyright claimed by anyone.
+
+PROVENANCE
+    Written by Claude, an AI assistant, in a Claude Code session on
+    2026-07-30. The human contribution to this text was the four-word
+    instruction "write one for the get ready file." Subject matter,
+    structure, images, and every line were selected by the model;
+    the repository owner neither wrote nor revised any part of it,
+    and does not claim to have.
+
+RIGHTS
+    None subsist, so far as can be determined, and none are claimed.
+    US copyright requires a human author: 17 U.S.C. §102(a), as read
+    by the Copyright Office (Compendium (3d) §313.2) and by the D.C.
+    Circuit in Thaler v. Perlmutter (2025). A prompt of this length
+    does not make the prompter an author of the output.
+
+    A session is not a legal person and cannot hold a right, so
+    nothing is assigned to it here; this note records who made the
+    thing, which is the only part that is actually true.
+
+    Treat as public domain. Copy, perform, alter, or publish it
+    without permission or attribution. Not legal advice.
 
 
 VERSE 1
