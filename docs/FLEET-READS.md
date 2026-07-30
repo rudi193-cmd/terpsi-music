@@ -897,3 +897,102 @@ and would not have been found by trusting it.
 field. **§9's foundation 6 points at something real.** The claim that it did
 not, made earlier today and carried into `docs/BUILD-PLAN.md`, was false and is
 removed there.
+
+---
+
+## Tallies re-derived, 2026-07-30 — five were wrong
+
+Every count claimed in this file was re-run, this time **naming the items**
+rather than reporting a number. Two held, five did not, and one of the five
+reverses a hazard reported to the maintainer.
+
+| Tally | Claimed | Re-derived | |
+|---|---|---|---|
+| repositories read | 28 | **27** | session scope counted `terpsi-music` |
+| `willow-2.0` bitemporal tables | 17 | **17** | holds; all named |
+| `willow-tech-manual` L-ladder | absent | **absent** | holds; also checked `classif`, `band` |
+| `jeles-remote` sources | 65 | **61 reachable** | 65 defined, 4 orphaned, 1 opt-in |
+| chain implementation spread | "≥6 files" | **24 files** | understated by 4× |
+| inference off-switch | "none found" | **exists** | `WILLOW_INFERENCE_PROVIDER=local` |
+| live dispatch order | "cloud first, no local" | **local first** | I read archived code as live |
+
+### The one that matters: there *is* an off-switch, and `CLAUDE.md` named it
+
+`willow-2.0/core/inference_router.py` — a file never opened, because the grep
+was for `chat_ollama` call sites and this router uses different function names:
+
+```
+Priority (WILLOW_INFERENCE_PROVIDER):
+  local  → Ollama only
+  cloud  → Gemini → Groq (70b) → OpenRouter-compatible fleet keys
+  auto   → Ollama, then cloud chain
+```
+
+`_chain("local")` returns `[("ollama", _try_ollama)]` and nothing else. **That is
+a complete off-switch**, and refusal 1 in this repository's own `CLAUDE.md`
+names the variable verbatim — *"no cloud fallback chain, no
+`WILLOW_INFERENCE_PROVIDER=auto`."* The answer was in the file governing the
+work while the report said it could not be found.
+
+**What is genuinely true, and is the real hazard:** line 213 reads
+`os.environ.get("WILLOW_INFERENCE_PROVIDER", "auto")`. **The default is `auto`**
+— Ollama first, then Gemini → Groq → OpenRouter → fleet. So the chain is not
+undisableable; it is **fail-open when unconfigured**, which is a different and
+more tractable problem. Refusal 1 is already calibrated to exactly this: it
+forbids the default rather than the mechanism.
+
+And the earlier claim that the only dispatch tries cloud first was **reading
+archived code as live**. `archive/legacy/sap/sap_mcp_v1.py:1527` is
+`chat_groq(...) or chat_openrouter(...)`, cloud-only — but it is archived. The
+live router tries local first.
+
+**One thing found that is directly useful.** `respond()` returns
+`(response_text, provider_used)` — the provider that actually served is returned
+to the caller. So **refusal 1 can be enforced by assertion rather than by
+configuration**: a caller can require `provider_used == "ollama"` and fail
+otherwise, instead of trusting an environment variable to have been set. That is
+the claim-plus-source shape again, and it converts refusal 1 from a deployment
+note into something testable.
+
+Also corrected: the providers appear in **24** Python files in `willow-2.0`, not
+"at least six" — and the two documented chains disagree. `willow-seed`'s README
+says Groq → Cerebras → SambaNova; the router says Gemini → Groq → OpenRouter →
+fleet. Neither is wrong about its own subject; there is no single chain.
+
+### `jeles-remote` — definitions counted, sources claimed
+
+65 `def search_*` functions exist. **61 are registered in `SOURCES`** and
+therefore dispatchable; four are defined and unreachable —
+`search_fbi_vault`, `search_ig_nobel`, `search_isfdb`, `search_omdb` — and one
+registered source is `opt_in`, so a default search reaches 60.
+
+§4.3's *"~65"* survives on the tilde. The earlier report here said "65 exactly",
+which counted the easy thing and named it the claimed thing — in the same
+paragraph that congratulated itself for not misreading the concurrency limit as
+a source count.
+
+### The two that held
+
+`willow-2.0`'s seventeen: `agents · binder_edges · binder_files · cmb_atoms ·
+compact_contexts · dispatch_tasks · edges · feedback · forks · hook_registry ·
+jeles_atoms · jeles_sessions · journal · opus_atoms · policy_rules ·
+ratifications · tasks`. Each receives **both** columns. Note the migration
+alters seventeen; `jeles_sources` was later created carrying them, so the
+schema total is eighteen and "17 tables" describes the migration.
+
+`willow-tech-manual`: 68 files, zero hits for `sensitiv`, `band`, or any
+`L1`–`L5` token. The two `classif` hits are an npm package name and one
+unrelated sentence about queue accuracy. The negative holds.
+
+### The pattern under all five errors
+
+Every wrong tally came from **counting what was easy to count in the place I
+happened to be looking**, then reporting the number as though it answered the
+question asked. Definitions for sources. Session scope for repositories read.
+One file's grep for a system-wide claim. Archived code for live code. A
+wrong-namespace query for existence.
+
+The fix that would have caught all five is the one this repository already
+requires and I did not apply to myself: **name the items, not the count.** Every
+tally above that survived re-derivation is one where the items were listed the
+first time.

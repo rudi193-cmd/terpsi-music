@@ -51,13 +51,23 @@ it either way.
 
 ### One live hazard with no answer yet
 
-Refusal 1 forbids a cloud inference fallback. That chain now has a face: **no
-off-switch was found**, the implementation is spread across at least six files
-in `willow-2.0`, it is documented in a *different* repository under the words
-*"Local-first"*, and the only dispatch located tries cloud first with no local
-step at all. **"We will not use `willow-seed`" is not sufficient**, because the
-code is not in `willow-seed`. How this repository avoids inheriting it is
-undecided.
+Refusal 1 forbids a cloud inference fallback. **Corrected 2026-07-30 after
+re-deriving the tallies** — the first account of this was wrong in the
+maintainer's favour and the real shape is more tractable.
+
+`willow-2.0/core/inference_router.py` reads
+`os.environ.get("WILLOW_INFERENCE_PROVIDER", "auto")`, and `_chain("local")`
+returns Ollama and nothing else. **So an off-switch exists** — refusal 1 already
+names the variable verbatim — **and the default is `auto`**, which means the
+chain is fail-open when unconfigured rather than undisableable. The providers
+appear in 24 Python files, and the two documented chains disagree with each
+other, so "we will not use `willow-seed`" remains insufficient.
+
+**The tractable part:** `respond()` returns `(response_text, provider_used)`.
+Refusal 1 can therefore be enforced **by assertion** — require
+`provider_used == "ollama"` and fail otherwise — rather than by trusting an
+environment variable to have been set. That converts it from a deployment note
+into something testable, and is the shape to build.
 
 ### Where the tree actually stands
 
@@ -78,8 +88,8 @@ means *ready for the build* should be read as **ready to start it**.
 Four §18 items closed 2026-07-30 — 1, 1a, 2 and 11 — each struck in place with
 its resolution. `docs/SENSITIVITY.md` is canonical for the ladder, *Protected
 status*, and the scoped `L3`+ NULL reading. §14 carries a per-row
-`VERIFIED`/`UNVERIFIED` state enforced by `tests/test_component_map.py`, and 28
-repositories have been read.
+`VERIFIED`/`UNVERIFIED` state enforced by `tests/test_component_map.py`, and 27
+fleet repositories have been read.
 
 **The lesson worth carrying out of that pass**, because it will recur: item 1a
 was filed as the highest-value *read* in the item-0 sweep and was not a read at
