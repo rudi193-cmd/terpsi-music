@@ -1545,14 +1545,16 @@ classification consulted the class mapping and never reached step 3's clause.
 
 The `Widening` is a **fourteenth table, as a type**, on the same footing as the crossing envelope's thirteenth: written in `records/standing.py`, not in `docs/schema/`, and for the same reason.
 
-**13 · `PLAN-GUARDIANSHIP.md`'s gate set is incomplete in two places.**
-**State: open, found by ablation 2026-07-30. Small, and a decision only in the sense that someone must write the gates down.**
+**~~13 · `PLAN-GUARDIANSHIP.md`'s gate set is incomplete in two places.~~**
+**State: closed 2026-07-30. `PLAN-GUARDIANSHIP.md` §2 now carries G12 and G13, and §6 puts them in step 1 where they belong.**
 Building `records/sending.py` against G1–G11 and then ablating it left two mutants alive. Neither is covered by any of the eleven gates, because **every gate in the plan is about a *restriction* and none is about the standing edge itself**:
 
 - **G12 — an ended guardianship must not be messaged.** Refusal 3 ends guardianship by setting `invalid_at`. G1–G11 all test restrictions on a *live* guardian; none ends the guardianship. A predicate ignoring edge dates entirely passed all eleven.
 - **G13 — only guardians are messaged.** A predicate that messaged every edge holder — `judge_at`, `clinician_for`, `staff_of`, `director_of` — also passed all eleven. *"Ben will be at the away game in Dayton until 10pm"* delivered to a judge is §4.1's own worked harm.
 
-Both now have tests in `tests/test_sending.py`. The item stands until the plan itself carries them, because a gate that exists only in a test file is one refactor from being deleted as redundant.
+Both have tests in `tests/test_sending.py` and are now written into the plan itself, which is what this item was waiting for — a gate living only in a test file is one refactor from being deleted as redundant.
+
+**Writing them down produced one more finding than the gates themselves.** §6's sequencing put six gates in the safety core, and **the two it was missing were the cheapest in the step** — an edge-kind check and a date comparison — while a predicate lacking both passed all six. Ordering by cost would have put them first; ordering by *what the plan had already thought about* left them out. That is the general shape of the defect: **a gate set assembled by asking "what could go wrong" enumerates failures and skips the conditions under which the thing should happen at all**, which is the same reading §7's indistinguishability note warns about one section down — a suite asserting only *nothing was sent* passes when nothing is ever sent.
 
 **14 · The classification procedure omits the re-identification gate its own class table requires.**
 **State: corrected in `SENSITIVITY.md` 2026-07-30; recorded here because of how it was found.**
