@@ -22,11 +22,12 @@ ARCHITECTURE = ROOT / "docs" / "ARCHITECTURE.md"
 CAPABILITY_MAP = ROOT / "docs" / "CAPABILITY-MAP.md"
 SENSITIVITY = ROOT / "docs" / "SENSITIVITY.md"
 LANE_MODEL = ROOT / "docs" / "LANE-MODEL.md"
+CROSSINGS = ROOT / "docs" / "CROSSINGS.md"
 CLAUDE = ROOT / "CLAUDE.md"
 
 # Documents that point outward for every §N and declare no numbered sections of
 # their own, so a bare reference in them is unambiguously ARCHITECTURE.md's.
-POINTERS = (SENSITIVITY, LANE_MODEL)
+POINTERS = (SENSITIVITY, LANE_MODEL, CROSSINGS)
 
 # "## 7. Authorization" / "### 7.4 The Ward Case, adopted" -> 7 / 7.4
 _HEADING = re.compile(r"^#{2,6}\s+(\d+(?:\.\d+)*)[.\s]")

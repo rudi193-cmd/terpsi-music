@@ -30,6 +30,8 @@ A music-program management application holding **minors' education records**: ro
 
 ## Before you claim something
 
+*Worked instances of all four of these, from one session: `docs/CROSSINGS.md`.*
+
 17. **Do not quote a count you did not derive from the tree.** Test counts, row counts, gate counts. This fleet has a documented history of figures in prose the code moved past; four instances in one session.
 18. **Say "enforcement" or "ledger."** A gate that nothing routes through is a ledger. Both are useful; calling one the other is not.
 19. **A guard that cannot be shown to fail has not been shown to work.** Acceptance is mutation, not a green suite. Every invariant needs a test that attempts the forbidden act and asserts refusal. (§10)

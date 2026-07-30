@@ -1079,6 +1079,8 @@ The repo also documents the cost of not doing this: twenty-one terminal UIs in `
 
 ## 16. The bilateral pattern, and the middle
 
+> **Evidence for this section is in `docs/CROSSINGS.md`** — twenty-one defects from a single session, grouped by how each was caught, and the six patterns under them. Crossing one is this section's subject with six worked instances and the one fix that held: *make the violation inexpressible, not forbidden.* It is a findings record and governs nothing.
+
 This section is a reading key for the rest of the document. It was the last thing noticed and it should probably have been the first.
 
 ### The fleet builds in pairs
