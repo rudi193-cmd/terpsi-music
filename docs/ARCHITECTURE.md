@@ -714,6 +714,8 @@ The ordering principle: build the things that are expensive to retrofit first, r
 10. Aggregate exports for corporate
 11. Local agent assistance behind the gate
 
+**This app is also the template** (§17): what it lands in foundation 1–5 is what every later SAFE app inherits, so those five are built to be propagated rather than to be sufficient here.
+
 **Deferred deliberately:** multi-org hosting, circuit-wide federation, and any live integration with an external platform. Each converts a private local system into a networked one and deserves its own decision.
 
 ---
@@ -1104,3 +1106,66 @@ terpsi-music will create pairs — it cannot avoid them, and mostly should not:
 5. **Check the middle for rot, not just for correctness.** An allowlist that no longer matches the tree fails open. `test_allowlist_entries_exist` is the pattern, and it is currently unique in the fleet.
 6. **Name the mechanism, not the shape.** `_EGRESS_ALLOWED` is testable; "seam" is four things, two of them opposite.
 
+
+---
+
+## 17. This app as the template
+
+The intent is that terpsi-music is built from scratch, in its own org, and becomes the reference the rest of the constellation follows as it consolidates onto the faces of the die. That makes it two things at once — an application for running a music program, and the worked example of how a SAFE app should be built. This section is about the second job.
+
+### The fleet has already run this play once, successfully
+
+`almanac-template` → eleven verticals, propagated by `propagate-engine.sh`, with the discipline stated in the `almanac-data` meta repo: **engine PRs merge to the template first, then propagate outward; catalog changes stay within individual verticals.** One canonical engine, many instances, changes flowing one direction only. That is precisely this plan, applied to catalogs rather than apps.
+
+Two things differ, and both shape what the template can be.
+
+### Apps are heterogeneous, so template the guarantees, not the app
+
+Eleven almanacs are one thing holding different content. `marching-arts`, `UTETY`, `private-ledger`, and `law-gazelle` are genuinely different applications. A template that fits all four is either very thin or it does not fit.
+
+So what propagates is the part that is identical everywhere and expensive to retrofit:
+
+| Propagates | Does not |
+|---|---|
+| Purity checker wired, `test_no_egress`, **declared write paths** (§6) | Domain model |
+| Manifest with a build-failing check on cloud permissions (§6) | Storage shape |
+| `SECURITY_AUDIT.md` against the shared rubric, plus R16 and R17 (§10) | UI and surfaces |
+| Canonical store read-only; agent write path is sidecar only (§5) | Repertoire, roster, rubrics — anything domain |
+| The knock wired in **enforcement** mode, with `law-gazelle`'s trust table as the shape (§7.2) | |
+| The exit line and its export (§11.1) | |
+| Allowlist rot tests (§16) | |
+| A named middle for every pair the app creates (§16) | |
+| Dated predicates for revocation, never deletes (§7.1) | |
+
+That is `safe-app-common` grown from a library into a scaffold — a natural next size for a thing that already exists and already owns the canonical purity check.
+
+### A template without a conformance check is just the first copy
+
+This is the failure to design against, and the evidence is domestic. This fleet carries **four canonical/vendored pairs already drifting**, and every one began as *"keep in sync"* in a README. A template propagated by hand is that same pair, once per instance.
+
+The almanac side has the answer in two scripts — `propagate-engine.sh` to push, `status-all.sh` to check. The app side is half-built: PR #113 measured that `promote_check.py` *"returns an exit code and **writes nothing**,"* and that Nestor and Jeles both cleared all eight gates in #88 while **neither left a record.** The gate exists; the ledger does not.
+
+So two requirements, and they are the whole difference between a template and a first copy:
+
+1. **Every instance runs the conformance suite in its own CI**, against the template's version of it — not a copy of it.
+2. **Promotion writes a record**, so "this app conforms" is a dated fact rather than an exit code someone saw once.
+
+Without those, the second app is a copy, the fifth is a dialect, and the constellation ends up reading `FLEET_SEAMS.md` about its own template.
+
+### "From scratch" should not mean rewriting the resolver
+
+Building fresh in the target org is right: the guarantees become structural from the first commit instead of retrofitted onto a playground app, and §9's foundation list is exactly the part that is expensive to add later.
+
+But the 197 tests in `apps/marching-arts` encode bugs found the hard way, and they encode them **nowhere else**:
+
+- denies that silently stopped binding when the parentheses came off the joined clause
+- a guardian trigger that stopped firing the moment the chain name gained a partition suffix, letting a minor self-consent with nothing raised
+- a conversion window that answers *nobody*, permanently, on a birthdate corrected two seasons late
+
+Each is a regression test standing in for an afternoon of debugging and a reasoned decision. **Carry the suite across even if every other line is rewritten** — it is the most valuable artifact in the playground copy and the easiest thing to lose in a clean rebuild.
+
+### Consolidation is §16's fourth rule at fleet scale
+
+Collapsing forty repos into a handful of bunches per face is *prefer not creating the pair*, applied to the whole constellation. Fewer repos, fewer edges, fewer middles to maintain — and each consolidation **retires** a seam rather than documenting one.
+
+Which suggests the measure. `willow-grove/FLEET_SEAMS.md` currently records four breaks. A consolidation that is drawn correctly makes that document **shorter**; one that only moves code around makes it longer, and the bunches were cut in the wrong places. That is a cheap, honest metric available before the first migration and after each one.
