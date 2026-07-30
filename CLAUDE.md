@@ -38,7 +38,8 @@ A music-program management application holding **minors' education records**: ro
 ## Working here
 
 - Canonical docs: **`docs/ARCHITECTURE.md`** (17 sections, with a component map at §14 marking what exists versus what is proposed) and **`docs/CAPABILITY-MAP.md`** (the domain surface).
-- Read `§14` before proposing anything. Most of what this design needs already exists elsewhere in the fleet; the value is in what does not.
+- Read **`§18` first** — the open list, with the four items that block a first commit — then `§14` for what exists versus what is proposed. Most of what this design needs already exists elsewhere in the fleet; the value is in what does not.
+- **`§14`'s "Exists" column is unverified** — assembled from READMEs and PR descriptions, not from reading source. Treat it as a claim to check, not a fact to build on (`§18` item 0).
 - Fleet repos are read through the GitHub API, not cloned. Do not clone the fleet into this workspace.
 - Fleet nouns — Willow, Grove, Jeles, Kart, SOIL, LOAM, FRANK, Nest, SAFE, SAP, Nestor — must never appear in a string a student, guardian, or judge can see. Modules take plain domain nouns: Roster, Library, Attendance, Ledger, Adjudication.
 - Install acceptance is its own gate: strict trust root on, severance asserted, no credential prefixes, escrow rehearsed. (§6, §10, §11.1)

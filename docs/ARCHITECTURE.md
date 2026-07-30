@@ -1308,3 +1308,53 @@ Each is a regression test standing in for an afternoon of debugging and a reason
 Collapsing forty repos into a handful of bunches per face is *prefer not creating the pair*, applied to the whole constellation. Fewer repos, fewer edges, fewer middles to maintain — and each consolidation **retires** a seam rather than documenting one.
 
 Which suggests the measure. `willow-grove/FLEET_SEAMS.md` currently records four breaks. A consolidation that is drawn correctly makes that document **shorter**; one that only moves code around makes it longer, and the bunches were cut in the wrong places. That is a cheap, honest metric available before the first migration and after each one.
+
+---
+
+## 18. Before the first commit
+
+Everything above argues about design. This section is the short list of things that are **not yet decided or not yet written**, and which of them stop work. It is the last section on purpose: a document whose other sixteen sections mostly discovered that the answers already existed owes a plain statement of what does not.
+
+**This section decays and should show it.** Each item carries a state. When one closes, strike it and note the resolution rather than deleting the line — the tombstone discipline of §16, applied to this document's own open list. An item silently removed is indistinguishable from one that was never there.
+
+### 0 · Read §14 as a claim, not as ground truth
+
+**State: standing caveat.** §14's component map was assembled from READMEs and merged pull-request descriptions — **not from reading or running source.** Every row asserting that something exists is a `P2 Cited` claim (§15) whose source was read and never executed.
+
+That is the exact defect #124 named: *a figure carried from a summary rather than from the thing that produced it.* Before anything is built on the strength of that table, one pass should open the code behind each **Exists** row and either confirm it or downgrade it — and the pass itself should leave a record, because an unverified table and a verified one look identical.
+
+### The four that block
+
+**1 · `L1–L5` is undefined.**
+**State: blocking. Needs a document, not a decision.**
+§6 keys classification onto the sensitivity ladder and §15 makes it one of three ordinal scales, but nothing in the fleet states what the five levels *mean*. All that is recorded is behavioural: at L3 and above the payload is `NULL` in the SELECT list and only a derived instruction is served, and L5 is never served to anyone under any grant (#112). `willow-tech-manual` does not carry the definitions. **No field can be classified against a ladder nobody has written down**, so this blocks the first migration and everything downstream of it. Resolution: write the five definitions with one worked example each, in the app that owns the resolver.
+
+**2 · The disposition of `apps/marching-arts`.**
+**State: blocking. Needs a decision.**
+§17 says "from scratch." Nothing says whether the playground copy is deleted on promotion or kept. This decides whether the first commit is a move or an empty tree — and §16 rule 4 is explicit that leaving two live copies behind a "keep in sync" note is the option with a measured failure rate in this fleet (four pairs, four drifts). If it is kept, it needs a named middle in the same commit; if it is retired, it needs the five-part tombstone.
+
+**3 · No schema for the lane model.**
+**State: blocking. Needs writing.**
+W-1 and W-3 (§7.4) are schema decisions, not modelling preferences: a lane per ward from the first write, and *a shared event is two lane entries with one referent.* §8 is an entity sketch with no fields, keys, or migrations. Migration 001 cannot be written from what is on the page, and retrofitting either clause later is a data migration across every table that references a student.
+
+**4 · Which surfaces exist.**
+**State: blocking for layout. Needs a decision.**
+Six personas (§4), `safe-design` ready with tokens and structurally-parity backends, and nothing recorded about whether this is a TUI, a browser application, both, or a TUI plus the parent PWA of §4.2. The answer sets the first directory layout and determines which of `safe-design`'s backends is load-bearing.
+
+### The three to state, which do not block day one
+
+**5 · The exit line is unwritten.** §11.1 requires it *before* the first install and it does not exist. W-6 (§7.4) additionally requires the per-graduate version, which is the harder of the two and is a precondition of enrolment rather than an end-of-life feature.
+
+**6 · No conformance suite.** §17 requires that instances run the template's suite and that promotion writes a record. Neither exists; `promote_check.py` returns an exit code and writes nothing. Until it exists, "template" means "the first copy."
+
+**7 · Score-position anchoring is unchosen** (§13) — stored-score alignment, judge-driven tap-to-mark, or both. It determines how much of the music library must be machine-readable, which is a large and separable body of work.
+
+### The three that need a choice, not research
+
+**8 · `libs/subject-consent`'s placement** (§17) — the second cross-face dependency, still a folder in an app store.
+**9 · Practice logging against UTETY's no-leaderboard rule** — §1 of the capability map proposes streaks and standings; `ask-jeles`'s record-the-shape-not-the-content pattern resolves most of it, but the line has to be drawn by someone.
+**10 · Whose consent governs which surface** (§13) — SAFE's session-expiring model fits a guardian reading their own student's record and does not fit a director opening the roster at 6 a.m. Both mechanisms are built; the mapping is not written.
+
+### What is not on this list
+
+Authorization, consent chains, egress purity, the disclosure log, and the acoustic model. Those exist and are, by every account read, stricter than this document originally proposed. The work ahead is mostly **binding** — connecting what is built to a domain — rather than building. Item 0 exists because that sentence is itself a claim assembled from prose.
