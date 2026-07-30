@@ -370,6 +370,14 @@ Three things this table is not:
 
 1. **Can it be published?** → `L1`.
 2. **Does it name, or resolve to, a person?** No → `L2`. Yes → continue.
+   **2a. Is it derived from other fields?** If so, `L2` applies **only after the
+   re-identification check**; until it passes, the field inherits the `max` of
+   its inputs. *Added 2026-07-30 — §18 item 14.* The class table has always said
+   this of `DERIVED_ANON`; the numbered steps did not, so a derived field passed
+   step 2 and reached `L2` with nothing having looked at it. That is a fail-open
+   in the one place re-identification risk actually lives: *"one student in this
+   section carries an auto-injector"* names nobody and identifies a child if the
+   section has three members.
 3. **Does it carry a category the law follows?** No → `L3`. Yes → `L4`.
    Health, money, discipline and likeness are the common four. **They are
    examples of the clause, not the whole of it** — see *Protected status*

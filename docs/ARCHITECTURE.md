@@ -1517,6 +1517,16 @@ Building `records/sending.py` against G1–G11 and then ablating it left two mut
 
 Both now have tests in `tests/test_sending.py`. The item stands until the plan itself carries them, because a gate that exists only in a test file is one refactor from being deleted as redundant.
 
+**14 · The classification procedure omits the re-identification gate its own class table requires.**
+**State: corrected in `SENSITIVITY.md` 2026-07-30; recorded here because of how it was found.**
+`SENSITIVITY.md`'s class table has always said `DERIVED_ANON` is `L2` *"only after the re-identification check"* and *"inherits `max` of inputs until it passes."* Its five-step *Classifying a new field* procedure carried no such step, so a derived field answered *no* at step 2 and landed at `L2` with nothing having looked at it.
+
+**A document disagreeing with itself, where one half is a table and the other a procedure.** Both were written in the same file on the same day and neither review caught it, because reading a procedure and reading a table are different acts and nobody did both against each other. It surfaced within minutes of implementing the procedure in `records/classify.py`, which is the argument for slices in one line.
+
+The fail-open is not theoretical: a count is exactly the shape that re-identifies. *"One student in this section carries an auto-injector"* names nobody and identifies a child if the section has three members — and §17's small-cell suppression exists because this fleet already knows that.
+
+Step 2a added. `records/classify.py` implements it, and a derived field now inherits `max` of its inputs until the check passes.
+
 ### The three to state, which do not block day one
 
 **5 · The exit line is unwritten.** §11.1 requires it *before* the first install and it does not exist. W-6 (§7.4) additionally requires the per-graduate version, which is the harder of the two and is a precondition of enrolment rather than an end-of-life feature.

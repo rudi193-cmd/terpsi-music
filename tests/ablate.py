@@ -19,7 +19,6 @@ and a mutation that does not apply is an **error**, not a pass.
 
 from __future__ import annotations
 
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -53,6 +52,14 @@ MUTATIONS = [
     ("records/sending.py", 'if e.kind == "guardian_of" and e.subject_id == subject_id',
      "if e.subject_id == subject_id",
      "guardian-only recipients", "tests/test_sending.py"),
+    ("records/classify.py", "if d.derived_from and not d.passed_reidentification_check:",
+     "if False:", "re-identification gate", "tests/test_classify.py"),
+    ("records/classify.py", "if d.name in NOT_ELEVATED:", "if False:",
+     "chosen-name inversion", "tests/test_classify.py"),
+    ("records/classify.py", "Decision.UNDECIDED, None,", "Decision.DECIDED, Rung.L3,",
+     "refusal to guess a rung", "tests/test_classify.py"),
+    ("records/classify.py", "if d.is_key_material:", "if False:",
+     "L5 override rule 1", "tests/test_classify.py"),
 ]
 
 
@@ -78,7 +85,8 @@ def ablate(target: str, pattern: str, repl: str, label: str, suite: str) -> str:
 
 def main() -> int:
     print("  control".ljust(38), end="")
-    healthy = run("tests/test_serving.py") and run("tests/test_sending.py")
+    healthy = all(run(s) for s in ("tests/test_serving.py", "tests/test_sending.py",
+                                   "tests/test_classify.py"))
     print("green" if healthy else "RED — every result below is meaningless")
     if not healthy:
         return 1
