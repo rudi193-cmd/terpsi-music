@@ -5,6 +5,9 @@ this package reaches the network, loads a model, or opens a store: it decides,
 and the caller supplies the rows.
 """
 
+from .crossing import Envelope, permits
+from .dispatch import Dispatch, dispatch
+from .exit import Lane, Threshold, open_lane, transfer
 from .classify import Classification, Decision, Descriptor, classify, unclassified
 from .disclosure import Entry, Log, verify_against
 from .dispositions import Disposition, Request, answer, ask, extend, state_at
@@ -22,4 +25,6 @@ __all__ = [
     "Log", "Entry", "verify_against",
     "Record", "State", "draft", "seal", "reject", "redraft",
     "Request", "Disposition", "ask", "answer", "state_at", "extend",
+    "Lane", "Threshold", "open_lane", "transfer",
+    "Envelope", "permits", "Dispatch", "dispatch",
 ]

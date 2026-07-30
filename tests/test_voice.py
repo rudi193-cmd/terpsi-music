@@ -74,7 +74,7 @@ def test_a_statistic_without_its_aggregation_is_caught():
 
 
 def test_a_served_value_without_its_rung_is_caught():
-    assert any(f.startswith("no_rung")
+    assert any(f.startswith("no_provenance")
                for f in voice.check("Saturday is clear.", serves_value=True))
     assert voice.ok("Saturday is clear. P5, assumed — nobody checked the venue "
                     "calendar.", serves_value=True)

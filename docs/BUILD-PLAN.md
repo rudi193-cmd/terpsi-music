@@ -75,7 +75,7 @@ into something testable, and is the shape to build.
 migrations/   ABSENT — the DDL is still in docs/schema/
 surface dir   none
 craft/        text-only: no student data, no network, no model
-voice.py      enforcement-ready, routed through nothing
+voice.py      ROUTED — records/dispatch.py runs it after the seal, before dispatch
 records/      the read predicate — the first code here that decides about a person
 ```
 
@@ -116,7 +116,9 @@ those.
 | C1 | Extend `craft/` | nothing — text-only, no student data, no network, no model |
 | C2 | Sweep `docs/survey/*.md` for `§N` | needs the routing decision in `scout-25` part 5 first |
 | C3 | A rule-13 acceptance test | nothing. `willow-grove`'s constraint 1 supplies the shape — point a reader at an unreachable source in CI and assert no surface reports health. Rule 13 has **no test here** |
-| C4 | The crossing-envelope table | nothing blocks *designing* it; adoption still waits on item 4 |
+| ~~C4~~ | ~~The crossing-envelope table~~ | **Built 2026-07-30** — `records/crossing.py`, wired into `serve()`. W-3's permission is representable at last |
+| ~~C5~~ | ~~The disclosure log, seal cascade, dispositions, W-6 exit~~ | **Built 2026-07-30** |
+| ~~C6~~ | ~~Route `voice.guard()`~~ | **Built 2026-07-30** — `records/dispatch.py`. `voice.py` is a gate rather than a ledger, and routing it found `no_rung` checking the wrong scale |
 
 Short, and the shortness is the finding. **This repository is decision-blocked,
 not effort-blocked** — and the instinct to build C in parallel should be

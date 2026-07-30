@@ -84,6 +84,11 @@ class Field:
     category: Optional[str] = None  # health, money, discipline, likeness, protected_status
     payload: Optional[str] = None
     instruction: Optional[str] = None  # the derived form; what L4 normally serves
+    #: The **P-ladder** rung of the value (§15): `P1` measured … `P5` assumed.
+    #: A field had no provenance until `records/dispatch.py` routed the voice
+    #: gate, whose `no_provenance` rule refuses a served value that does not
+    #: carry one. The renderer needs this; the predicate does not use it.
+    provenance: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -112,6 +117,7 @@ class Serving:
     reason: str
     via_edge: Optional[str] = None
     via_purpose: Optional[str] = None
+    provenance: Optional[str] = None
 
     @property
     def disclosed(self) -> bool:
@@ -129,6 +135,7 @@ def serve(
     at: datetime,
     lane_id: Optional[str] = None,
     known_as_of: Optional[datetime] = None,
+    envelopes: Sequence = (),
 ) -> Serving:
     """Decide what `principal` is served for `fld` at instant `at`.
 
@@ -152,13 +159,25 @@ def serve(
     # field's lane. Crossing requires a guardian-signed envelope, which has no
     # table yet (see docs/LANE-MODEL.md) — so a crossing is refused, not waved.
     if lane_id is not None and lane_id != fld.lane_id:
-        return Serving(Outcome.REFUSED, None, fld.rung,
-                       "W-3: read names a different lane; a crossing needs an envelope")
+        from .crossing import permits
+        env = permits(envelopes, from_lane=lane_id, to_lane=fld.lane_id, at=at,
+                      signer_edges=edges, subject_id=fld.subject_id)
+        if env is None:
+            return Serving(Outcome.REFUSED, None, fld.rung,
+                           "W-3: read names a different lane; a crossing needs a "
+                           "guardian-signed envelope naming both lanes, purpose and expiry")
+        # A permitted crossing does not widen anything else: the rung, the
+        # entitlement edge and the declared purpose all still apply below.
+        crossing_note = f"; crossing permitted by envelope for {env.purpose!r}"
+
+    else:
+        crossing_note = ""
 
     # Below the derive floor, the payload is the normal serving mode.
     if not at_least(fld.rung, DERIVE_AT):
         return Serving(Outcome.PAYLOAD, fld.payload, fld.rung,
-                       f"{fld.rung} is below the derive floor")
+                       f"{fld.rung} is below the derive floor" + crossing_note,
+                       provenance=fld.provenance)
 
     # §18 item 1a, decided scoped: entitlement is an edge to *this subject*,
     # live at *this instant*. An expired edge is not an edge.
@@ -174,14 +193,16 @@ def serve(
     if at_least(fld.rung, Rung.L4):
         if fld.category and fld.category in principal.purposes:
             return Serving(Outcome.PAYLOAD, fld.payload, fld.rung,
-                           f"{fld.rung} with edge and declared purpose",
-                           via_edge=edge.kind, via_purpose=fld.category)
+                           f"{fld.rung} with edge and declared purpose" + crossing_note,
+                           via_edge=edge.kind, via_purpose=fld.category,
+                           provenance=fld.provenance)
         return _derived_or_refused(
             fld, f"{fld.rung} without a declared purpose for {fld.category!r}",
             edge=edge)
 
     return Serving(Outcome.PAYLOAD, fld.payload, fld.rung,
-                   f"{fld.rung} with a live entitlement edge", via_edge=edge.kind)
+                   f"{fld.rung} with a live entitlement edge" + crossing_note,
+                   via_edge=edge.kind, provenance=fld.provenance)
 
 
 def _entitling_edge(

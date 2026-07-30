@@ -77,6 +77,20 @@ MUTATIONS = [
      "if True:", "silence escalates", "tests/test_dispositions.py"),
     ("records/dispositions.py", "if office == escalates_to:", "if False:",
      "self-escalation refused", "tests/test_dispositions.py"),
+    ("records/exit.py", 'if not (self.exit_terms or "").strip():', "if False:",
+     "W-6 exit required at opening", "tests/test_exit.py"),
+    ("records/exit.py", "and e.principal_id != recipient", "",
+     "recipient keeps their standing", "tests/test_exit.py"),
+    ("records/crossing.py", "if not env.live_at(at):", "if False:",
+     "envelope expiry", "tests/test_crossing.py"),
+    ("records/crossing.py", "if env.from_lane != from_lane or env.to_lane != to_lane:",
+     "if False:", "envelope direction", "tests/test_crossing.py"),
+    ("records/crossing.py", "if not standing:", "if False:",
+     "signer standing at use", "tests/test_crossing.py"),
+    ("records/dispatch.py", "if refused:", "if False:",
+     "voice gate blocks dispatch", "tests/test_dispatch.py"),
+    ("records/dispatch.py", "if decision.outcome in (Outcome.REFUSED, Outcome.UNKNOWN):",
+     "if False:", "predicate blocks before render", "tests/test_dispatch.py"),
 ]
 
 
@@ -104,7 +118,8 @@ def main() -> int:
     print("  control".ljust(38), end="")
     healthy = all(run(s) for s in (
         "tests/test_serving.py", "tests/test_sending.py", "tests/test_classify.py",
-        "tests/test_disclosure.py", "tests/test_sealing.py", "tests/test_dispositions.py"))
+        "tests/test_disclosure.py", "tests/test_sealing.py", "tests/test_dispositions.py",
+        "tests/test_exit.py", "tests/test_crossing.py", "tests/test_dispatch.py"))
     print("green" if healthy else "RED — every result below is meaningless")
     if not healthy:
         return 1
