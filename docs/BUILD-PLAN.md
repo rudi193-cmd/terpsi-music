@@ -38,15 +38,16 @@ is not, so a legitimate sibling crossing is **unrepresentable**, not merely
 ungated. A thirteenth table is needed before promotion, and item 4 still gates
 it either way.
 
-### Two things that got worse on 2026-07-30, not better
+### One thing that got worse on 2026-07-30, not better
 
 - **The foundation is emptier than §9 claimed.** Items 1 and 2 were marked
   *built* on the spike's authority. The spike retires and nothing is inherited,
   so both are **to build**.
-- **`field-acoustics` does not exist.** §9 foundation 6 calls it *"the first
-  real capability"* — the first thing built after foundation — and the name
-  resolves to nothing on the account. One of eight such names; see
-  `docs/FLEET-READS.md`.
+- ~~**`field-acoustics` does not exist.**~~ **Withdrawn 2026-07-30 — it does.**
+  `apps/field-acoustics` is in `safe-app-store` with a correct catalog path, as
+  are the other seven names reported absent alongside it. The earlier claim
+  searched for standalone repositories; the fleet keeps apps inside the store.
+  §9 foundation 6 points at something real. See `docs/FLEET-READS.md`.
 
 ### One live hazard with no answer yet
 

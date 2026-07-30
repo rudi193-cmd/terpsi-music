@@ -597,11 +597,17 @@ sentinel for nothing-supplied-this — so the column is not blocked on it.
 
 ---
 
-## Names that do not resolve — the dead-link tally, checked
+## ~~Names that do not resolve — the dead-link tally, checked~~ — WRONG, see the correction below
 
-`list_repos` over the account returned the full set (`has_more: false`), so
+> **Struck 2026-07-30.** Every conclusion in this section about the eight app
+> names is false — they are all present as `apps/<name>` inside
+> `safe-app-store`. The query looked for standalone repositories; the fleet
+> keeps apps inside the store. Left in place because the *manner* of the error
+> is the useful part, and the correction is below.
+
+~~`list_repos` over the account returned the full set (`has_more: false`), so
 absence here is measured rather than inferred. Ten names this document uses
-were checked; **eight do not exist under `rudi193-cmd`**:
+were checked; **eight do not exist under `rudi193-cmd`**:~~
 
 | Name as written | Resolution |
 |---|---|
@@ -799,3 +805,95 @@ declaration upstream.** The guard is never wrong; it is never asked.
   during the assembly, kept out of every durable artifact on purpose."* §14's
   note that this app is a family-data app *by definition* stands: the corpus's
   exclusion is precisely this repository's subject matter.
+
+---
+
+## Correction — the eight "absent" names are all present, and the store re-read
+
+**The dead-names section above is wrong and is struck.** All eight names exist,
+as `apps/<name>` inside `safe-app-store` at `b1825f7`:
+
+```
+apps/law-gazelle   apps/private-ledger  apps/field-acoustics  apps/story-timeline
+apps/ask-jeles     apps/civics-check    apps/the-squirrel     apps/nest-seed
+```
+
+Twenty-seven apps, and `catalog.json` gives each of the eight a correct
+`path`. Nothing was missing.
+
+**What went wrong is worth more than the correction.** `list_repos` was queried
+for *standalone repositories* with those names, found none, and the result was
+written up as *"absence here is measured rather than inferred."* The query was
+right and the namespace was wrong: the fleet's convention is that apps live
+inside the store, which `§17` says plainly and this file's own Tier 3 list
+implies by sitting beside `apps/marching-arts`.
+
+**A rigour claim attached to a wrong-namespace query is worse than no claim at
+all**, because "measured" invites the reader to stop checking. That is this
+repository's own subject — a middle that reports on its own shape rather than
+its referent — committed by the pass built to catch it, for the second time in
+one session.
+
+### What is actually true, measured this time
+
+**Fifteen manifests name a repository that does not exist — §15's tally is
+exact.** Not the apps: the `repository` *field inside each app's
+`safe-app-manifest.json`*. Derived by resolving all 22 against the account's
+full repository set:
+
+| | |
+|---|---|
+| apps in the store | 27 |
+| manifests declaring a `repository` | 22 |
+| resolve | 7 |
+| **do not resolve** | **15** |
+
+`safe-app-UTETY-Reddit-Bots · safe-app-ask-jeles · safe-app-dating-wellbeing ·
+safe-app-field-notes · safe-app-game · safe-app-llmphysics-bot ·
+safe-app-nasa-archive · safe-app-private-ledger · safe-app-public-ledger ·
+safe-app-semantic-translator · safe-app-source-trail · safe-app-the-binder ·
+safe-app-the-squirrel · safe-app-utety-chat · safe-app-vision-board`
+
+**And nothing checks them.** `tools/catalog_lint.py` is 132 lines. `repository`
+appears three times, once as a check:
+
+```python
+elif status != "archived" and not entry.get("repository"):
+    errors.append(f"{app_id}: no path, not archived, no external repository")
+```
+
+That reads `entry` — the **catalog** row — and asserts the field is *non-empty*.
+It never resolves it, and it never looks at the **manifest's** `repository`
+field at all. So the fifteen dead links are checked by nothing, not even for
+presence.
+
+**This is the same defect as the pair guard corrected earlier today**, and now
+the class has three instances: `test_the_pair_declares_its_middle` asserted
+string prefixes; `catalog_lint` asserts a field is non-empty; both validate a
+declaration's **shape** and never its **referent**. Distinct from the
+bypassed-upstream mode — here the guard runs, passes, and was never asked the
+question that matters.
+
+**The earlier characterisation of `catalog_lint` was also second-hand and is
+now first-hand.** It was taken from `willow-grove/DESIGN_CONSTRAINTS.md` and
+reported as verified without opening the file. Read at source, the manifest
+check is indeed gated on a local `path` (`if path and (REPO / path).is_dir():`),
+so the constraint's claim holds — but the sharper fact, that the *manifest's*
+own repository field is never read by anything, was not in the secondary source
+and would not have been found by trusting it.
+
+### Two tallies confirmed while there
+
+- **§6's "three of twenty-seven store apps have a `test_no_egress.py`"** —
+  exact. `oakenscrolls-office`, `private-ledger`, `marching-arts`.
+- **`grove`'s catalog entry names `safe-app-grove`**, which does not exist —
+  confirming `DESIGN_CONSTRAINTS.md`'s note independently. Only three catalog
+  entries declare an external repository at all: `grove`, `ratatosk`,
+  `willow-grove`.
+
+### What this does to `field-acoustics`
+
+`apps/field-acoustics` exists, with a catalog path and no manifest `repository`
+field. **§9's foundation 6 points at something real.** The claim that it did
+not, made earlier today and carried into `docs/BUILD-PLAN.md`, was false and is
+removed there.
