@@ -203,7 +203,7 @@ FERPA §99.32 requires maintaining a record of disclosures of education records.
 
 Given this repo's MCP wiring: an agent with tool access and a network route is an exfiltration channel wearing a helpful hat, and prompt injection via any ingested content turns it into a live one. So:
 
-- Anything touching `PII_*`, `HEALTH`, or `MEDIA_MINOR` is served by a **local** model inside Zone A. No exceptions, no "just this once for the summary."
+- Anything touching `PII_*`, `HEALTH`, or `MEDIA_MINOR` is served by a **local** model inside Zone A. No exceptions, no "just this once for the summary." This explicitly includes commentary transcription (§8.2), which is where the pressure to make an exception will actually come from.
 - External model APIs are a destination like any other: allowlisted for `PUBLIC` / `DERIVED_ANON` only, gated, logged.
 - Agent tool-calls are constrained by the same authorization tuples as the human they act for — an agent cannot read what its principal cannot read.
 
@@ -237,10 +237,39 @@ Sketch, not schema.
 - **Inventory:** `Instrument`, `Uniform`, `LibraryItem` (score/part), with `Assignment` and condition history — the "who has the school tuba" question is perennial and currently lives in a spreadsheet
 - **Money:** `FeeSchedule`, `Charge`, `Payment`, `FundraisingCredit`, `TripAccount`
 - **Ops:** `Rehearsal`, `Attendance`, `Absence`, `Form` / `Consent`, `MedicalNote`, `Travel`
-- **Performance:** `Repertoire`, `Chart` / `Drill`, `Recording`, `Rubric`, `Caption`, `Score`, `Commentary` (timecoded)
+- **Performance:** `Repertoire`, `Chart` / `Drill`, `Recording` — plus the adjudication core below
 - **Comms:** `Announcement`, `Thread`, `Acknowledgement`
 
 Two constraints that shape everything: **payment card data never enters the system** — hosted fields, tokens only, staying in PCI SAQ-A territory; and **`MediaAsset` carries consent state as a first-class field**, because a photo of a minor whose family declined the release is a problem you cannot solve after publication.
+
+### 8.1 Commentary is the primitive
+
+The oldest form of adjudication feedback in this domain is a judge talking into a recorder for the length of a performance — the stack of microcassettes every symphonic director went home with. That artifact was *already* timecoded commentary, perfectly synchronized by construction, because the judge was speaking while it happened. What made it useless a week later was not the format. It was that the commentary was **linear, unaddressable, and detached from the thing it described**: one copy, unsearchable, impossible to hand a section only their own remarks, and now sitting in a drawer with no machine left to play it.
+
+So the primitive is not the score sheet. It is:
+
+```
+Commentary
+  author        → Person (judge | clinician | staff)
+  performance   → Recording
+  anchor        → Score position (measure/rehearsal mark), NOT wall-clock alone
+  span          → start/end
+  body          → audio + transcript + speaker
+  addresses     → [Ensemble | Section | Part | Individual]
+  dimension     → Caption | Rubric criterion | (none — free commentary)
+```
+
+**Anchor to score position, not just time.** "At 4:32" means nothing to a musician; "measure 112, at the tempo change" is the addressable unit. Get there by aligning audio to the score where one exists, or by giving the judge a tap-to-mark control and letting them anchor as they speak. This is the hard part and the whole value — unanchored commentary is just a tape with extra steps.
+
+**Rubrics, captions, ratings, and scores are projections over commentary**, not parallel structures beside it. Caption scoring is structured judgment; the festival tape is unstructured judgment; both are assessment attached to a moment in a performance. Modeled this way, a symphonic festival is a *configuration* — a different rubric, ratings instead of caption numbers, more talking and fewer digits — rather than a second application. Marching, indoor, and concert festival all fall out of one model.
+
+What this unlocks, none of which the tape could do: deliver each section only the remarks touching their parts; scrub to a comment and hear the ensemble at that instant; diff the same passage across judges who disagreed; and — the genuinely new one — query every comment about brass balance across a full season to see whether the thing you have been fixing since September is actually moving.
+
+### 8.2 Commentary processing runs locally, without exception
+
+A recording of a judge's voice over a performance by identifiable minors is `MEDIA_MINOR` twice over. **Alignment, diarization, and transcription all run in Zone A on the hub.** Sending this audio to a hosted transcription API would make the entire privacy posture theater — it is the single most sensitive artifact the system produces and the most tempting one to hand to a convenient cloud endpoint. Local speech models are now good enough that this is a real option rather than a compromise.
+
+Pipeline, entirely inside the trust boundary: ingest judge audio and performance audio → align → diarize → transcribe → anchor to score position → index. Transcripts inherit the classification of their source audio; nothing about "it's only text now" declassifies it.
 
 ---
 
@@ -259,7 +288,7 @@ The ordering principle: build the things that are expensive to retrofit first, r
 6. First vertical module (yours — whichever it is, it plugs into 1–5)
 7. Parent PWA + the drop
 8. Money, inventory, forms, calendar/attendance
-9. Adjudication + guest grants
+9. Adjudication: commentary capture + anchoring, guest grants, local transcription pipeline
 10. Aggregate exports for corporate
 11. Local agent assistance behind the gate
 
@@ -300,10 +329,12 @@ Not legal advice — the state-law column in particular varies enough that the d
 3. **Relationships over roles, every grant expires** — the only model that handles judges and clinicians cleanly.
 4. **Classification at schema-definition time** — the one thing that is genuinely miserable to retrofit.
 5. **No direct internet route from application code** — enforced by the network, not by convention.
+6. **Commentary is the adjudication primitive; captions and ratings are projections over it** (§8.1) — the difference between supporting symphonic festival as a configuration and rebuilding for it later.
 
 ## 13. Open questions
 
-- Which competitive context — caption-based circuit scoring vs. festival ratings? Changes the adjudication model materially.
+- The current build targets caption scoring. Does its model treat captions as projections over anchored commentary (§8.1), or as the base structure? If the latter, that is the one thing worth revisiting early — festival ratings and clinician feedback both fall out for free under the former.
+- Score-position anchoring: align audio against a stored score, or judge-driven tap-to-mark, or both? Affects how much of the music library must be machine-readable.
 - Is "corporate" the circuit/association, the district, or a vendor? Changes what aggregates mean and who signs off on them.
 - Does the org control its own hardware, or is the hub a district-managed VM? Changes the physical-trust assumption underneath Zone A.
 - Are agents an implementation detail of the build, or a user-facing feature (a director querying their program in plain language)? The latter needs a local model of real capability inside Zone A.
