@@ -20,10 +20,17 @@ jobs:
         with:
           python-version: "3.12"
 
+      # The one dependency, pinned in requirements.txt with its reason
+      # (§18 item 15, decided 2026-07-31). Installed from that file only, so
+      # what CI pulls and what the file declares cannot drift apart.
+      - name: Install the declared dependency
+        run: python3 -m pip install -r requirements.txt
+
       # Run each file directly rather than under pytest. The suite is written
-      # to work both ways (see each module's __main__ block) and this keeps the
-      # workflow dependency-free, which matters for a repo whose whole posture
-      # is about what it does and does not pull in.
+      # to work both ways (see each module's __main__ block). The workflow was
+      # dependency-free until 2026-07-31, on purpose; it now installs exactly
+      # the requirements file and nothing else — the posture is unchanged, the
+      # set is one element larger, and the reason is written where the pin is.
       - name: Run guards
         run: |
           status=0

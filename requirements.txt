@@ -1,0 +1,8 @@
+# This repository's first and only dependency, accepted by maintainer decision
+# 2026-07-31 (§18 item 15): guardian receipts a third party can attribute need
+# an asymmetric primitive, the stdlib carries none, and vendoring crypto is
+# out. Pinned exactly (§17: a floating ref is the defect recorded against
+# `nestor @ master`, with higher stakes here). Everything else in the tree runs
+# on the standard library, and additions to this file are a maintainer's call,
+# not a convenience.
+cryptography==41.0.7

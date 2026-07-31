@@ -413,6 +413,130 @@ MUTATIONS = [
     ("records/standing.py", "return threshold is not None and at >= threshold",
      "return threshold is None or at >= threshold",
      "an unknown threshold is not a reached one", "tests/test_standing.py"),
+    # records/atrest.py — §9 foundation 3. Every key these mutations touch is
+    # generated in memory by the suite; nothing here reads or writes key
+    # material, and refusal 2 keeps it that way.
+    #
+    # The hierarchy.
+    ("records/atrest.py", "    if isinstance(lane_key, MasterKey):", "    if False:",
+     "the master key never seals a record", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if name.lower() in _WILDCARDS:", "    if False:",
+     "a section is not a lane (W-1)", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if keyring.state_of(kid) is not KeyState.UNKNOWN:",
+     "    if False:", "one key id, one lane", "tests/test_atrest.py"),
+    ("records/atrest.py", '    if _SEP in name or "\\x00" in name:', "    if False:",
+     "an id cannot forge the binding", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if not isinstance(payload, (bytes, bytearray)):",
+     "    if False:", "the core does not guess an encoding", "tests/test_atrest.py"),
+    # Key material is L5 and a traceback is a rendering.
+    ("records/atrest.py",
+     '        return f"MasterKey(key_id={self.key_id!r}, material=<withheld>)"',
+     '        return f"MasterKey(key_id={self.key_id!r}, material={self.material!r})"',
+     "a master key does not render", "tests/test_atrest.py"),
+    ("records/atrest.py",
+     '                f"scheme={self.scheme!r}, material=<withheld>)")',
+     '                f"scheme={self.scheme!r}, material={self.material!r})")',
+     "a lane key does not render", "tests/test_atrest.py"),
+    ("records/atrest.py",
+     '                f"plaintext={\'<withheld>\' if self.plaintext is not None else None})")',
+     '                f"plaintext={self.plaintext!r})")',
+     "an opened payload does not render", "tests/test_atrest.py"),
+    # The three unreadable states. Each mutation collapses one into another,
+    # which is the failure rule 13 names: an absence rendered as a result.
+    ("records/atrest.py", "        return (Agreement.KEY_DESTROYED,",
+     "        return (Agreement.KEY_UNKNOWN,",
+     "destroyed is not unknown", "tests/test_atrest.py"),
+    ("records/atrest.py", "            return KeyState.DESTROYED",
+     "            return KeyState.UNKNOWN",
+     "three key states, not two", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if header != expected:", "    if False:",
+     "a relabelled envelope is misbound", "tests/test_atrest.py"),
+    # Rule 12's key-id <-> scheme middle, and the path that routes through it.
+    ("records/atrest.py", "    if w.scheme != sealed.scheme:", "    if False:",
+     "the key-id/scheme pair is compared", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if w.lane_id != sealed.lane_id:", "    if False:",
+     "a key id pointed at another lane", "tests/test_atrest.py"),
+    ("records/atrest.py", "    agreement, why = reconcile(sealed, keyring)",
+     '    agreement, why = (Agreement.AGREES, "")',
+     "unseal routes through the middle", "tests/test_atrest.py"),
+    # Rotation and revocation.
+    ("records/atrest.py", "    if wrapping.under_master != master.key_id:",
+     "    if False:", "a rotation that has not landed", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if was.key_id == now.key_id:", "    if False:",
+     "a rotation needs a new name", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if not keyring.keys_for(lane_id):", "    if False:",
+     "rotation does not mint a first key", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if from_key.lane_id != to_key.lane_id:", "    if False:",
+     "no reseal across lanes", "tests/test_atrest.py"),
+    ("records/atrest.py", "        if s.key_id != from_key.key_id:", "        if False:",
+     "a reseal skips no payload", "tests/test_atrest.py"),
+    # Erasure, and the record that outlives the key.
+    ("records/atrest.py", "    if not doomed:", "    if False:",
+     "an erasure against nothing", "tests/test_atrest.py"),
+    ("records/atrest.py",
+     "    kept = tuple(w for w in keyring.wrappings if w.lane_id != lane)",
+     "    kept = keyring.wrappings",
+     "an erasure erases", "tests/test_atrest.py"),
+    ("records/atrest.py", '    if not (reason or "").strip():', "    if False:",
+     "an erasure carries a reason", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if name.lower() in _NOT_A_PERSON:", "    if False:",
+     "a role does not erase or escrow", "tests/test_atrest.py"),
+    # Rule 12's erasure <-> chain middle. Each branch of composes().
+    ("records/atrest.py", "    if not chain_ok:", "    if False:",
+     "an erasure must not break the chain", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if chain_ok and anchor is not None:", "    if False:",
+     "truncation caught by the anchor", "tests/test_atrest.py"),
+    ("records/atrest.py",
+     "    if still:\n        return Erasability(\n            Composition.ERASURE_INCOMPLETE,\n"
+     '            f"{len(still)} payload(s) for {lane_id} still readable after the "',
+     "    if False:\n        return Erasability(\n            Composition.ERASURE_INCOMPLETE,\n"
+     '            f"{len(still)} payload(s) for {lane_id} still readable after the "',
+     "a readable payload after an erasure", "tests/test_atrest.py"),
+    ("records/atrest.py",
+     "    if held:\n        return Erasability(\n            Composition.ERASURE_INCOMPLETE,\n"
+     '            f"an erasure is recorded for {lane_id} and {len(held)} wrapping(s) "',
+     "    if False:\n        return Erasability(\n            Composition.ERASURE_INCOMPLETE,\n"
+     '            f"an erasure is recorded for {lane_id} and {len(held)} wrapping(s) "',
+     "a partial erasure is not a whole one", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if erasure is None:\n        if held:",
+     "    if erasure is None:\n        if False:",
+     "not-erased is not unrecorded", "tests/test_atrest.py"),
+    # Escrow, surfaced rather than solved.
+    ("records/atrest.py", "        return (EscrowState.ABSENT,",
+     "        return (EscrowState.RECORDED,",
+     "an absent escrow is not a recorded one", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if d.rehearsed_at is None:", "    if False:",
+     "an unrehearsed escrow is not escrow", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if at >= d.next_rehearsal_due:", "    if False:",
+     "an overdue drill is stale", "tests/test_atrest.py"),
+    ("records/atrest.py", "        if self.next_rehearsal_due <= self.decided_at:",
+     "        if False:", "the next drill is declared at issuance",
+     "tests/test_atrest.py"),
+    ("records/atrest.py",
+     '        if not self.holders or not all((h or "").strip() for h in self.holders):',
+     "        if False:", "an escrow disposition names a holder",
+     "tests/test_atrest.py"),
+    ("records/atrest.py", "    if current is None:", "    if False:",
+     "no rehearsal without a disposition", "tests/test_atrest.py"),
+    ("records/atrest.py", "                 for m in keyring.masters())",
+     "                 for m in ())",
+     "the escrow survey is derived", "tests/test_atrest.py"),
+    # The tie-break `max(..., key=...)` does not have: a rehearsal recorded on
+    # the day of the disposition it rehearses loses to the disposition, and the
+    # drill reads as never having happened. Found by the test, not by review.
+    ("records/atrest.py",
+     "    return max(((when, i, obj) for i, (when, obj) in enumerate(dated)))[2]",
+     "    return max(dated, key=lambda p: p[0])[1]",
+     "a same-day rehearsal is the later record", "tests/test_atrest.py"),
+    # The conformance row. §5's escrow gap must read ABSENT, and a row that
+    # quietly said PASS would be the formality §17 warns about.
+    # Anchored to the line start: the ABSENT branch for a missing module is
+    # indented further and contains this text as a substring, which the
+    # uniqueness check caught as `AMBIGUOUS x2` rather than mutating the wrong
+    # one silently.
+    ("tools/conform.py", '\n    return Check("key-escrow", what, State.ABSENT,',
+     '\n    return Check("key-escrow", what, State.PASS,',
+     "escrow reports absent, not pass", "tests/test_atrest.py"),
 ]
 
 
@@ -605,7 +729,7 @@ def main() -> int:
         "tests/test_serving.py", "tests/test_sending.py", "tests/test_classify.py",
         "tests/test_disclosure.py", "tests/test_sealing.py", "tests/test_dispositions.py",
         "tests/test_exit.py", "tests/test_crossing.py", "tests/test_dispatch.py",
-        "tests/test_witness.py", "tests/test_receipts.py"))
+        "tests/test_witness.py", "tests/test_receipts.py", "tests/test_atrest.py"))
     print("green" if healthy else "RED — every result below is meaningless")
     if not healthy:
         return 1
