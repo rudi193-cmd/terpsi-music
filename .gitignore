@@ -16,3 +16,6 @@ venv/
 .cursor/
 .ablate-lock
 .ablate-inflight.json
+
+# Agent-session working copies — harness state, never project content.
+.claude/worktrees/
