@@ -1729,6 +1729,45 @@ MUTATIONS = [
      "        if False:",
      "an unknown prepared set does not iterate as empty (rule 13)",
      "tests/test_drop_preparing.py"),
+    # §9 item 11 — records/assistance.py, the gated assistance seam. Each
+    # mutation restores one of the four things A-1..A-4 refuse, and each is
+    # caught by tests/test_assistance.py.
+    #
+    # A-1: the capability reaches a model only through inference.through. This
+    # reuses inference's own local-provider guard and points it at the assistance
+    # suite — the shared-middle, multiple-suites idiom (records/conflict.py's
+    # one_lane): if the capability bypassed the gate, mutating this guard could
+    # not turn the assistance suite red, so that it does IS the proof.
+    ("records/inference.py", "    if provider != LOCAL:", "    if False:",
+     "assistance refuses a cloud provider through the gate", "tests/test_assistance.py"),
+    # A-2: assistance lands as a draft, and a draft is never servable.
+    ("records/assistance.py", "        if self.record.state is not State.DRAFT:",
+     "        if False:", "assistance lands only as a draft", "tests/test_assistance.py"),
+    ("records/assistance.py", "        return False", "        return True",
+     "a machine draft is not servable", "tests/test_assistance.py"),
+    # A-3: the unattended loop, made unrepresentable. from_sealed refuses an
+    # unsealed draft; the student's-own-draft branch is its own refusal (a
+    # distinct narration, so neutering it is caught even though it falls through
+    # to the generic loop refusal); and assist takes Grounding values only.
+    ("records/assistance.py", "    if record.servable:", "    if True:",
+     "an unsealed draft cannot ground assistance", "tests/test_assistance.py"),
+    ("records/assistance.py",
+     "    if record.author_id is not None and record.author_id == record.subject_id:",
+     "    if False:", "a student's own draft is its own refusal", "tests/test_assistance.py"),
+    ("records/assistance.py", "        if not isinstance(g, Grounding):",
+     "        if False:", "a non-grounding cannot seed assistance", "tests/test_assistance.py"),
+    # A-4: grounded only in an entitled read; no standing score; no ranking; and
+    # one lane per narrative (through conflict.one_lane, the promoted middle).
+    ("records/assistance.py", "    if decision.outcome not in _ENTITLED:",
+     "    if False:", "assistance grounds only in an entitled read", "tests/test_assistance.py"),
+    ("records/assistance.py",
+     '        refuse_standing_score("AssistanceDraft.score", self.record.subject_id or "this student")',
+     "        return 0", "a narrative carries no standing score", "tests/test_assistance.py"),
+    ("records/assistance.py",
+     "    refuse_to_rank(\"comparing two students' growth narratives\", subjects)",
+     "    return None", "two narratives cannot be ordered", "tests/test_assistance.py"),
+    ("records/conflict.py", "if len(lanes) > 1:", "if False:",
+     "a growth narrative reads one lane", "tests/test_assistance.py"),
 ]
 
 
