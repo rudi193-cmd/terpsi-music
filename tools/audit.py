@@ -310,7 +310,16 @@ def durable_callers(where: Optional[Path] = None,
     skip = {(store if store is not None else STORE).resolve()}
     out: List[Tuple[str, str]] = []
     for py in sorted(base.rglob("*.py")):
-        rel = str(py.relative_to(base))
+        relpath = py.relative_to(base)
+        rel = str(relpath)
+        # Never count a file under a dot-directory: `.git`, and — the case that
+        # bit — `.claude/worktrees/`, where an agent's checkout carries its own
+        # copy of `store/`. Those copies are not deployment callers; counting
+        # them flipped R16 to a false S1 whenever a worktree was present. The
+        # skip mirrors `tools/manifest.py::_all_python`, and `.gitignore`
+        # already excludes `.claude/worktrees/` for the same reason.
+        if any(part.startswith(".") for part in relpath.parts):
+            continue
         if rel.startswith(_NOT_A_DEPLOYMENT) or py.parent.resolve() in skip:
             continue
         try:

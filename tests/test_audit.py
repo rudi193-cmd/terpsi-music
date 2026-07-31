@@ -290,6 +290,27 @@ def test_the_first_non_test_caller_makes_it_durable_and_R16_high():
         # only that *some* caller was found let a mutation disabling the call
         # route report SURVIVES: main.py's import was still covering for it.
         assert "imports store.writing" in callers["app/main.py"], callers
+
+
+def test_a_store_caller_under_a_dotdir_is_not_a_deployment_caller():
+    """**The bug that flipped R16 to a false S1 on 2026-07-31, pinned.** An agent
+    worktree lives at `.claude/worktrees/<id>/` and carries its own copy of
+    `store/` and every module that imports it. The scan walked into it and
+    counted those copies as deployment callers, so R16 read `S1` — a
+    build-failing verdict — whenever a worktree happened to be present. A file
+    under any dot-directory is VCS or tooling state, never a deployment caller;
+    the scan now skips it (as `.gitignore` and `tools/manifest.py` already do)."""
+    with tempfile.TemporaryDirectory() as d:
+        records, store, root = _store_tree(d, with_app=True)
+        # a second, real caller under a dotdir — the worktree shape
+        wt = root / ".claude" / "worktrees" / "agent-x" / "app"
+        wt.mkdir(parents=True)
+        (wt / "main.py").write_text(AN_APP, encoding="utf-8")
+        callers = dict(durable_callers(root, store))
+        assert not any(".claude" in m for m in callers), (
+            f"a dot-directory copy was counted as a deployment caller: {callers}")
+        # the real app/ caller is still seen — the skip is scoped to dotdirs
+        assert "app/main.py" in callers
         assert "calls insert_draft()" in callers["app/handler.py"], callers
         got = r16_at_rest(records=records, escrow=root / "ESCROW.md",
                           store=store, tree=root)
