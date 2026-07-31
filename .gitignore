@@ -14,5 +14,15 @@ venv/
 .mcp.json
 .willow/
 .cursor/
+
+# The trust root. CLAUDE.md refusal 2: contract and policy are versioned,
+# grants are not. Neither path is in this tree today, and until 2026-07-31
+# nothing kept them out either — see docs/SECURITY-AUDIT.md TM-ROOT-01. This
+# is a mitigation and not enforcement: `git add -f` still adds them, so the
+# enforcement half is a pre-commit hook that has not been written.
+mcp_apps/
+_net_leases/
+*.grant
+*.lease
 .ablate-lock
 .ablate-inflight.json

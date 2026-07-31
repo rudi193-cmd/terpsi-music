@@ -49,3 +49,26 @@ GATE:3-SKINS-THAT-TIGHTEN-THE-WARD:STOPS      "the ward case stops being an anal
 GATE:3-SKINS-THAT-TIGHTEN-THE-WARD:STOPS#2    "sidesteps ... entirely" clause; same sense.
 GATE:3-SKINS-THAT-TIGHTEN-THE-WARD:BLOCKS     "the at-rest gap blocks here too" — an obstacle, not a gate.
 GATE:3-SKINS-THAT-TIGHTEN-THE-WARD:ENFORCED   Describes what a domain's regulator enforces, not what this design does.
+
+
+# --- docs/SECURITY-AUDIT.md -------------------------------------------------
+# Nine COUNT findings, and the split between them is the whole of rule 17: a
+# figure about *this tree* has to say how it was counted, and a figure about
+# something else does not. Every figure in that document about this tree is
+# derived in its own sentence and none is declared here. What is declared is
+# the residue — the fleet rubric's own size, a count quoted from ARCHITECTURE
+# §10 about a different repository, two abstractions, and one hypothetical.
+#
+# The COUNT rule cannot tell those apart, which is correct: it flags and a
+# writer accounts. This is the accounting, and it is deliberately short. If it
+# grows, that is the signal that figures are being declared instead of derived.
+
+COUNT:SECURITY-AUDIT-TERPSI-MUSIC:FIFTEEN-CHECKS      The fleet rubric's size, stated in willow-2.0/SECURITY_AUDIT.md and in ARCHITECTURE §10. Not a fact about this tree.
+COUNT:SECURITY-AUDIT-TERPSI-MUSIC:TWO-CHECKS          R16 and R17, named individually in the line above. An enumeration, not a tally.
+COUNT:WHAT-WAS-EXAMINED:FIFTEEN-FLEET-CHECKS          Same figure as the first, in the scope paragraph.
+COUNT:THE-RECOMMENDATION-TO-THE-FLEE:TWO-CHECKS       Same enumeration, in the recommendation.
+COUNT:TM-RACE-01-THE-ABLATION-LOCK-C:SIX-DEFECTS      Quoted from ARCHITECTURE §10, which cites willow-mcp #211. A count about another repository, and re-deriving it is out of reach from here — which §10 already says.
+COUNT:TM-TMP-01-A-PREDICTABLE-SIDECA:TWO-DEFECTS      "Two defects" enumerated in the next two sentences. Structure, not a measurement.
+COUNT:TM-TMP-01-A-PREDICTABLE-SIDECA:TWO-CONCURRENT-TEST  Describes a scenario — two processes colliding — not a population in the tree.
+COUNT:TM-TMP-01-A-PREDICTABLE-SIDECA:FOUR-LINES       The size of the fix, visible in the diff of the same commit. Deriving it in prose would be citing the diff at the diff.
+COUNT:R17-A-STRUCTURAL-NO-EGRESS-TES:TWO-HUNDRED-ROWS Hypothetical: "the registry could grow to two hundred rows with one site unablated." The real figure is beside it and derived.

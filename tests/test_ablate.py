@@ -25,7 +25,9 @@ Stdlib only. Runs under pytest or directly.
 
 from __future__ import annotations
 
+import atexit
 import importlib.util
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -44,6 +46,18 @@ DECOYS = "tests/fixtures/decoys/ablation"
 GUARD = "    if value not in ORDER:"
 
 
+#: A private directory, `0700`, made once per test process. **Not a fixed name
+#: under `gettempdir()`**, which is what this was until 2026-07-31 —
+#: `docs/SECURITY-AUDIT.md` TM-TMP-01. A constant path in a world-writable
+#: directory is two defects at once: two concurrent runs collide on it, and a
+#: local user who pre-creates it as a symlink redirects `write_text` onto
+#: whatever the link points at, since `write_text` follows links and this
+#: process's umask decides the mode. `mkdtemp` picks an unpredictable name and
+#: creates it `0700` before anything is written inside it.
+_SELFTEST_DIR = Path(tempfile.mkdtemp(prefix="ablate-selftest-"))
+atexit.register(lambda: shutil.rmtree(_SELFTEST_DIR, ignore_errors=True))
+
+
 def _sidecar():
     """A breadcrumb of this test's own, never the harness's.
 
@@ -51,7 +65,7 @@ def _sidecar():
     shells out to the harness — and two writers to one sidecar is the defect
     the sidecar exists to fix.
     """
-    return Path(tempfile.gettempdir()) / "ablate-selftest-inflight.json"
+    return _SELFTEST_DIR / "inflight.json"
 
 
 def _ablate(target, pattern, repl, suite):
