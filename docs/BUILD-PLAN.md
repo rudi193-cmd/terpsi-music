@@ -71,9 +71,17 @@ tools/         conform, sockets, purity, discipline — the socket checker
 4. **Refusal-1 by assertion**, before any inference path is written: require
    `provider_used == "ollama"` and fail otherwise. The environment variable
    stays an off-switch, never the enforcement.
-5. **The rule-13 acceptance test** (was C3): point a reader at an unreachable
-   source in CI and assert no surface reports health. Rule 13 still has no
-   test here; `willow-grove`'s constraint 1 supplies the shape.
+5. ~~**The rule-13 acceptance test** (was C3)~~ — **Built 2026-07-31,
+   audited and merged** — `tests/test_rule13_acceptance.py`. Every seam broken
+   rather than skipped, and the breakage found three places where a source
+   that could not be reached read as one that answered *nothing*:
+   `voice.check()` with no rules loaded, `sockets.declared_from` on a manifest
+   with no `listeners` key, and `purity.egress` dropping the unparseable file
+   that `purity.writes` reports. All three fixed and ablated. Seven more seams
+   fail **closed** and cannot say *why* — listed in that file's
+   `CANNOT_DISTINGUISH`, each with a test that goes red when it is fixed. The
+   sharpest, `Ledger.log_for` answering for a lane it has never heard of,
+   needs a decision rather than a test and belongs in §18.
 6. **Then §9's list in its existing order** — noting foundations 1 and 2 are
    **to build**, not built; the spike retired and nothing was inherited.
 

@@ -216,11 +216,21 @@ def declared_from(manifest: Optional[Path] = None) -> Optional[Tuple[Declared, .
     `None` and `()` are different facts and are kept apart: *nobody has declared
     anything* is the state before item 4, and *the manifest declares no
     listeners* is a claim that can be wrong.
+
+    **A manifest with no `listeners` key has declared nothing**, and that is the
+    first fact rather than the second. It was read as the second — the spelling
+    was `data.get("listeners", [])` — so a manifest whose key was misspelled,
+    nested one level down, or simply not written yet reconciled `CLEAN` against
+    a tree with no listeners, where an absent manifest reconciles `VACUOUS`. A
+    typo bought a passing check that an absent file could not. `"listeners": []`
+    still reads as `()`, because that is somebody's claim and can be wrong.
     """
     p = manifest if manifest is not None else MANIFEST
     if not p.exists():
         return None
     data = json.loads(p.read_text(encoding="utf-8"))
+    if "listeners" not in data:
+        return None
     return tuple(Declared(str(d.get("host", _UNRESOLVED)),
                           str(d.get("port", _UNRESOLVED)),
                           str(d.get("surface", "")))
@@ -266,7 +276,7 @@ def reconcile(found: Sequence[Endpoint],
         for e in listeners:
             findings.append(Finding(
                 "NO_MANIFEST",
-                f"{e} — a listener exists and there is no manifest to declare it"))
+                f"{e} — a listener exists and no manifest declares it"))
     else:
         for e in listeners:
             if not e.resolved:

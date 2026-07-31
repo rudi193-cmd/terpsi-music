@@ -172,8 +172,10 @@ def test_skipping_omits_a_check_and_never_invents_a_passing_one():
     row is not.
 
     Uses a stand-in registry rather than the real one: the real `check_ablation`
-    shells out to 78 mutations, and paying 40s to learn that a filter filters is
-    the kind of slow suite people stop running.
+    shells out to the whole mutation table, and paying that to learn that a
+    filter filters is the kind of slow suite people stop running. (The count
+    that stood here was a figure the table had moved past — rule 17, in the
+    file that tests the conformance record.)
     """
     real = conform.CHECKS
     try:

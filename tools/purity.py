@@ -96,6 +96,15 @@ class Reach(Enum):
     WRITE = "write"
     READ = "read"
     UNKNOWN_MODE = "unknown_mode"   # a write until shown otherwise
+    #: A file that would not parse. **Anything** until shown otherwise, so it
+    #: counts against every gate rather than one. It had its own reach only from
+    #: 2026-07-31: an unparseable file returned `UNKNOWN_MODE`, which `writes()`
+    #: reports and `egress()` filters out — so `check_no_egress` scanned a file
+    #: nobody could read and answered `PASS`, on the gate refusal 1 rests on.
+    #: `tests/test_purity.py` had asserted that `scan_source` says *unparseable*
+    #: and nothing had asserted that a check refuses it, which is
+    #: `CROSSINGS.md`'s assertion-attached-to-no-guard in its own tooling.
+    UNPARSEABLE = "unparseable"
 
 
 @dataclass(frozen=True)
@@ -109,7 +118,7 @@ class Touch:
     def is_write(self) -> bool:
         """A read is a dependency; a write is a write. Kept apart on purpose —
         a check that cries wolf on every `open()` gets switched off."""
-        return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE)
+        return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE, Reach.UNPARSEABLE)
 
     def __str__(self) -> str:
         return f"{self.module}:{self.line} {self.detail}"
@@ -166,7 +175,7 @@ def scan_source(src: str, module: str) -> Tuple[Touch, ...]:
     try:
         tree = ast.parse(src)
     except SyntaxError as exc:
-        return (Touch(Reach.UNKNOWN_MODE, module, exc.lineno or 0,
+        return (Touch(Reach.UNPARSEABLE, module, exc.lineno or 0,
                       "unparseable — cannot be shown to reach nothing"),)
 
     for node in ast.walk(tree):
@@ -236,7 +245,13 @@ def scan(paths: Sequence[Path]) -> Tuple[Touch, ...]:
 
 
 def egress(paths: Sequence[Path]) -> Tuple[Touch, ...]:
-    return tuple(t for t in scan(paths) if t.reach in (Reach.EGRESS, Reach.SPAWN))
+    """Reaches out — plus every file that could not be read as reaching nothing.
+
+    `UNPARSEABLE` is here rather than only in `writes()` because the two gates
+    ask different questions of the same silence, and both answers are unknown.
+    """
+    return tuple(t for t in scan(paths)
+                 if t.reach in (Reach.EGRESS, Reach.SPAWN, Reach.UNPARSEABLE))
 
 
 def writes(paths: Sequence[Path]) -> Tuple[Touch, ...]:
