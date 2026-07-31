@@ -1686,6 +1686,13 @@ Found by order item 5's rule-13 sweep, and the sharpest of its findings because 
 
 **And §5's crossing-to-B/C column is still unbuilt**, which is worth stating because the two are easy to conflate: sealing *at rest* and sealing *per family circle for a crossing* are different operations, and the second is the one that wants the asymmetric property. It belongs beside `records/crossing.py` when there is something to cross to.
 
+**18 · The store.**
+**State: designed 2026-07-31 — `docs/PLAN-STORE.md` is the plan; the build is gated on two maintainer inputs, and the gates are the finding.**
+
+Everything in `records/` decides over rows the caller supplies; nothing persists, so five finished mechanisms are running ahead of the artifact that joins them. The plan records the decisions that were already latent in the tree: PostgreSQL because the DDL is already executed and attacked there and a second engine is a ported pair; rule 11's read-only canonical implemented as the draft→seal cascade with two database roles, so promotion is the seal that already exists; payloads sealed at rest per lane because the `L3`+ NULL rule means the store never reads them to answer a query — the sensitivity rule and the encryption design were the same decision twice; row-level security as the compiled read predicate with a differential middle against `records/serving.py`; error channels from the first read; the disclosure entry in the same transaction as the read it narrates; and no listener — the TUI runs local, and §9 item 7 stays its own decision.
+
+**What gates the first write, not the plan:** G-A, an escrow disposition recorded and rehearsed (`docs/ESCROW.md` does not exist, and R16 flips to a build-failing `S1` at the first at-rest write without it — the fuse is lit by design); and G-B, the `reconciled_session` rung rule recorded. Both are maintainer inputs; the options are laid out in the plan. The acceptance list is written in the plan **before** the code exists, so the build is graded against forbidden acts it did not choose for itself.
+
 ### The three to state, which do not block day one
 
 **~~5 · The exit line is unwritten.~~**

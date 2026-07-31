@@ -131,6 +131,15 @@ to a spike is a decision nobody has taken yet, wearing the costume of a fact.
 Some of §14's `UNVERIFIED` rows are the same shape; opening the files will not
 fix those.
 
+## Next phase
+
+**The store — `docs/PLAN-STORE.md`, pointed at by §18 item 18.** Designed,
+decision-gated: G-A (escrow disposition — options in the plan, maintainer
+picks) and G-B (the `reconciled_session` rung rule) block the first write;
+the S-1…S-4 decomposition is written and waits. The listener (§9 item 7)
+follows the store as its own decision. §9 items 6, 8, 9 and 10 are built
+and merged; item 11 waits on a surface for the gate to stand behind.
+
 ## What this plan deliberately does not do
 
 - **Does not re-order §9.** Its ordering principle — expensive-to-retrofit
