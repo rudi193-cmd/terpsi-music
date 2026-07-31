@@ -30,9 +30,21 @@ text and asserts its shape. Runs under pytest or directly:
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
+
+# One parser. `strip_comments`, `tables`, `columns` and `classified` were
+# written here and now live in `tools/registry.py`, which reconciles the seed
+# against `records/classify.py` and needs the same reader. A second copy would
+# have been the pair that module exists to close (§16, rule 12), and the two
+# would have drifted in the direction where a phantom column reads as classified.
+from registry import (  # noqa: E402
+    classified, columns, strip_comments, tables,
+)
+
 SCHEMA = ROOT / "migrations" / "001_lanes.sql"
 TOMBSTONE = ROOT / "docs" / "schema" / "001_lanes.proposed.sql"
 SENSITIVITY = ROOT / "docs" / "SENSITIVITY.md"
@@ -71,16 +83,10 @@ ROSTER_SHAPED = (
 # Minor status is a birthdate evaluated at the read (§7), never a stored flag.
 FLAG_SHAPED = ("is_minor", "is_adult", "minor_flag", "adult_flag")
 
-_TABLE = re.compile(r"CREATE TABLE (\w+)\s*\((.*?)\n\);", re.DOTALL)
-_NOT_A_COLUMN = ("constraint", "primary", "unique", "check", "foreign", "exclude")
-
 # "CREATE TRIGGER x BEFORE UPDATE OR DELETE ON disclosure_log"
 _TRIGGER = re.compile(
     r"CREATE TRIGGER\s+\w+\s+BEFORE\s+(.*?)\s+ON\s+(\w+)", re.IGNORECASE | re.DOTALL
 )
-
-# "    ('lane_entry','payload','HEALTH','L4'),"
-_CLASSIFIED = re.compile(r"\(\s*'(\w+)'\s*,\s*'(\w+)'\s*,\s*'([A-Z_]+)'\s*,\s*'(L[1-5])'\s*\)")
 
 
 def before_triggers(sql: str) -> dict[str, str]:
@@ -94,44 +100,6 @@ def before_triggers(sql: str) -> dict[str, str]:
     a guardian's — which a CHECK, seeing one row of one table, cannot.
     """
     return {m.group(2): m.group(1).upper() for m in _TRIGGER.finditer(strip_comments(sql))}
-
-
-def classified(sql: str) -> dict[tuple[str, str], tuple[str, str]]:
-    """{(table, column): (class, rung)} from the classification seed."""
-    return {
-        (m.group(1), m.group(2)): (m.group(3), m.group(4))
-        for m in _CLASSIFIED.finditer(strip_comments(sql))
-    }
-
-
-def strip_comments(sql: str) -> str:
-    """`--` to end of line. No string literal in this file contains `--`; a
-    future one would need this to become a real tokenizer."""
-    return "\n".join(line.split("--")[0].rstrip() for line in sql.splitlines())
-
-
-def tables(sql: str) -> dict[str, str]:
-    return {m.group(1): m.group(2) for m in _TABLE.finditer(strip_comments(sql))}
-
-
-def columns(body: str) -> dict[str, str]:
-    """{column name: the rest of its definition}.
-
-    Paren-aware. A line-based reader treats the continuation lines of a
-    multi-line CHECK as columns — `edge_kind`'s value list yields a phantom
-    column named `'guardian_of',` and another named `))`. Harmless while
-    nothing iterated the column set; wrong the moment something did."""
-    out, depth = {}, 0
-    for line in body.splitlines():
-        s = line.strip()
-        candidate = s.rstrip(",")
-        if depth == 0 and candidate:
-            first = candidate.split()[0]
-            if first.lower() not in _NOT_A_COLUMN and first.isidentifier():
-                name, _, rest = candidate.partition(" ")
-                out[name] = rest.strip()
-        depth = max(0, depth + s.count("(") - s.count(")"))
-    return out
 
 
 def constraints(body: str) -> str:

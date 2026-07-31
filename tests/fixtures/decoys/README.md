@@ -36,6 +36,8 @@ inspect them would open the sockets it was written to detect.
 | `inference_guarded.py` | `tools/providers.py` | the same call routed through the guard; the control, and the reason this is a rule about refusal 1 rather than a rule against importing a router |
 | `inference_in_prose.py` | `tools/providers.py` | names the router, `api.groq.com` and the local endpoint in prose — a grep fails it, an AST scan does not |
 
+| `registry_drift.sql` | `tools/registry.py` | a classification registry drifted seven ways from `records/classify.py`: a rung below the class, a class nobody decided, an elevation with no recorded rule, a column with no row, a row with no column, and the two field-name cases (`sis_legal_name`, `chosen_name`) that only come out right through the procedure |
+
 | `deletes_standing.py` | `tools/discipline.py` | `del`, `_edges.remove()`, an executed `DELETE FROM`, `clear()`, `discard()` |
 | `deletes_nested/buried.py` | `tools/discipline.py` | a removal one directory down |
 | `dates_standing.py` | `tools/discipline.py` | revocation done right — `invalid_at`, plus the comprehension this scan deliberately does not flag |
