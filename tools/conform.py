@@ -41,13 +41,14 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(ROOT))          # the checks below run the core, not read it
 RECORDS = ROOT / "docs" / "conformance"
 
 
@@ -247,6 +248,128 @@ def check_declared_sockets() -> Check:
                  f"{len(r.listeners)} listener(s), all declared; 0 outbound")
 
 
+def check_anchor_payload() -> Check:
+    """§5/§6: an anchor may cross the egress boundary *because* it carries a
+    digest, a count and a time and nothing else. So the check is not that the
+    rule is written down — it is that something carrying a fourth field is
+    refused when handed to the gate.
+
+    This one really runs: it builds an anchor with a subject id on it and asks
+    to publish it. A `PASS` here means the attempt was made and refused.
+    """
+    from records.publication import (Cadence, NotPublishable,  # noqa: E402
+                                     payload_for, permitted)
+    from records.witness import Anchor  # noqa: E402
+
+    what = "an anchor crosses because it carries nothing else (§5, §6)"
+    at = datetime(2026, 1, 5, tzinfo=timezone.utc)
+    cadence = Cadence(at, timedelta(days=7))
+
+    @dataclass(frozen=True)
+    class Tagged(Anchor):
+        subject_id: str = ""
+
+    refused = []
+    smuggled = Tagged("a" * 64, 3, at, subject_id="a-named-student")
+    try:
+        payload_for(smuggled, cadence)
+    except NotPublishable as exc:
+        refused.append(f"subclass field: {exc}"[:80])
+
+    hung = Anchor("b" * 64, 3, at)
+    object.__setattr__(hung, "note", "a named student")
+    try:
+        payload_for(hung, cadence)
+    except NotPublishable:
+        refused.append("instance attribute")
+
+    try:
+        payload_for(Anchor("c" * 64, 3, at + timedelta(days=2)), cadence)
+    except NotPublishable:
+        refused.append("off the calendar")
+
+    honest = payload_for(Anchor("d" * 64, 3, at), cadence)
+    if len(refused) != 3:
+        return Check("anchor-payload", what, State.FAIL,
+                     f"only {len(refused)} of 3 forbidden publications refused: "
+                     f"{'; '.join(refused)}")
+    if len(honest.commitment) != 32 or not permitted(Anchor("d" * 64, 3, at))[0]:
+        return Check("anchor-payload", what, State.FAIL,
+                     "the gate refused an ordinary anchor, or the payload is not "
+                     "32 bytes; a gate that refuses everything is switched off next")
+    return Check("anchor-payload", what, State.PASS,
+                 "three attempts made and refused (a subclass field, an attribute "
+                 "hung on the instance, a publication off the calendar); an "
+                 "ordinary anchor yields 32 bytes")
+
+
+def check_anchor_published() -> Check:
+    """§18 item 15's weekly half, and the part this tree cannot answer.
+
+    The payload, the register and the states around a pending proof are built
+    and tested. Whether anchors are *being submitted every week* is a fact about
+    a running deployment's seam, and there is no seam here — by design, since a
+    module that made the call would be an egress path in `records/`.
+    """
+    core = ROOT / "records" / "publication.py"
+    if not core.exists():
+        return Check("anchor-published", "anchors are published on the calendar "
+                     "(§18 item 15)", State.ABSENT,
+                     "records/publication.py does not exist")
+    return Check("anchor-published",
+                 "anchors are published on the calendar (§18 item 15)",
+                 State.UNKNOWN,
+                 "the payload, the register and the pending states exist and are "
+                 "shown to fail (tests/test_publication.py); whether a deployment "
+                 "submits weekly is a property of a seam this tree deliberately "
+                 "does not contain")
+
+
+def check_receipt_attribution() -> Check:
+    """§18 item 15's standing dependency: *a deployment wants Ed25519 here.*
+
+    Reported as its own row rather than left to be inferred from a docstring.
+    `ABSENT` is the honest state — the socket exists and the primitive does not
+    — and it is deliberately not `UNKNOWN`, because this is decided and missing
+    rather than undecidable.
+    """
+    from records.receipts import Issuance, schemes  # noqa: E402
+
+    what = "guardian receipts a third party can attribute (§18 item 15)"
+    have = schemes()
+    if any(s.startswith("ed25519") or s.startswith("ecdsa") for s in have):
+        return Check("receipt-attribution", what, State.PASS,
+                     f"issuance schemes available: {', '.join(have)}")
+    return Check("receipt-attribution", what, State.ABSENT,
+                 f"the only issuance scheme here is {', '.join(have)}, which is "
+                 f"{Issuance.SELF_VERIFIABLE.value}: the programme can check its "
+                 "own receipts and a third party cannot attribute one. The seam "
+                 "(records.receipts.Signer) is built and no primitive is wired")
+
+
+def check_deposit_procedure() -> Check:
+    """The annual half of the composite. A procedure, not code — so what is
+    checkable is that it exists and says who, when, what, and how a missed one
+    surfaces."""
+    doc = ROOT / "docs" / "WITNESS-DEPOSIT.md"
+    what = "the annual deposit is written down (§18 item 15)"
+    if not doc.exists():
+        return Check("deposit-procedure", what, State.ABSENT,
+                     "docs/WITNESS-DEPOSIT.md does not exist; the decided "
+                     "composite has an annual leg and no procedure")
+    text = doc.read_text(encoding="utf-8")
+    required = ("## What is deposited", "## When", "## Who performs it",
+                "## The receipt of deposit", "## A missed deposit")
+    absent = [h for h in required if h not in text]
+    if absent:
+        return Check("deposit-procedure", what, State.FAIL,
+                     "the procedure omits: " + ", ".join(absent))
+    return Check("deposit-procedure", what, State.PASS,
+                 f"docs/WITNESS-DEPOSIT.md, {len(text.splitlines())} lines, all "
+                 f"{len(required)} required sections present. Whether a deposit "
+                 "was performed is not decidable from a tree")
+
+
 def check_component_map() -> Check:
     """Item 0: an unverified table and a verified one must not look identical."""
     r = subprocess.run([sys.executable, str(ROOT / "tests" / "test_component_map.py")],
@@ -279,16 +402,18 @@ UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
              "no destination allowlist exists; §14 records the fleet-wide version "
              "as unique to UTETY"),
     _unknown("named-middles", "a named middle for every pair the app creates (§16)",
-             "not mechanically decidable. Four middles are named and tested "
-             "(crossing, standing.is_self_edge, marking.drift, practice._one_lane); "
-             "whether that is *every* pair is a reading, not a check"),
+             "not mechanically decidable. Five middles are named and tested "
+             "(crossing, standing.is_self_edge, marking.drift, practice._one_lane, "
+             "publication.reconcile); whether that is *every* pair is a reading, "
+             "not a check"),
 )
 
 
 CHECKS: Tuple[Callable[[], Check], ...] = (
     check_no_egress, check_write_paths, check_revocation_is_dated,
     check_suite_runs_standalone, check_ablation, check_exit_line,
-    check_component_map, check_declared_sockets,
+    check_component_map, check_declared_sockets, check_anchor_payload,
+    check_anchor_published, check_receipt_attribution, check_deposit_procedure,
 ) + UNDECIDABLE
 
 

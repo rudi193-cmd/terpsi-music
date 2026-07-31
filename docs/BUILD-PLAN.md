@@ -34,8 +34,9 @@ and it is ordered below.**
   OpenTimestamps weekly, a legible annual deposit, guardian receipts
   continuously — because they fail differently and a dispute two years out
   uses whichever survived. The shapes exist (`records/witness.py`,
-  `records/receipts.py`); the wiring and the Ed25519 issuance dependency are
-  order item 3, and carry no open question.
+  `records/receipts.py`); **the wiring landed 2026-07-31**
+  (`records/publication.py`, `docs/WITNESS-DEPOSIT.md`) and what remains of
+  order item 3 is a dependency decision, not a task — see below.
 - **Item 4 is decided: `scout-21` §3, adopted.** Four rendering backends over
   one presentation-IR middle, three trust paths, and the `presentation/` +
   `surfaces/` layout that section names. Layout is unblocked, and with it item
@@ -48,8 +49,8 @@ migrations/    ABSENT — DDL in docs/schema/; promotion unblocked, see order 2
 presentation/  ABSENT — specified by scout-21 §3, now buildable
 surfaces/      ABSENT — same
 craft/         text-only: no student data, no network, no model
-records/       eighteen modules — the domain core; suite green, 503 tests
-               (derived by running them this revision)
+records/       nineteen modules — the domain core; suite green, 546 tests
+               (both derived by running them this revision)
 tools/         conform, sockets, purity, discipline — the socket checker
                exists BEFORE the first manifest, so it cannot be born wrong
 ```
@@ -65,9 +66,15 @@ tools/         conform, sockets, purity, discipline — the socket checker
    then `docs/schema/001_lanes.proposed.sql` becomes `migrations/001_lanes.sql`.
    The four stated-and-unenforced invariants stay named in `LANE-MODEL.md` and
    travel with it.
-3. **Wire the witness composite.** The weekly anchor publication on calendar
-   cadence, the annual-deposit procedure (a documented act, not code), and
-   Ed25519 receipt issuance before any deployment claim rests on attribution.
+3. ~~**Wire the witness composite.**~~ **Built 2026-07-31** —
+   `records/publication.py` and `docs/WITNESS-DEPOSIT.md`. The weekly payload,
+   its register and the states around a proof that never came back; the annual
+   deposit as a procedure with a dated disposition when it is missed. **One
+   thing is left and it is a decision, not effort: Ed25519 issuance.** The seam
+   takes either backend, the absence is `ABSENT` in the conformance record
+   rather than inferred, and adding an asymmetric primitive means adding this
+   repository's first dependency — a maintainer's call. Until it is made, no
+   deployment claim rests on a third party attributing a receipt.
 4. **Refusal-1 by assertion**, before any inference path is written: require
    `provider_used == "ollama"` and fail otherwise. The environment variable
    stays an off-switch, never the enforcement.
