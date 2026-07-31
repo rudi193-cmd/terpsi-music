@@ -41,6 +41,9 @@ from .dispositions import Disposition, Request, answer, ask, extend, state_at
 from .conflict import Escalation, NotComputable, Stake, halt, refuse_to_rank
 from .consent import Governance, Model, governs
 from .export import Artifact, bundle
+from .aggregate import (Aggregate, AggregateRequest, Audience, CellFloor,
+                        CellResult, CellState, Gate, NotGated, Overlap, Read,
+                        Reading, Release, differencing_risk, release)
 from .marking import Mark, ScorePosition, align, drift, realign
 from .practice import Milestone, OwnPractice, Session, milestones, own
 from .standing import (SELF, SELF_CAP, LogAccess, MaySupersede, OwnLog, Supersession,
@@ -73,6 +76,9 @@ __all__ = [
     "Escalation", "NotComputable", "Stake", "halt", "refuse_to_rank",
     "Governance", "Model", "governs",
     "Artifact", "bundle",
+    "Aggregate", "AggregateRequest", "Audience", "CellFloor", "CellResult",
+    "CellState", "Gate", "NotGated", "Overlap", "Read", "Reading", "Release",
+    "differencing_risk", "release",
     "Mark", "ScorePosition", "align", "drift", "realign",
     "Session", "OwnPractice", "Milestone", "own", "milestones",
     "SELF", "SELF_CAP", "Widening", "OwnLog", "LogAccess", "self_edge",

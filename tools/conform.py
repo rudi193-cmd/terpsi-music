@@ -663,6 +663,8 @@ NAMED_MIDDLES: Tuple[str, ...] = (
     "venue.sourcing.divergence<->records.marking P1-P5",
     "commentary.SA3_CLAUSE<->§13",
     "commentary.GuestSession<->reconciled_session",
+    "aggregate._descriptor_for<->classify step 2a",
+    "aggregate._legitimate<->rule 9 gate",
 )
 
 UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
