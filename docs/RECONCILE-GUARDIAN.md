@@ -1,8 +1,14 @@
 # The guardian's assistant, against the decisions already settled
 
-**Status:** reconciliation, not a decision record. **Four items need a human and
+**Status:** reconciliation, not a decision record. **Six items need a human and
 are marked.** Nothing here changes a canonical document; where this and
 `ARCHITECTURE.md` disagree, the doc wins and this file is the defect.
+
+**This file reconciles against `records/` as well as against the documents.**
+The second half was added after the first draft shipped without it. Reading the
+diff back, it moved the GU7 and GU10 rows and opened the last two items on the
+list. *The module sweep* at the foot names every module in the tree so that a
+later one is a blank row rather than a silence.
 
 Second of the three lists `docs/RECONCILE-19.md` does not cover; see
 `docs/RECONCILE-STUDENT.md` for the first and for the shared framing. The
@@ -27,7 +33,7 @@ jargon, no program shorthand. a named person."*
 | GU5 | "Who *can* see my child's record" | **Survives** — `who_could_see` is built |
 | GU6 | Checking their receipts against the lane | **Survives, with a mechanism** |
 | GU7 | Signing a `Widening` their student requested | **Survives** (W-5) |
-| GU8 | Absence requests and their dated disposition | **Survives** (I-6) |
+| GU8 | Absence requests and their dated disposition | **Survives, with a mechanism** (I-6, `records/dispositions.py`) |
 | GU9 | Travel and consent | **Survives** |
 | GU10 | "Who *did* look at my child's record" | **Needs a decision** |
 | GU11 | "How is my child doing" | **Refused** |
@@ -92,6 +98,43 @@ G13 are the worked template** — a gate naming what constitutes standing, and a
 mutation that fails without it — and the read side needs the analogous pair
 before anything reads through `serve()` on a guardian's behalf.
 
+## GU7, and the second thing a guardian signs
+
+**This list had one guardian signature on it and the tree has two.** GU7 names
+`Widening`. `records/crossing.py` carries the other: an `Envelope`, which is the
+only way W-3's permitted lane crossing can exist at all.
+
+The module's own account of why it was written is worth quoting, because it is
+the same failure this file is correcting one level down. `docs/LANE-MODEL.md`
+encoded W-3's prohibition, and encoded its closing sentence —
+*"a shared event is two lane entries with one referent"* — and dropped the
+middle one. `envelope` and `crossing` appear
+zero times in `docs/schema/001_lanes.proposed.sql`, so the prohibition had a
+mechanism and **the permission was unrepresentable** — *"a real sibling case can
+only be served by not recording that it happened, which is the worse of the two
+failures."*
+
+Four things are required and none has a default, each being the one a hurried
+implementation would omit: both lanes named, a purpose, an expiry, and a
+guardian's signature that is *"not a role, not staff, not the system."*
+
+**Needs a human — 2.** Whether a guardian assistant composes envelopes. The
+household case is ordinary — two children in the same program, one event, a
+parent who wants one answer — and it is exactly the case that produces a
+standing envelope if the interface makes expiry feel like paperwork. The W-5
+clause that governs GU7 governs this too: **the assistant may compose the request
+and may never be what makes it live.**
+
+The two objects are deliberately alike — `Widening`'s docstring says it is
+*"shaped after `crossing.Envelope`, and for the same reason"*, and both carry a
+purpose, an expiry and a signature that a role cannot supply. **The difference
+is the axis, and it is where the erosion would happen.** A `Widening` names one
+category over one subject; an `Envelope` names *two lanes*, and an envelope
+naming one lane is a wildcard over the other. A guardian composing by
+conversation will describe the outcome they want — *"let me see both of them in
+one place"* — and the assistant turning that into a durable cross-lane
+permission has written the wildcard the type refuses to have a field for.
+
 ## GU5, and the capability that is already built
 
 **G10** requires `who_could_see(student, field, at)` to answer *"with a reason,
@@ -147,8 +190,20 @@ item — a guardian reading it learns which staff member is looking at a record,
 which is nearer §13's prohibited standing scores than it appears, and guardians
 already hold receipts."*
 
-**Needs a human — 2.** This is quoted rather than resolved. Two observations
-that belong to it and were not available when it was written:
+**Needs a human — 3.** This is quoted rather than resolved. The thing that has
+changed since it was written is that **the log now exists**, so the question is
+no longer about a hypothetical. `records/disclosure.py` carries a `Ledger` whose
+`log_for(lane_id)` returns one lane's chain, which means the object a guardian
+would be granted is already the right shape and already scoped — W-1 holds
+whichever way GU10 goes, and the open question is narrower than it reads.
+
+The module also supplies a fact that cuts *toward* granting it: a read returning
+no payload is recorded **by rung and outcome, never by whether a value existed**,
+so the log a guardian would see cannot be mined for which fields their child has.
+The §7 indistinguishability guarantee survives the disclosure of the log itself.
+
+Two observations that belong to the item and were not available when it was
+written:
 
 - The assistant makes it *askable*. "Has anyone opened Ben's file this week" is a
   natural sentence a guardian will say to a prompt and would never have filed a
@@ -170,6 +225,43 @@ guardian may see them exercise it, or that they may not because the reads are
 the staff member's and not theirs, is precisely the open question. It is now at
 least a question with two named sides rather than an intuition.
 
+## The persona with an end date
+
+**Needs a human — 4.** Every other assistant on this list is bounded by *what*
+it may answer. The guardian's is additionally bounded by *when it ceases to be
+a guardian's*, and nothing in this document says what that looks like from the
+inside.
+
+`records/exit.py` is unambiguous about the event. At the threshold written into
+the office at entry — majority, graduation, transfer, withdrawal — *"keys to the
+lane issue to its subject or named successor, full history intact; the
+guardian's standing ends or reduces to what the new owner grants back."* And the
+term is not negotiated at the threshold: `open_lane()` requires `exit_terms`, so
+it was written when the lane was opened.
+
+So a guardian assistant has a date on which it becomes a **student** assistant
+over the same record, with the former guardian holding whatever the new owner
+grants back — possibly nothing. Three things follow and none is written:
+
+- **The transition is a disclosure event about the child, to the parent.** *"You
+  can no longer see this"* on a birthday is a true sentence and a hard one, and
+  the interface that says it is not designed.
+- **Silence is worse than the sentence.** An assistant that simply starts
+  refusing has produced the failure §7 spends its length avoiding: a refusal
+  indistinguishable from an absence, at the one moment the guardian has a
+  correct explanation available.
+- **`transfer()` hands the graduate their own past, and the guardian's copy is
+  not addressed.** Receipts they already hold, answers they already read, a
+  conversation history if one is kept. The clause covers the lane. It does not
+  cover what a surface accumulated beside it, and a conversational surface
+  accumulates a great deal.
+
+That last point is this document's version of the rule that a guarantee lives in
+a mechanism. For the record itself the enforcement is real and early: `Lane`
+cannot be constructed without `exit_terms`, so W-6 is satisfied at the call. For
+the assistant's own residue there is no equivalent call, and therefore nothing
+on either the enforcement or the ledger side.
+
 ## The refusals
 
 **GU11, "how is my child doing."** `evaluative_praise` and `peer_comparison`.
@@ -179,7 +271,24 @@ read as evasive to someone who is worried.
 
 **GU12, prediction.** `voice.prediction`, and `RECONCILE-19.md`'s refusal of
 19.3b transfers unchanged — it arrives before the thing it predicts and has
-nobody's name on it.
+nobody's name on it. *"Will they make the chair"* is also a ranking, so
+`records/conflict.py` refuses it structurally: `refuse_to_rank()` raises
+`NotComputable`, and the `Escalation` a halt returns cannot carry an order.
+
+## GU8, and the clauses that erode quietly
+
+`records/dispositions.py` implements I-6 and adds constraints an assistant
+composing a request must respect, both read off the module:
+
+- **A request without a timebound cannot be constructed.** There is no default,
+  deliberately — `P-2` of Schedule A says a default *"would let issuers stop
+  declaring."* So an assistant offering to file an absence request must obtain a
+  date, and cannot quietly supply one.
+- **The office cannot lengthen its own timebound.** `extend()` requires a
+  *different* office and records the extension. An assistant must never present
+  extension as a thing the answering office can do for itself, which is the
+  shape *"the single most eroded rule in any queue"* takes when a helpful
+  interface offers it.
 
 **GU13, another student or the other guardian.** No roster, no directory, and
 critically **no visibility of the other guardian's activity**. Households split;
@@ -213,13 +322,49 @@ program shorthand, a named person* — is a template's job, not a model's. If th
 guardian assistant is retrieval plus templates, then **refusal 1 and the timing
 control both stop applying**, because nothing is inferred and nothing is sent.
 
-**Needs a human — 3.** Whether that is enough to be worth building, or whether a
+**Needs a human — 5.** Whether that is enough to be worth building, or whether a
 guardian assistant without generated language is just a search box with a
 friendly label. That is a product judgement, and it is the one place in this
 document where the architecture does not force the answer.
 
-**Needs a human — 4.** If a model *is* wanted on the guardian surface, it runs
+**Needs a human — 6.** If a model *is* wanted on the guardian surface, it runs
 on the device — a parent's phone, possibly old, possibly cheap — or the timing
 control breaks. Nobody has sized that. It is a feasibility question, not a design
 one, and it should be answered before the surface is committed to rather than
 after.
+
+## The module sweep
+
+Every module under `records/`, listed by `ls`, with what it does to this
+document. Listing all of them rather than the relevant ones is the mechanism:
+**a module added later is a blank row rather than a silence**, which is how the
+first draft of this file came to name a single guardian signature when the tree
+held two.
+
+| module | bearing on the guardian surface |
+|---|---|
+| `classify.py` | **Bears, not worked.** A field returning `UNDECIDED` is a build failure, not a refusal. A guardian asking about a newly added form is the likeliest way anyone meets one |
+| `conflict.py` | **Cited** — GU12, structurally |
+| `consent.py` | **Cited** — GU10, and the hold/exercise split |
+| `crossing.py` | **Cited** — GU7's second signature, *needs a human 2* |
+| `disclosure.py` | **Cited** — GU10, `Ledger.log_for` and the indistinguishability property |
+| `dispatch.py` | **Bears, not worked.** It is the route a read must take, and the finding above is that `serve()` never sees a `ContactRestriction`. The gap is upstream of the dispatcher, not in it |
+| `dispositions.py` | **Cited** — GU8, I-6, and the clauses that erode |
+| `exit.py` | **Cited** — *needs a human 4*, the persona with an end date |
+| `export.py` | **Bears, not worked.** `bundle()` produces artifacts and touches no filesystem. What a guardian may ask for a copy of, before the threshold, is not on this list |
+| `marking.py` | **Bears, not worked.** A judge's remark is a lane entry about their child, carrying a `seat` and possibly a fitted `ScorePosition`. Whether a guardian reads adjudication commentary is nowhere decided, and GU11's refusal does not settle it — a remark about the work is not a rating of the learner |
+| `practice.py` | **Bears, not worked.** `own()` reads one lane, which is the child's. Whether the guardian sees it is the same question as GU10 in a lower-stakes register, and answering the easy one first would be useful |
+| `receipts.py` | **Cited** — GU6, and the honest limit |
+| `rungs.py` | **Bears, not worked.** Rule 14 as a type. The register — *complete sentences, no jargon* — is in direct tension with `L4`, and rendering a rung to a parent without either jargon or a false ordering is unsolved |
+| `sealing.py` | **Bears, not worked.** A `draft` shown to a guardian who reads it as the institution's position is rule 10's failure with a witness |
+| `sending.py` | **Cited** — the finding, G12 and G13 |
+| `serving.py` | **Cited** — the finding, and its other half |
+| `standing.py` | **Cited** — GU5 and GU7 |
+| `witness.py` | **Bears, not worked.** Receipts detect removal and anchors establish anteriority; together they are a stronger claim than either. Nothing here says whether a guardian gets the second |
+
+Counted off the table, 10 rows say *cited* and 8 say *bears, not worked*, and
+none says *no bearing* — the guardian is the only persona in the design that
+touches every part of it. The rows that bear rather than being cited are the
+ones with no counterpart in §19 of the capability map to have been modelled on,
+which is the same defect
+in method that `RECONCILE-STUDENT.md` names in its omitted-capability section.
