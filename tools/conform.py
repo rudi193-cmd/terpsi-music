@@ -247,6 +247,40 @@ def check_declared_sockets() -> Check:
                  f"{len(r.listeners)} listener(s), all declared; 0 outbound")
 
 
+def check_local_inference(where: Optional[Path] = None) -> Check:
+    """Refusal 1 (§6): nothing reaches a model except through the guard.
+
+    **Built before there is anything to find, and the state says so.** No
+    inference path exists in this repository, so the honest verdict today is
+    `UNKNOWN` — a scan over a tree with nothing to scan has not checked
+    anything, the shape `check_declared_sockets` reports for a manifest that
+    does not exist yet. What it buys is arrival: `records/inference.py` makes
+    an unguarded *answer* unrepresentable, and this makes an unguarded *call
+    site* a build failure the day somebody writes one.
+    """
+    from providers import Verdict, check as reach_check  # noqa: E402
+
+    targets = [where] if where is not None else [
+        ROOT / "records", ROOT / "tools", ROOT / "craft", ROOT / "voice.py",
+        ROOT / "personas.py"]
+    r = reach_check(targets)
+    what = "every inference path routes through the refusal-1 guard (§6)"
+    if r.verdict is Verdict.VACUOUS:
+        return Check("local-inference", what, State.UNKNOWN,
+                     f"{r.scanned} module(s) scanned by AST and none reaches a "
+                     "model: nothing was checked. The guard (records/inference.py) "
+                     "and this tripwire are wired and shown to fail against "
+                     "tests/fixtures/decoys, so the first inference path is "
+                     "caught on arrival")
+    if r.findings:
+        return Check("local-inference", what, State.FAIL,
+                     "; ".join(str(f) for f in r.findings[:3]))
+    calls = [x for x in r.reaches if x.kind.value != "router_import"]
+    return Check("local-inference", what, State.PASS,
+                 f"{len(calls)} call(s) reach a model across {r.scanned} "
+                 "module(s); every one goes through records.inference")
+
+
 def check_component_map() -> Check:
     """Item 0: an unverified table and a verified one must not look identical."""
     r = subprocess.run([sys.executable, str(ROOT / "tests" / "test_component_map.py")],
@@ -279,8 +313,10 @@ UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
              "no destination allowlist exists; §14 records the fleet-wide version "
              "as unique to UTETY"),
     _unknown("named-middles", "a named middle for every pair the app creates (§16)",
-             "not mechanically decidable. Four middles are named and tested "
-             "(crossing, standing.is_self_edge, marking.drift, practice._one_lane); "
+             "not mechanically decidable. Seven middles are named and tested "
+             "(crossing, standing.is_self_edge, marking.drift, practice._one_lane, "
+             "inference.CLASSES<->SENSITIVITY.md, inference.COVERED_CLASSES<->"
+             "CLAUDE.md refusal 1, providers.GUARD_ENTRIES<->records.inference); "
              "whether that is *every* pair is a reading, not a check"),
 )
 
@@ -288,7 +324,7 @@ UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
 CHECKS: Tuple[Callable[[], Check], ...] = (
     check_no_egress, check_write_paths, check_revocation_is_dated,
     check_suite_runs_standalone, check_ablation, check_exit_line,
-    check_component_map, check_declared_sockets,
+    check_component_map, check_declared_sockets, check_local_inference,
 ) + UNDECIDABLE
 
 

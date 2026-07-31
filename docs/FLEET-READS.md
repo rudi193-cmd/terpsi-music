@@ -959,6 +959,38 @@ Also corrected: the providers appear in **24** Python files in `willow-2.0`, not
 says Groq → Cerebras → SambaNova; the router says Gemini → Groq → OpenRouter →
 fleet. Neither is wrong about its own subject; there is no single chain.
 
+### Read again 2026-07-31, to build against rather than to cite
+
+The account above is sound and it is not sufficient to build from. Four things
+it does not say, found by reading `core/inference_router.py` line by line while
+writing `records/inference.py` against it:
+
+| | at source | why it changes the guard |
+|---|---|---|
+| **`core/llm_edge.py`** | its `respond()` calls the router and **discards `provider_used`**, returning a bare string; on exception it falls through to `_groq(...)` and then `_ollama(...)` in two `except: pass` blocks | the enforceable return shape is a property of *one* function, not of the fleet's edge. A caller of the sibling has no label to assert on, so **an absent label is a refusal here**, not a benefit of the doubt |
+| **a fourth mode** | `_chain("hns")` returns `hns + local + cloud`, and is absent from the file's own docstring; `_try_hns` posts to `node["2.0_stub"]["ollama_url"]` — **another machine's Ollama** | `provider_used == "ollama"` is necessary and not sufficient. `OLLAMA_URL` moves the plain path off-box too, so the guard checks the **address** as well as the label |
+| **`mode=`** | `chat(system, user, *, mode=None)` takes the chain by argument, bypassing `WILLOW_INFERENCE_PROVIDER` entirely | an off-switch a caller can pass an argument around is a default. Enforcement cannot live in the variable |
+| **`_load_key`** | falls back to `sap.core.inference.load_credential` when the environment is empty | *"no credential prefixes"* in install acceptance (§11.1) has to mean the credential store as well as the environment |
+
+**One disagreement is inside a single file**, which is the cheapest kind to
+miss: the module docstring lists three modes and a three-step cloud chain; the
+code implements four modes and a four-step chain.
+
+**And a count re-derived with its pattern**, because the `24` above has none and
+is therefore not reproducible. Files under `willow-2.0` matching
+`GROQ_API_KEY|OPENROUTER_API_KEY|GEMINI_API_KEY|api.groq.com|openrouter.ai|generativelanguage.googleapis.com`:
+**21** of 848 `.py` files, **17** excluding `archive/` and `tests/`. Files
+mentioning `inference_router`: **4**. Files mentioning `llm_edge`: **9**. The
+`24` is not contradicted — it is unreproducible, which under rule 17 is the same
+problem arriving one step earlier.
+
+**Not read, and it matters:** `willow/routing/shadow.py` carries a five-rung
+complexity ladder — `r1_trivial … r5_frontier` — whose `_RUNG_ENGINE` maps the
+top two rungs to `"cloud"`. It is a *third* ladder using the word rung (§15's
+hazard, with `L1–L5` and `P1–P5`), and its default preference for hard questions
+is the one refusal 1 forbids. Nothing here uses it; if anything ever does, that
+mapping is the thing to look at first.
+
 ### `jeles-remote` — definitions counted, sources claimed
 
 65 `def search_*` functions exist. **61 are registered in `SOURCES`** and

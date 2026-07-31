@@ -57,25 +57,44 @@ it either way.
   searched for standalone repositories; the fleet keeps apps inside the store.
   §9 foundation 6 points at something real. See `docs/FLEET-READS.md`.
 
-### One live hazard with no answer yet
+### The live hazard, built 2026-07-31
 
-Refusal 1 forbids a cloud inference fallback. **Corrected 2026-07-30 after
-re-deriving the tallies** — the first account of this was wrong in the
-maintainer's favour and the real shape is more tractable.
+Refusal 1 forbids a cloud inference fallback. The assertion shape this section
+argued for is now `records/inference.py`, with `tools/providers.py` watching for
+a call site that skips it; `docs/CROSSINGS.md` is not where this belongs and
+`§6` is where the rule lives, so this row is now a pointer.
 
-`willow-2.0/core/inference_router.py` reads
-`os.environ.get("WILLOW_INFERENCE_PROVIDER", "auto")`, and `_chain("local")`
-returns Ollama and nothing else. **So an off-switch exists** — refusal 1 already
-names the variable verbatim — **and the default is `auto`**, which means the
-chain is fail-open when unconfigured rather than undisableable. The providers
-appear in 24 Python files, and the two documented chains disagree with each
-other, so "we will not use `willow-seed`" remains insufficient.
+**Four things this section's account of the upstream file got wrong or left
+out**, found by opening it rather than by re-reading the note about it:
 
-**The tractable part:** `respond()` returns `(response_text, provider_used)`.
-Refusal 1 can therefore be enforced **by assertion** — require
-`provider_used == "ollama"` and fail otherwise — rather than by trusting an
-environment variable to have been set. That converts it from a deployment note
-into something testable, and is the shape to build.
+- **`core/llm_edge.py` is the more dangerous import**, and no plan here
+  mentioned it. Its `respond()` calls the router, **discards `provider_used`**,
+  returns a bare string, and on any exception falls through to Groq and then to
+  Ollama inside two `except: pass` blocks. The assertion shape does not exist
+  for a caller of that function — which is why an absent provider label is a
+  refusal here and not a benefit of the doubt.
+- **There is a fourth mode.** `_chain("hns")` returns `hns + local + cloud` and
+  is absent from the file's own docstring; `_try_hns` posts the request to
+  *another node's* Ollama. So "local" and "`ollama`" are not the same claim, and
+  `OLLAMA_URL` can address another machine in the plain path too. The guard
+  checks the address as well as the label.
+- **The environment variable is not the only way in.** `chat()` takes
+  `mode=`, which bypasses `WILLOW_INFERENCE_PROVIDER` entirely. An off-switch
+  somebody can pass an argument around is a default, not a switch.
+- **Removing keys from the environment is not severance.** `_load_key` falls
+  back to `sap.core.inference.load_credential`, so the install-acceptance line
+  *"no credential prefixes"* has to mean the credential store as well as the
+  environment.
+
+**One count corrected, and the correction is about method.** The *"providers
+appear in 24 Python files"* figure — carried here until today and still in
+`docs/FLEET-READS.md` — is not reproducible, because no pattern was recorded
+with it. Re-derived 2026-07-31 with the pattern written down —
+files under `willow-2.0` matching
+`GROQ_API_KEY|OPENROUTER_API_KEY|GEMINI_API_KEY|api.groq.com|openrouter.ai|generativelanguage.googleapis.com`
+— it is **21** of 848 `.py` files, or **17** excluding `archive/` and `tests/`.
+Four files mention `inference_router`; nine mention `llm_edge`. A number without
+its pattern is rule 17's own defect wearing a derivation's clothes.
 
 ### Where the tree actually stands
 
@@ -85,6 +104,7 @@ surface dir   none
 craft/        text-only: no student data, no network, no model
 voice.py      ROUTED — records/dispatch.py runs it after the seal, before dispatch
 records/      the read predicate — the first code here that decides about a person
+inference     GUARD ONLY — refusal 1 asserted; no call site exists to route yet
 ```
 
 **`records/` is the vertical slice, built 2026-07-30**, and it earned its keep
@@ -140,7 +160,12 @@ says what a surface is.
 1. **B3** — surfaces. Everything about layout waits on it.
 2. **The crossing-envelope table**, then item 4 clears the DDL into `migrations/`.
 3. **The exit line**, before anything installs.
-4. **Decide the refusal-1 inheritance question** before any inference path is written.
+4. ~~**Decide the refusal-1 inheritance question** before any inference path is
+   written.~~ **Decided and built 2026-07-31** — nothing is inherited.
+   `records/inference.py` asserts on `provider_used`; the environment variable
+   stays an off-switch and is never the enforcement. The ordering held: the
+   guard exists and there is still no inference path, so one cannot be born
+   unguarded.
 5. Then §9's list in its existing order — noting foundations 1 and 2 are **to build**.
 
 ## What this plan deliberately does not do
