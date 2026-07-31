@@ -33,12 +33,13 @@ Stdlib only. No network.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from typing import Optional, Protocol, Sequence, Tuple
 
-from .disclosure import Log
+from .disclosure import Ledger, Log
 
 
 @dataclass(frozen=True)
@@ -59,6 +60,57 @@ class Anchor:
 def anchor_for(log: Log, at: datetime) -> Anchor:
     head, count = log.anchor()
     return Anchor(head, count, at)
+
+
+def ledger_derivation(ledger: Ledger) -> Tuple[Tuple[str, str, int], ...]:
+    """`(lane_id, head, count)` per lane, sorted. **Never published.**
+
+    This is the working that a whole-programme anchor is computed from, and it
+    is the reason the anchor can be checked later. It is also a per-lane
+    activity series, which is one student's week — so it stays on the box and
+    `records/publication.py` builds nothing outward from it.
+    """
+    return tuple(sorted((lane_id, head, count)
+                        for lane_id, (head, count) in ledger.anchors()))
+
+
+def anchor_for_ledger(ledger: Ledger, at: datetime) -> Anchor:
+    """One anchor for the whole programme, over every lane at once.
+
+    `Ledger.anchors()` says it: *publishing these individually would leak which
+    lanes exist.* It would leak more than that — a weekly series of per-lane
+    anchors is per-student volume on a public calendar, which is the
+    shape-of-a-week leak addressed to one child rather than to a programme. So
+    the lanes are folded into a single digest, and what crosses is one code for
+    the programme.
+
+    An empty ledger anchors to a real digest with a count of zero, because
+    §5 requires emptied and never-written to be different facts.
+    """
+    material = "\x1f".join(f"{lane_id}:{head}:{count}"
+                           for lane_id, head, count in ledger_derivation(ledger))
+    head = hashlib.sha256(material.encode("utf-8")).hexdigest()
+    return Anchor(head, sum(c for _, _, c in ledger_derivation(ledger)), at)
+
+
+def derives(derivation: Sequence[Tuple[str, str, int]], anchor: Anchor) -> Tuple[bool, str]:
+    """Whether a kept derivation really produces the anchor that was published.
+
+    The redemption path: a proof redeems a code, and this says the code was
+    computed from the records the programme now shows you. Kept separate from
+    `standing()` because it answers a narrower question — not *is this log
+    evidence* but *is this working the working*.
+    """
+    material = "\x1f".join(f"{lane_id}:{head}:{count}"
+                           for lane_id, head, count in sorted(derivation))
+    got = hashlib.sha256(material.encode("utf-8")).hexdigest()
+    if got != anchor.head:
+        return (False, "this derivation does not produce the anchored digest")
+    total = sum(c for _, _, c in derivation)
+    if total != anchor.count:
+        return (False, f"the derivation totals {total} entries and the anchor "
+                       f"claims {anchor.count}")
+    return (True, f"{len(tuple(derivation))} lane(s) derive the anchored digest")
 
 
 class Independence(Enum):

@@ -34,8 +34,9 @@ and it is ordered below.**
   OpenTimestamps weekly, a legible annual deposit, guardian receipts
   continuously — because they fail differently and a dispute two years out
   uses whichever survived. The shapes exist (`records/witness.py`,
-  `records/receipts.py`); the wiring and the Ed25519 issuance dependency are
-  order item 3, and carry no open question.
+  `records/receipts.py`); **the wiring landed 2026-07-31**
+  (`records/publication.py`, `docs/WITNESS-DEPOSIT.md`) and what remains of
+  order item 3 is a dependency decision, not a task — see below.
 - **Item 4 is decided: `scout-21` §3, adopted.** Four rendering backends over
   one presentation-IR middle, three trust paths, and the `presentation/` +
   `surfaces/` layout that section names. Layout is unblocked, and with it item
@@ -71,9 +72,15 @@ tools/         conform, sockets, purity, providers, discipline — checkers
    stated-and-unenforced list drops to three — `edge_self_holder_is_subject`
    is now a trigger, and writing it found the mirror row (a ward holding
    `guardian_of` over itself) that would have signed its own envelope.
-3. **Wire the witness composite.** The weekly anchor publication on calendar
-   cadence, the annual-deposit procedure (a documented act, not code), and
-   Ed25519 receipt issuance before any deployment claim rests on attribution.
+3. ~~**Wire the witness composite.**~~ **Built 2026-07-31** —
+   `records/publication.py` and `docs/WITNESS-DEPOSIT.md`. The weekly payload,
+   its register and the states around a proof that never came back; the annual
+   deposit as a procedure with a dated disposition when it is missed. **One
+   thing is left and it is a decision, not effort: Ed25519 issuance.** The seam
+   takes either backend, the absence is `ABSENT` in the conformance record
+   rather than inferred, and adding an asymmetric primitive means adding this
+   repository's first dependency — a maintainer's call. Until it is made, no
+   deployment claim rests on a third party attributing a receipt.
 4. ~~**Refusal-1 by assertion**~~ — **Built 2026-07-31, audited and merged** —
    `records/inference.py` asserts on what actually answered, with five refusal
    states and no field a caller could use to allowlist a provider;

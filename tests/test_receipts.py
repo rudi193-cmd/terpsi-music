@@ -15,7 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from records import Edge, Field, Principal, Rung, serve  # noqa: E402
 from records.disclosure import Ledger, Log  # noqa: E402
 from records.receipts import (  # noqa: E402
-    GuardianReceipt, authentic, contradictions, gaps, held_by, issue,
+    AsymmetricUnavailable, GuardianReceipt, HmacTagger, Issuance, NoSigner,
+    Uncheckable, authentic, contradictions, gaps, held_by, issue, receipt_text,
+    schemes,
 )
 
 T0 = datetime(2026, 3, 1)
@@ -200,10 +202,15 @@ def test_a_receipt_carries_a_tag_the_issuer_can_check():
 
 def test_the_receipt_carries_no_content_only_the_fact_of_a_record():
     """A receipt is handed to a person and must survive being handed to the
-    wrong one. The digest is opaque; nothing about the entry travels."""
+    wrong one. The digest is opaque; nothing about the entry travels.
+
+    `issuance` joined this set on 2026-07-31 and is not content: it names what
+    the receipt's own tag is worth, which the holder would otherwise have to
+    assume. The set stays exact so the next field has to be argued for too.
+    """
     fields = {f.name for f in dataclasses.fields(GuardianReceipt)}
     assert fields == {"lane_id", "position", "entry_digest", "issued_at",
-                      "to_guardian", "tag"}
+                      "to_guardian", "tag", "issuance"}
     _led, rs = issue_all(Ledger(), LB, BEN, guardians(), 1)
     assert "chair" not in repr(rs[0]) and "student-ben" not in repr(rs[0])
 
@@ -249,13 +256,120 @@ def test_the_tag_is_not_claimed_to_be_a_signature_documented():
     r = rs[0]
     minted = dataclasses.replace(
         r, position=42,
-        tag=__import__("hmac").new(
-            KEY, "\x1f".join([r.lane_id, "42", r.entry_digest,
-                              r.issued_at.isoformat(), r.to_guardian]).encode(),
-            __import__("hashlib").sha256).hexdigest())
+        tag=HmacTagger(KEY).tag("\x1f".join(
+            [r.lane_id, "42", r.entry_digest, r.issued_at.isoformat(),
+             r.to_guardian, r.issuance.value])))
     assert authentic(minted, KEY), (
         "anyone holding the key can mint a receipt; that is the known limit"
     )
+
+
+# --- which scheme issued it, and what that is worth -----------------------
+
+
+def test_a_receipt_says_what_its_own_tag_is_worth():
+    """A holder told nothing assumes the strongest reading. So the weaker
+    property is a field, it is on the printed slip in words, and it is covered
+    by the tag."""
+    _led, rs = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    r = rs[0]
+    assert r.issuance is Issuance.SELF_VERIFIABLE
+    assert r.scheme == "hmac-sha256"
+    page = receipt_text(r).text
+    assert "Someone else cannot" in page
+    assert "hmac-sha256" in page
+
+
+def test_relabelling_a_receipt_as_attributable_breaks_its_tag():
+    """The issuance claim is inside the tagged material, so a receipt cannot be
+    promoted after issue by editing one field."""
+    _led, rs = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    promoted = dataclasses.replace(rs[0], issuance=Issuance.ATTRIBUTABLE)
+    try:
+        authentic(promoted, KEY)
+    except Uncheckable:
+        return          # the verifier refuses before it even checks the maths
+    raise AssertionError("a relabelled receipt was checked as if nothing changed")
+
+
+def test_the_issuance_claim_is_inside_the_tag():
+    """Relabelling the receipt *and* the verifier to match still fails, because
+    what a receipt says it is worth is part of what was tagged. Without this the
+    seventh field would be a caption anyone could edit."""
+    _led, rs = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    promoted = dataclasses.replace(rs[0], issuance=Issuance.ATTRIBUTABLE)
+    lenient = HmacTagger(KEY, "hmac-sha256", Issuance.ATTRIBUTABLE)
+    assert not authentic(promoted, lenient), (
+        "a receipt was promoted to attributable by editing a field"
+    )
+    assert authentic(rs[0], HmacTagger(KEY)), "the ordinary case stopped working"
+
+
+def test_a_scheme_a_verifier_cannot_read_is_unknown_not_forged():
+    """Rule 13 at a verifier. `False` would report *cannot check* and *forged*
+    with the same word, and the difference is the whole of the question."""
+    _led, rs = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    signed = dataclasses.replace(rs[0], tag="ed25519:" + "0" * 128,
+                                 issuance=Issuance.ATTRIBUTABLE)
+    try:
+        authentic(signed, KEY)
+    except Uncheckable as exc:
+        assert "unknown, not a mismatch" in str(exc)
+        return
+    raise AssertionError("an unreadable scheme came back as an ordinary boolean")
+
+
+def test_an_absent_asymmetric_signer_refuses_rather_than_falling_back():
+    """**The dependency §18 item 15 carries.** A deployment that asks for the
+    attributable path and does not have the primitive must be told so. A silent
+    HMAC underneath would make the two indistinguishable at every call site, and
+    the first place anyone noticed would be a dispute."""
+    led = write(Ledger(), LB, BEN, 1)
+    try:
+        issue(led, LB, BEN, guardians(), T0, signer=AsymmetricUnavailable())
+    except NoSigner as exc:
+        assert "not quietly issued under a weaker scheme" in str(exc)
+        return
+    raise AssertionError("an unavailable signer issued something anyway")
+
+
+def test_issuance_is_chosen_rather_than_defaulted():
+    """A key or a signer, never both and never neither: which scheme issued a
+    receipt is always something somebody decided."""
+    led = write(Ledger(), LB, BEN, 1)
+    for kwargs in ({}, {"key": KEY, "signer": HmacTagger(KEY)}):
+        try:
+            issue(led, LB, BEN, guardians(), T0, **kwargs)
+        except ValueError:
+            continue
+        raise AssertionError(f"issue() accepted {kwargs or 'neither'}")
+
+
+def test_a_signer_and_a_bare_key_agree():
+    """The seam is not a second implementation: passing the key is passing an
+    `HmacTagger` around it."""
+    led = write(Ledger(), LB, BEN, 1)
+    by_key = issue(led, LB, BEN, guardians(), T0, KEY)
+    by_signer = issue(led, LB, BEN, guardians(), T0, signer=HmacTagger(KEY))
+    assert by_key == by_signer and by_key
+
+
+def test_the_attributable_path_is_ABSENT_here_documented_not_hidden():
+    """**A limitation, not a bug**, and it is the open half of §18 item 15.
+
+    This tree performs one issuance scheme and it is symmetric. Ed25519 is a
+    dependency decision — the stdlib has no asymmetric primitive, vendoring
+    curve arithmetic into a records module would be the worst version of §16's
+    copied pair, and CI installs nothing. So the socket exists (`Signer`,
+    `Issuance.ATTRIBUTABLE`) and the plug does not, and `tools/conform.py`
+    reports that as its own row rather than leaving it to be inferred.
+    """
+    assert schemes() == ("hmac-sha256",), (
+        "if an asymmetric scheme has landed, this test should be rewritten "
+        "rather than deleted, and §18 item 15's dependency struck"
+    )
+    assert Issuance.ATTRIBUTABLE.limit          # the words are ready for it
+    assert AsymmetricUnavailable().issuance is Issuance.UNAVAILABLE
 
 
 def test_the_module_is_not_broken_shut():

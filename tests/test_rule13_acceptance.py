@@ -615,11 +615,26 @@ def test_conform_artifacts_that_are_absent_report_absent_not_pass():
         conform.ROOT = real
 
 
+#: Checks that consult no tree: they attempt a forbidden act against code
+#: already imported and report whether it was refused. Over an unreachable
+#: ROOT their PASS is still derived from a real attempt, so the sweep's rule
+#: — nothing *reads* health out of a source that is not there — does not
+#: reach them. Each entry carries its reason; an entry without one is a
+#: finding, and `test_the_behavioral_exemptions_really_are_behavioral`
+#: asserts membership is earned rather than declared.
+BEHAVIORAL_CHECKS = {
+    "anchor-payload": "builds an anchor carrying a subject_id in memory and "
+                      "asserts the gate refuses it; no file is consulted",
+}
+
+
 def test_conform_sweep_no_check_reports_health_over_an_unreachable_tree():
     """`willow-grove` constraint 1's check, applied to every pane there is:
     *point the app at an unreachable DSN in CI and assert no surface reports
     health.* A check that raises counts as not-health; a check that returns PASS
-    does not, whatever it says in its evidence."""
+    does not, whatever it says in its evidence — unless it is a behavioral
+    check (`BEHAVIORAL_CHECKS`), whose PASS is an attempt refused in memory
+    rather than a claim read from the missing tree."""
     real = conform.ROOT
     healthy, seen = [], []
     try:
@@ -632,7 +647,7 @@ def test_conform_sweep_no_check_reports_health_over_an_unreachable_tree():
                     seen.append((getattr(factory, "__name__", "?"), type(exc).__name__))
                     continue
                 seen.append((got.id, got.state.value))
-                if got.conforms:
+                if got.conforms and got.id not in BEHAVIORAL_CHECKS:
                     healthy.append(got)
     finally:
         conform.ROOT = real
@@ -641,6 +656,33 @@ def test_conform_sweep_no_check_reports_health_over_an_unreachable_tree():
         "a conformance check reported PASS over a tree that is not there: "
         + "; ".join(f"{c.id} — {c.evidence[:80]}" for c in healthy)
     )
+
+
+def test_the_behavioral_exemptions_really_are_behavioral():
+    """The exemption list is itself a seam: an entry that names a check which
+    *does* read the tree would quietly re-open the hole the sweep closes. So:
+    every exempted id must exist in the registry, and its source must consult
+    neither `ROOT` nor the filesystem."""
+    import inspect
+    by_id = {}
+    for factory in conform.CHECKS:
+        try:
+            src = inspect.getsource(factory)
+        except (OSError, TypeError):
+            src = ""
+        name = getattr(factory, "__name__", "")
+        for cid in BEHAVIORAL_CHECKS:
+            if f'"{cid}"' in src or f"'{cid}'" in src:
+                by_id[cid] = src
+    for cid, reason in BEHAVIORAL_CHECKS.items():
+        assert reason and reason.strip(), f"{cid}: an exemption with no reason"
+        assert cid in by_id, f"{cid}: exempted but no such check in the registry"
+        src = by_id[cid]
+        for marker in ("ROOT", "read_text", "open(", "glob", "exists()"):
+            assert marker not in src, (
+                f"{cid}: exempted as behavioral but its source touches "
+                f"{marker!r} — it reads the tree, so the sweep must judge it"
+            )
 
 
 def test_the_record_of_such_a_run_reads_as_unknown_rather_than_as_conformance():
