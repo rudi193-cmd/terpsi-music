@@ -1674,6 +1674,61 @@ MUTATIONS = [
      "tests/test_console.py"),
     ("console/session.py", "        if not self.open:", "        if False:",
      "a closed session refuses a further read", "tests/test_console.py"),
+    # --- the drop producer core (docs/PLAN-DROP.md D-1..D-4) ----------------
+    #
+    # Each row restores one of the four slices' forbidden acts and points at the
+    # suite that must notice. All are pure Python — no cluster — so they run in
+    # the control and ablate red without a database.
+    #
+    # D-1, drop/producer.py. The two invariants: fail-closed without the sealing
+    # primitive (acceptance test 2), and one student per payload (the W-1/W-3
+    # forbidden act). The availability guard is `if not available()` -> `if
+    # False`, so a box that reports its primitive unusable proceeds to seal
+    # instead of landing nothing.
+    ("drop/producer.py", "    if not available():", "    if False:",
+     "the producer fails closed without its sealing primitive",
+     "tests/test_drop_producer.py"),
+    ("drop/producer.py", "    if len(students) > 1:", "    if False:",
+     "a two-student view is refused before sealing (W-1/W-3)",
+     "tests/test_drop_producer.py"),
+    # D-2, drop/store.py. Non-enumerability is structural (the slot is keyed by
+    # the owner's secret material, so B's slot is unformable from A's handle) and
+    # authenticated (a forged credential is refused). Plus the fail-closed drop
+    # half: a credential with no material is not a credential.
+    ("drop/store.py", "        if registered != credential.material:",
+     "        if False:",
+     "a forged owner credential cannot bind to a mailbox",
+     "tests/test_drop_store.py"),
+    ("drop/store.py",
+     '    return hashlib.sha256(b"drop-slot:" + material).hexdigest()',
+     '    return "one-shared-slot"',
+     "a handle reads only its own mailbox (structural non-enumerability)",
+     "tests/test_drop_store.py"),
+    ("drop/store.py", "        if not self.material:", "        if False:",
+     "a credential with no key material is refused (fail-closed)",
+     "tests/test_drop_store.py"),
+    # D-3, drop/cadence.py. Two ways a size could track its contents: a round
+    # that does not pad to a constant number of slots, and a bucket that does not
+    # equalise unequal payloads.
+    ("drop/cadence.py", "    while len(out) < slots:", "    while False:",
+     "a collection round is a constant number of slots",
+     "tests/test_drop_cadence.py"),
+    ("drop/cadence.py", "    filler = bytes(bucket - _HDR - len(payload))",
+     '    filler = b""',
+     "the bucket equalises unequal payload sizes",
+     "tests/test_drop_cadence.py"),
+    # D-4, drop/preparing.py. The forbidden act is preparing a restricted (or
+    # lapsed) guardian a drop — restored by re-adding the suppressed to the
+    # reachable set. And the fail-closed half: an UNKNOWN prepared set must not
+    # iterate as empty (rule 13).
+    ("drop/preparing.py", "    reachable = tuple(who)",
+     "    reachable = tuple(who) + tuple(s[0] for s in who.suppressed)",
+     "a restricted guardian is never prepared a drop",
+     "tests/test_drop_preparing.py"),
+    ("drop/preparing.py", "        if self.state is not Standing.DERIVED:",
+     "        if False:",
+     "an unknown prepared set does not iterate as empty (rule 13)",
+     "tests/test_drop_preparing.py"),
 ]
 
 
