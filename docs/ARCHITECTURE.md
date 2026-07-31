@@ -1437,13 +1437,16 @@ The DDL has been **executed** against PostgreSQL 16 and every constraint attacke
 
 **This one is struck as *written*, not as *closed*, and the distinction is the point.** Three things still gate adoption:
 
-- **It rests on a paraphrase.** W-1…W-7 exist in `Willow`'s `PROTECTED_AGENTS.md` Part III and were not read at source — the schema encodes CLAUDE.md's one-line gloss of §7.4's summary. §7.4 itself notes the fragment carries a machine register and a human one, and that *"a clause that cannot survive translation between the two registers is not yet a clause."* Encoding the human-register gloss is exactly that translation risk. **Open Part III before this becomes `migrations/001_lanes.sql`.**
+- **It rests on a paraphrase.** W-1…W-7 exist in `Willow`'s `PROTECTED_AGENTS.md` Part III and were not read at source — the schema encodes CLAUDE.md's one-line gloss of §7.4's summary. §7.4 itself notes the fragment carries a machine register and a human one, and that *"a clause that cannot survive translation between the two registers is not yet a clause."* Encoding the human-register gloss is exactly that translation risk. ~~**Open Part III before this becomes `migrations/001_lanes.sql`.**~~ **Cleared 2026-07-30 — Part III was read at source.** The read cleared the paraphrase gate and opened a different one: W-3's guardian-signed envelope had no table among the twelve, so the permission was unrepresentable. `records/crossing.py` now carries it as a type; the DDL does not yet carry it as a table.
 - **~~Three~~ Four invariants are stated and unenforced** — I-7's supersession asymmetry, W-3's default deny, the rung ceiling, and (added 2026-07-30) **the `self` edge's holder**, which must be the lane's subject and cannot be expressed as a CHECK. The first three are predicates over the acting principal and belong with the read predicate; the fourth is a row-shape constraint needing a trigger, and it is the first entry added by *widening* the schema rather than by reading it. All four named in `LANE-MODEL.md` rather than left to be discovered.
-- **It is gated on blockers 2 and 4**, which is why the file sits in `docs/schema/` rather than `migrations/`.
+- **It is gated on blockers 2 and 4**, which is why the file sits in `docs/schema/` rather than `migrations/`. **Both are now closed — 2 on 2026-07-30, 4 on 2026-07-31 — so promotion is unblocked**, pending one act the closings do not perform: the thirteenth table (the crossing envelope, `records/crossing.py`) and the fourteenth (the `Widening`, `records/standing.py`) exist as types and not as DDL, and the SQL must carry them before it leaves `docs/schema/`.
 
-**4 · Which surfaces exist.**
-**State: blocking for layout. Deferred 2026-07-30 — being worked separately, not unanswered.** Two corrections to this item's own statement landed while it was discussed, and both hold whichever way it goes.
-Six personas (§4), `safe-design` ready with tokens and structurally-parity backends, and nothing recorded about whether this is a TUI, a browser application, both, or a TUI plus the parent PWA of §4.2. The answer sets the first directory layout and determines which of `safe-design`'s backends is load-bearing.
+**~~4 · Which surfaces exist.~~**
+**State: closed 2026-07-31, by maintainer decision. The answer is `docs/survey/scout-21-surfaces-a11y.md` §3, adopted as written: four rendering backends — TUI, server-rendered HTML, print, text/ASCII — over one presentation-IR middle, with three trust paths and the `presentation/` + `surfaces/` layout that section names.** Not "a TUI or a browser app": §4 assigns five transports to six personas, so the surface count follows from the transport count, and the judge and the guardian share a backend while never sharing a trust path.
+
+~~Six personas (§4), `safe-design` ready with tokens and structurally-parity backends, and nothing recorded about whether this is a TUI, a browser application, both, or a TUI plus the parent PWA of §4.2. The answer sets the first directory layout and determines which of `safe-design`'s backends is load-bearing.~~
+
+**The corrections below survive the closing, and two become obligations of the first surfaces commit:** the manifest this item owns is written against `tools/sockets.py`, which exists first so the manifest cannot be born wrong (iii); and rule 12's socket-reconciliation test lands in the same commit as the manifest, in this repository's own CI rather than the store's (ii).
 
 > **(i) The enumeration above is missing a surface, and it is the untrusted
 > one.** "TUI, browser, both, or TUI plus the parent PWA" has no place for
@@ -1606,13 +1609,16 @@ The fail-open is not theoretical: a count is exactly the shape that re-identifie
 
 Step 2a added. `records/classify.py` implements it, and a derived field now inherits `max` of its inputs until the check passes.
 
-**15 · Who witnesses the anchor.**
-**State: open, and upstream of everything else this repository does. Needs a decision.**
+**~~15 · Who witnesses the anchor.~~**
+**State: decided 2026-07-31, by maintainer decision — the composite this item's own analysis argued for: rows 1, 4 and 5 together.** OpenTimestamps weekly (cheap-and-frequent, trusts nobody); certified mail to self or an annual deposit with an attorney (legible-and-rare — a jury understands it without being taught what a hash is); guardian receipts continuously (adverse-interest, and already built). They fail differently, which is the point: a dispute two years out uses whichever survived.
+
+**What the decision does not close, carried as tasks rather than questions:** the weekly publication call and the annual-deposit procedure are unwired — `records/witness.py` supplies the anchor shape and nothing yet publishes one on the calendar cadence the module requires; and row 5's **Ed25519 issuance dependency stands** — until it lands, receipts carry weight by distribution and adversity, not attribution, and no deployment claim should rest on a third party attributing one. The limit no witness removes (below) is unchanged by the decision and travels with it.
+
 The purpose of this system is provability — an institution that does not follow its own rules, and no way to show it. Every mechanism below rests on a record being **believable later**, and a record its author controls is weak evidence. The institution's response to an inconvenient log is not to dispute an entry; it is to say the log is yours, you built it, you can make it say anything.
 
 §5 specifies a `(head, count)` anchor and never says where it lives. `records/witness.py` now supplies the shape — anchors carry a digest, a count and a time and **nothing else**, which is why publishing one may cross the egress boundary at all; cadence is derived from the calendar rather than from activity, because an anchor series that tracks activity is `corpus-lens`'s shape-of-a-week leak; and an unwitnessed log reads as `UNWITNESSED`, never as fine.
 
-**What is not decided is the counterparty.** Candidates, with what each actually survives:
+**What was undecided was the counterparty.** Candidates, with what each actually survives:
 
 | | mechanism | trusts | note |
 |---|---|---|---|
