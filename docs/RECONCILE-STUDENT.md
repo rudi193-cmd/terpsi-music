@@ -50,8 +50,8 @@ short. names one next action. never a comparison."*
 | S6 | Announcements addressed to them | **Survives** |
 | S7 | Requesting a widening from a guardian | **Survives as a request, never an authorization** |
 | S8 | Routing a concern to a named adult | **Survives as a route** — see `RECONCILE-SAFEGUARDING.md` |
-| S9 | Own practice record | **Survives, with a mechanism** |
-| S10 | Practice streaks, milestones, cumulative hours | **Needs a decision** |
+| S9 | Own practice record | **Survives** — `records/practice.py` is built |
+| S10 | Practice streaks, milestones, cumulative hours | **Shipped; a proposal to reopen §18 item 9** |
 | S11 | "How am I doing" | **Refused** |
 | S12 | Chair or placement prediction | **Refused** |
 | S13 | Comparison to the section or to a named peer | **Refused** |
@@ -114,26 +114,48 @@ A clean track record is evidence for a proposal, never a grant in itself.*
 ## S9 and S10 — where the leaderboard hides
 
 **S9 survives**: a student may see their own practice record. It is their entry
-in their own lane.
+in their own lane, and `records/practice.py` already builds it — `own()` returns
+sessions, minutes and streaks over a single lane, and `_one_lane()` raises
+rather than filtering if asked to span two.
 
-**S10 needs a decision.** §1 of the capability map proposes practice streaks,
-cumulative-hour milestones and chair-challenge standings. §9 of the architecture
-already flags it against UTETY's ground rule — *feedback is about the work,
-never the learner; no praise of the person, no leaderboards* — and observes that
-*some of that is about the work and survives; some of it is a leaderboard with a
-different name.*
+**S10 is not open, and this entry reopens it rather than discovering it.**
+§18 item 9 is **closed** as of 2026-07-30 — *"the standings half was never a
+UTETY question; it is already forbidden by refusal 6 and W-7"* — and the line was
+drawn in code:
 
-Sharpen it: **a streak is a standing score of a person with the number left
-in.** It persists across contexts, it rates the learner rather than the work,
-and §13 prohibits exactly that. `voice.evaluative_praise` will not catch it,
-because a streak counter says nothing — it just counts, and the student supplies
-the praise.
+| | |
+|---|---|
+| refused | `standings()`, and any statistic reading more than one lane (W-3's seal) |
+| permitted | `OwnPractice.streak_days`, `longest_streak_days`, and `THRESHOLDS = (5, 10, 25, 50, 100, 250)` |
 
-**Needs a human — 1.** Cumulative hours *this season, for this student, shown
-only to them* is arguably a record rather than a score. A streak with a flame
-next to it is not. The line is real and somebody has to draw it. It is worth
-drawing before the feature ships, because a streak is very hard to take away
-once students have one.
+**So own-lane streaks ship today.** What follows is a proposal to reopen that,
+and it is stated as one because this file's header says the doc wins and this
+file is the defect — arriving at a settled question without noticing is exactly
+the defect that header describes.
+
+**The argument for reopening: a streak is a standing score of a person with the
+number left in.** It persists across contexts, it rates the learner rather than
+the work, and §13 prohibits exactly that. `voice.evaluative_praise` cannot catch
+it, because a streak counter says nothing — it just counts, and **the student
+supplies the praise.** That last step is what item 9's closing did not consider:
+it reasoned about whether the *system* rates a person, and a counter does not, so
+it passed. The rating happens in the student's head, reliably, which is the
+entire design intent of a streak.
+
+**The argument against, which item 9 has on its side.** `practice.py`'s rule is
+structural rather than remembered — *every own-work statistic reads one lane and
+every comparison needs two* — and a streak genuinely reads one lane. Prohibiting
+it needs a second rule about **what a single-lane statistic may be shaped like**,
+which is a weaker kind of rule: judgement rather than a predicate, and rule 19
+says a judgement is the hard thing to check.
+
+**Needs a human — 1.** Whether that is worth reopening item 9 for. Cumulative
+hours *this season, shown only to them* is arguably a record rather than a score;
+a streak with a flame next to it is not. **The narrower change, if the argument
+lands, is dropping `streak_days` and keeping `THRESHOLDS`** — milestones are
+absolute and bounded, a streak is unbounded and resets, and the reset is where
+the pressure lives. Worth settling before a surface renders it, because a streak
+is very hard to take away once students have one.
 
 ## The refusals
 

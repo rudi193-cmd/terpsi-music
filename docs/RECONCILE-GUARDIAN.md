@@ -8,7 +8,8 @@ Second of the three lists `docs/RECONCILE-19.md` does not cover; see
 `docs/RECONCILE-STUDENT.md` for the first and for the shared framing. The
 decisions reconciled against are not restated: §4.1 and §4.2 (the traffic split
 and the transactional remainder), §7.1 (dated guardianship), §7.4 (the ward
-clauses), §13, §15, `docs/PLAN-GUARDIANSHIP.md`'s G1–G11, and `voice.py`.
+clauses), §13, §15, §18 item 10 (which consent model governs — closed,
+`records/consent.py`), `docs/PLAN-GUARDIANSHIP.md`'s G1–G13, and `voice.py`.
 
 **Register** is already written, in `personas.py`: *"complete sentences, no
 jargon, no program shorthand. a named person."*
@@ -156,6 +157,18 @@ that belong to it and were not available when it was written:
 - A guardian watching which staff member reads a record repeatedly is
   constructing exactly the standing cross-context judgement §13 prohibits — of a
   staff member, by a parent, with no seal and nobody to ask.
+
+**And `records/consent.py` (§18 item 10, closed 2026-07-30) supplies a
+vocabulary this question did not have.** `governs()` decides *whom to ask* per
+principal: `self` and `guardian_of` **hold** the authority and are asked at the
+door under SAFE's session model; `staff_of`, `director_of`, `judge_at` and
+`clinician_for` **exercise** an authority granted elsewhere and are never
+prompted. That split is the sharp edge of GU10 restated — the staff member whose
+read a guardian would be watching is someone the system has already classified
+as *exercising the guardian's own authority*. Whether it follows that the
+guardian may see them exercise it, or that they may not because the reads are
+the staff member's and not theirs, is precisely the open question. It is now at
+least a question with two named sides rather than an intuition.
 
 ## The refusals
 
