@@ -171,10 +171,28 @@ def test_an_audit_with_no_date_or_no_pin_is_unknown():
 
 def test_a_pin_this_history_does_not_contain_is_unknown():
     """The one thing the pin actually decides. *How far behind* is a judgement
-    about diffs and is not decidable here — which is why staleness is a date."""
+    about diffs and is not decidable here — which is why staleness is a date.
+
+    Two branches since 2026-07-31, because git has two ways of not saying yes
+    and they are different facts: a sha it has never seen (this fixture's
+    zeros) is *undecidable*, while a real commit outside HEAD's ancestry is a
+    definite *no*. CI's shallow checkout hit the first and the check reported
+    the second — a negative nobody established — which is how one red run
+    bought this split."""
     with tempfile.TemporaryDirectory() as d:
         got = check_security_audit(_audit(d, pin="0" * 40))
-    assert got.state is State.UNKNOWN and "not an ancestor" in got.evidence
+    assert got.state is State.UNKNOWN and "cannot decide" in got.evidence
+
+    import subprocess as sp
+    r = sp.run(["git", "rev-list", "--max-parents=0", "HEAD"],
+               capture_output=True, text=True, cwd=conform.ROOT)
+    root = r.stdout.split()[0] if r.returncode == 0 and r.stdout.strip() else None
+    orphan = sp.run(["git", "commit-tree", root + "^{tree}", "-m", "orphan"],
+                    capture_output=True, text=True, cwd=conform.ROOT) if root else None
+    if orphan and orphan.returncode == 0:
+        with tempfile.TemporaryDirectory() as d:
+            got = check_security_audit(_audit(d, pin=orphan.stdout.strip()))
+        assert got.state is State.UNKNOWN and "not an ancestor" in got.evidence
 
 
 def test_the_real_audit_document_is_read_and_passes():

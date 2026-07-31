@@ -605,10 +605,22 @@ def check_security_audit(doc: Optional[Path] = None) -> Check:
 
     r = subprocess.run(["git", "merge-base", "--is-ancestor", pin, "HEAD"],
                        capture_output=True, text=True, cwd=ROOT)
-    if r.returncode != 0:
+    if r.returncode == 1:
         return Check("security-audit", what, State.UNKNOWN,
                      f"{path.name} pins `{pin}`, which is not an ancestor of HEAD; "
                      "the audit describes a tree this one does not contain")
+    if r.returncode != 0:
+        # Exit 1 is git answering *no*; anything else is git unable to answer —
+        # a shallow clone with the pin outside its horizon, or a sha it has
+        # never seen. Reporting that as "not an ancestor" asserted a negative
+        # nobody established (rule 13), and it shipped: CI's checkout was
+        # shallow, every ancestry question came back 128, and the gate called
+        # a true pin foreign. The workflow now fetches full history; this
+        # branch stays for every other shallow context.
+        return Check("security-audit", what, State.UNKNOWN,
+                     f"{path.name} pins `{pin}` and this clone cannot decide "
+                     "ancestry (shallow history or unknown sha) — undecidable, "
+                     "not foreign")
 
     return Check("security-audit", what, State.PASS,
                  f"{path.name} dated {when} at `{pin}`, {age} day(s) old; "

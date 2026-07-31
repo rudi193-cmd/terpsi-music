@@ -15,6 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history, not a shallow head: the security-audit gate verifies
+          # the audit document's commit pin is an ancestor of HEAD, and a
+          # depth-1 clone cannot answer that question — CI spent one red run
+          # calling a true pin foreign before this line existed.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -98,6 +104,12 @@ jobs:
       PSQL: psql -h localhost -U postgres -d postgres
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history, not a shallow head: the security-audit gate verifies
+          # the audit document's commit pin is an ancestor of HEAD, and a
+          # depth-1 clone cannot answer that question — CI spent one red run
+          # calling a true pin foreign before this line existed.
+          fetch-depth: 0
 
       - name: Apply the migration
         run: $PSQL -v ON_ERROR_STOP=1 -q -f migrations/001_lanes.sql
