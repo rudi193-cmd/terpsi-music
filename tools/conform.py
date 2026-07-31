@@ -130,36 +130,67 @@ def check_write_paths(where: Optional[Path] = None) -> Check:
                    "evidence the mechanism works")
 
 
-def check_revocation_is_dated() -> Check:
-    """§7.1 / refusal 3: revocation sets a date and never deletes."""
+def check_revocation_is_dated(where: Optional[Path] = None) -> Check:
+    """§7.1 / refusal 3: standing ends by a date, never by a delete.
+
+    **The version that lived here was wrong in both directions at once.** It
+    matched a regex over lines, so a docstring reading *"never call
+    `edges.remove(`"* failed the file — and it missed `del edges[0]`,
+    `self._edges.remove()` (a leading underscore is a word character, so
+    `\\bedges` finds no boundary), an executed `DELETE FROM edge`, and an
+    entire subdirectory.
+    """
+    from discipline import counted, deletions  # noqa: E402
+
+    targets = [where] if where is not None else [ROOT / "records"]
+    what = "revocation by date, never by delete (§7.1)"
     src = (ROOT / "records" / "serving.py").read_text(encoding="utf-8")
-    if "invalid_at" not in src:
-        return Check("dated-revocation", "revocation by date, never by delete (§7.1)",
-                     State.FAIL, "Edge carries no invalid_at")
-    bad = []
-    for py in sorted((ROOT / "records").glob("*.py")):
-        for i, line in enumerate(py.read_text(encoding="utf-8").splitlines(), 1):
-            if re.search(r"\b(edges|edge)\s*\.\s*(remove|pop|clear)\s*\(", line):
-                bad.append(f"{py.name}:{i}")
+    if where is None and not all(d in src for d in ("valid_at", "invalid_at", "created_at")):
+        return Check("dated-revocation", what, State.FAIL,
+                     "Edge does not carry all three dates")
+    found = deletions(targets)
+    n = counted(targets)
+    if found:
+        return Check("dated-revocation", what, State.FAIL,
+                     "; ".join(str(d) for d in found[:4]))
+    if not n:
+        return Check("dated-revocation", what, State.UNKNOWN,
+                     "no files scanned; nothing was checked")
+    if where is not None:
+        return Check("dated-revocation", what, State.PASS,
+                     f"{n} module(s) scanned by AST; nothing deleted")
+    # The load-bearing half needs a store, and there is not one.
+    return Check("dated-revocation", what, State.UNKNOWN,
+                 f"{n} module(s): Edge carries valid_at/invalid_at/created_at and "
+                 "nothing deletes standing — but revocation-by-delete is a property "
+                 "of a store and there is no store, so this is narrower than it reads")
+
+
+def check_suite_runs_standalone(where: Optional[Path] = None) -> Check:
+    """§17 propagates the acceptance shape, not just the tests.
+
+    **The version that lived here asked whether the string `__main__` appeared
+    anywhere in the file**, so it passed a suite that only mentions it in a
+    docstring, a suite whose runner is `pass`, and — worst — a suite whose runner
+    catches every failure and exits 0. A runner that cannot fail the process is
+    worse than no runner, because the record then carries a row saying the suite
+    runs alone.
+    """
+    from discipline import Runner, runners  # noqa: E402
+
+    targets = [where] if where is not None else [ROOT / "tests"]
+    what = "every test file runs standalone and can fail"
+    got = runners(targets)
+    if not got:
+        return Check("standalone-suites", what, State.UNKNOWN,
+                     "no test files found; nothing was checked")
+    bad = [s for s in got if not s.ok]
     if bad:
-        return Check("dated-revocation", "revocation by date, never by delete (§7.1)",
-                     State.FAIL, f"standing removed rather than dated: {'; '.join(bad)}")
-    return Check("dated-revocation", "revocation by date, never by delete (§7.1)",
-                 State.PASS,
-                 "Edge carries valid_at/invalid_at/created_at; no module removes an edge")
-
-
-def check_suite_runs_standalone() -> Check:
-    """§17 propagates the acceptance shape, not just the tests. Every test file
-    must run without pytest, so an instance cannot conform by having a runner."""
-    missing = [p.name for p in sorted((ROOT / "tests").glob("test_*.py"))
-               if '__main__' not in p.read_text(encoding="utf-8")]
-    if missing:
-        return Check("standalone-suites", "every test file runs standalone",
-                     State.FAIL, f"no __main__ block: {', '.join(missing)}")
-    n = len(list((ROOT / "tests").glob("test_*.py")))
-    return Check("standalone-suites", "every test file runs standalone",
-                 State.PASS, f"{n} test files, each with a __main__ runner")
+        return Check("standalone-suites", what, State.FAIL,
+                     "; ".join(f"{s.module} — {s.runner.value}" for s in bad[:4]))
+    return Check("standalone-suites", what, State.PASS,
+                 f"{len(got)} test file(s): each has a __main__ runner that exits "
+                 "nonzero on failure")
 
 
 def check_ablation() -> Check:
