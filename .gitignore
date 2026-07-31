@@ -14,3 +14,5 @@ venv/
 .mcp.json
 .willow/
 .cursor/
+.ablate-lock
+.ablate-inflight.json

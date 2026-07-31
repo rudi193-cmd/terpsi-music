@@ -1,8 +1,16 @@
 # The student's assistant, against the decisions already settled
 
-**Status:** reconciliation, not a decision record. **Three items need a human
+**Status:** reconciliation, not a decision record. **Four items need a human
 and are marked.** Nothing here changes a canonical document; where this and
 `ARCHITECTURE.md` disagree, the doc wins and this file is the defect.
+
+**This file reconciles against `records/` as well as against the documents**,
+and the second half was added after the first draft shipped without it. The
+first draft cited `ARCHITECTURE.md` throughout and named four modules, counted
+by reading it back; `ls records/` gives eighteen. Four §18 items had been closed
+*in code* before this branch was cut, and one row argued against behaviour that
+already ships. See *the module sweep* at the foot of this file — a document
+that reconciles only against documents reconciles against the wrong artifact.
 
 `docs/RECONCILE-19.md` does this for the thirteen capabilities of
 §19 of the capability map, and that section is the **director's** assistant —
@@ -80,6 +88,27 @@ An assistant whose answer to *"has anyone looked at my medical form"* is a dated
 list is a different object from a band app. It is also the one place where the
 assistant's usefulness and the architecture's whole thesis point the same way.
 
+**Two properties of `records/disclosure.py` the assistant inherits and must not
+undo.** The log is hash-chained and append-only in the sense rule 18 asks for —
+`append()` returns a new log and no method rewrites an entry — after PR #3 found
+by executing the DDL that a table called append-only in a comment was
+`UPDATE`-able. And **a read that returned no payload is recorded by rung and
+outcome, never by whether a value existed**, so a refusal and an absence produce
+the same rows. That second one is the §7 indistinguishability guarantee living
+inside the audit trail, and it is exactly the property a friendly rendering
+breaks: *"nobody has looked, and there is nothing there to look at"* re-creates
+in one sentence the signal the log was built not to carry.
+
+**And the log is only worth its anchor.** `records/witness.py` supplies what §5
+specified and stopped short of — an anchor is a digest, a count and a time, with
+nothing in it to leak, published on a **fixed calendar cadence** rather than
+when something happens, because a count that jumps the week of an incident is
+itself a channel. `standing()` is what separates *"here is my log"* from *"here
+is my log, and it could not have been written later"*. A student's disclosure
+log is the one artifact in this design whose value depends on someone outside
+the institution having seen its shape, and the assistant should say the weaker
+thing when the anchor is missing rather than the stronger one always.
+
 **One caution.** The log is the read side of §7.2's *narrate the read*, and
 `ARCHITECTURE.md` §18 item 12 already carries the unresolved half: a
 safeguarding read appears in the subject's own log like any other, and there is
@@ -99,6 +128,28 @@ string, never a re-derivation.** A surface that composes its own explanation
 from the outcome has built a second, unverified account of the rules, and the
 two will drift. This is rule 12's pair: `serve()` decides, the surface renders,
 and the reason travels with the decision.
+
+**The named middle already exists and this entry originally missed it.**
+`records/dispatch.py` is the join `voice.py` was written for and did not have —
+PR #4 said so in as many words, *"enforcement-ready rather than enforcing"* —
+and it fixes the order rather than leaving it to a caller: `serve()` first,
+because running a text filter over a value the principal was never entitled to
+*is a disclosure to the filter*, then the voice gate on the rendered sentence,
+after the seal and before dispatch. Fail-closed is inherited from
+`voice.refuses()` rather than re-implemented, because two implementations of
+fail-closed is the pair §16 warns about. **A student surface routes through
+`dispatch()` or it is a second dispatcher.**
+
+**Two smaller modules bear on how a refusal may be phrased, counted from the
+sweep at the foot of this file.** `records/rungs.py`
+makes rule 14 structural — `Rung` carries non-ordinal values, so `Rung.L3 <
+Rung.L4` raises and ordering exists only through `outranks()`/`at_least()`,
+which say the scale's name at the call site. An assistant rendering *"that is
+more sensitive than your schedule"* is doing by prose what the type refuses to
+do by operator. And `records/classify.py` returns `UNDECIDED` for a field
+outside its decided cases — a build failure, not a default — so *"why can't I
+see that"* has a third answer besides *entitled* and *refused*: **nobody has
+classified it yet**, which the assistant must say rather than round to a no.
 
 ## S7, and W-4
 
@@ -171,8 +222,24 @@ placement arrives *before* the thing it predicts, so it anchors the person about
 to be judged, and it has nobody's name on it. That entry's line applies here verbatim:
 a description of what happened survives; a competing score does not.
 
-**S13, comparison.** `peer_comparison`, refusal 6, and W-7. *"A comparison does
-not stop being a ranking for being spelled out in words."*
+**S13, comparison.** `peer_comparison`, refusal 6, and W-7 — and **the strongest
+mechanism is the one this row originally missed.** `records/conflict.py`
+implements W-7 structurally: the functions that would rank return an
+`Escalation`, and an `Escalation` has no field an order fits in. Its
+`recommendation` is a property that raises rather than an absent attribute, *"so
+a caller reaching for a recommendation gets the clause, not an `AttributeError`
+they will paper over with `getattr(..., None)`."* `refuse_to_rank()` gives the
+refusal one spelling.
+
+That module's own docstring is the correction to this file: until it was
+written, W-7 was prose everywhere and code nowhere — the ledger half of rule 18
+with nothing on the other side. The figure is counted from the tree rather than
+quoted from the module: 20 files carry the clause today, counted by grep. Of
+those, 15 are documents repeating the guarantee, counted the same way, and the
+rest sit under `records/` or `tests/`. These lists were among the fifteen. They cited a regex over prose as though it were the gate, when the gate
+is unrepresentability and the regex is the backstop. *"A comparison does not
+stop being a ranking for being spelled out in words"* — and a ranking does not
+stop being computable for being unsayable.
 
 **Needs a human — 2.** These three refusals are correct and they are also most
 of what a teenager wants from a band app. The assistant's value therefore rests
@@ -181,9 +248,32 @@ outcome is **no student assistant**, not a student assistant that softens the
 refusals — and that decision should be taken deliberately rather than reached by
 degrees once the refusals start feeling unhelpful.
 
+## The capability the list omitted, and the module that named it
+
+**Needs a human — 3.** There is no entry for *"what happens to this when I
+leave"*, and `records/exit.py` is the reason that is a defect rather than a
+scope decision. W-6 is not an aspiration there: `open_lane()` requires
+`exit_terms` and a `Threshold`, and **there is no way to construct a `Lane`
+without them** — *"the exit is enforced at opening, not at graduation,"* because
+by the time a student graduates it is far too late to discover nobody wrote down
+what leaving means.
+
+So every student's lane already carries, in the tree, a written answer to a
+question this list did not ask. §7.4 calls the per-graduate half the harder one
+— *"a system that can export a whole program but cannot hand one graduate their
+own past has satisfied the smaller obligation and missed the larger one"* — and
+a student asking their own assistant is the cheapest path to that answer there
+will ever be.
+
+**Why it was missed is the more useful part.** Counted, this list has thirteen rows
+because §19 of the capability map has thirteen, and the thirteen there were
+derived from a director's capabilities. A student capability with no director counterpart therefore has
+nothing to be modelled on and does not appear. That is a defect in the method,
+not an oversight in the row, and it is the reason the next section exists.
+
 ## What this does not cover
 
-**Needs a human — 3.** Nothing here addresses the student who is also a
+**Needs a human — 4.** Nothing here addresses the student who is also a
 **section leader**. §16 of the capability map asks for *"their section's
 attendance, sectional planning, peer feedback"* — a minor with access over other
 minors. The first half must be N named edges, never a section scope (W-2,
@@ -191,3 +281,38 @@ refusal 5). The second half collides head-on with S13, refusal 4 and refusal 6:
 `voice.peer_comparison` will refuse the sentences that feature exists to
 produce. It is a separate persona wearing a student's account, and it is not
 reconciled anywhere.
+
+## The module sweep
+
+Every module under `records/`, listed by `ls`, with what it does to this
+document. The point of listing all of them rather than the relevant ones is that
+**a module added later becomes a visible blank row rather than a silent
+absence** — which is how the first draft of this file came to argue against
+shipped code.
+
+| module | bearing on the student surface |
+|---|---|
+| `classify.py` | **Cited** — S5's third answer, `UNDECIDED` |
+| `conflict.py` | **Cited** — S13, and the strongest mechanism on the list |
+| `consent.py` | **Bears, not worked.** `governs()` puts `self` among the principals who *hold* authority and are asked at the door. A student prompt is that door |
+| `crossing.py` | **Bears, not worked.** A sibling's event read across lanes needs a guardian-signed `Envelope` with both lanes, a purpose and an expiry. A student asking *"why can't I see my sister's call time"* is asking about this |
+| `disclosure.py` | **Cited** — S4, and its indistinguishability property |
+| `dispatch.py` | **Cited** — S5's named middle, and the route the surface must take |
+| `dispositions.py` | **Bears, not worked.** S3's *"is my form in"* reads a queue that I-6 timebounds. What a student sees when the timebound lapses is unwritten |
+| `exit.py` | **Cited** — the omitted capability, *needs a human 3* |
+| `export.py` | **Bears, not worked.** The other half of `exit.py`: `bundle()` produces the graduate's own copy, and nothing here says what a student may ask for before they leave |
+| `marking.py` | **Bears, not worked.** A judge's remark is a lane entry about this student. Whether the subject reads it, and at which rung, is not on this list |
+| `practice.py` | **Cited** — S9 and S10, including where this file was wrong |
+| `receipts.py` | **Bears, not worked.** Guardians hold receipts. Whether the subject holds their own is not decided anywhere, and it is the same argument as S4 |
+| `rungs.py` | **Cited** — S5, rule 14 as a type |
+| `sealing.py` | **Bears, not worked.** Rule 10 says a machine answer is a `draft`. Nothing in S1–S6 says how a student surface *shows* that, and an unmarked draft is the failure rule 10 exists for |
+| `sending.py` | **Bears, not worked.** S6's announcements are its output. G12/G13 govern who receives; nothing governs how the assistant renders one |
+| `serving.py` | **Cited** — S5, and the reason string that must not be recomposed |
+| `standing.py` | **Cited** — S4 and S7's `Widening` |
+| `witness.py` | **Cited** — S4, the anchor the log is worth |
+
+Counted off the table above, 8 rows say *bears, not worked* and 10 say *cited*.
+None of the eight is a refusal or a decision; they are places where a surface
+would have to choose and this document does not say what. **That is the honest
+state of the student list**, and it was not visible while the file reconciled
+against prose.
