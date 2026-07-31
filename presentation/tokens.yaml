@@ -1,0 +1,56 @@
+# The palette. One file, five backends read it, nothing else declares a colour.
+#
+# The ladder is monotonic in LUMINANCE, not in hue (scout-21 §2.5, and Adobe
+# Leonardo's idea rather than its code). A luminance ladder survives greyscale,
+# protanopia, deuteranopia, achromatopsia, a black-and-white printed program and
+# TERM=dumb. `presentation/tokens.py` computes the luminance and refuses a ladder
+# that is not strictly ordered, so a repaint cannot flatten the ladder quietly.
+#
+# Colour still carries nothing on its own: the prefix in the badge text carries
+# identity (presentation/scales.py) and this file carries only emphasis.
+#
+# Written in a deliberate subset of YAML — two levels of block mapping, scalars,
+# no lists, no flow style, no anchors. `presentation/tokens.py` parses exactly
+# that subset and refuses everything else by name rather than guessing.
+
+version: terpsi-presentation/2026-07-31
+
+tokens:
+  caution_0:
+    hex: "#f4f6f8"
+    xterm256: 255
+    mono: "."
+  caution_1:
+    hex: "#c9d2da"
+    xterm256: 252
+    mono: ":"
+  caution_2:
+    hex: "#8fa0ae"
+    xterm256: 246
+    mono: "-"
+  caution_3:
+    hex: "#4f6472"
+    xterm256: 240
+    mono: "="
+  caution_4:
+    hex: "#1c2a33"
+    xterm256: 235
+    mono: "#"
+  page_paper:
+    hex: "#ffffff"
+    xterm256: 231
+    mono: " "
+  page_ink:
+    hex: "#101418"
+    xterm256: 232
+    mono: "#"
+
+# Aliases resolve at LOOKUP, never at definition (§15). A skin that repaints
+# caution_4 moves `refusal` and `assumed` with it, and defining an alias in the
+# tokens block above is refused with an error naming the canonical token — so a
+# refusal badge and a P5 ASSUMED badge share semantics without either one
+# hardcoding the other's colour.
+aliases:
+  refusal: caution_4
+  assumed: caution_4
+  open: caution_0

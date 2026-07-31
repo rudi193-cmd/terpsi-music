@@ -1,0 +1,33 @@
+/* Paged media — {{version}}
+ * Generated from presentation/tokens.yaml. Edit the template, not this file.
+ *
+ * Print is a rendering backend, not an export (scout-21 §2.1: the printed
+ * artifact goes through the same middle as the screen). The one thing this
+ * file may not do is carry a distinction the screen carries and the paper
+ * loses, so every badge below is ink and text — no background, no colour.
+ */
+
+@page {
+  size: letter;
+  margin: 18mm 16mm;
+}
+
+body {
+  background: {{paper}};
+  color: {{ink}};
+  font-family: "Atkinson Hyperlegible Next", serif;
+  font-size: 11pt;
+  line-height: 1.35;
+}
+
+.badge {
+  border: 0.5pt solid {{ink}};
+  padding: 0 2pt;
+  white-space: nowrap;
+}
+
+/* The fill glyph, repeated from the ASCII ladder, so the paper carries the
+ * emphasis channel the terminal does. */
+{{#levels}}.badge-{{key}}::after { content: " {{mono}}"; }
+{{/levels}}
+.row { break-inside: avoid; }

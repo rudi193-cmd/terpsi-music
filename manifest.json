@@ -1,0 +1,12 @@
+{
+  "app": "terpsi-music",
+  "manifest_version": 1,
+  "surfaces": ["print", "text", "tui", "web"],
+  "listeners": [],
+  "outbound": [],
+  "permissions": ["local_storage"],
+  "inference": {
+    "provider": "local",
+    "cloud_fallback": false
+  }
+}

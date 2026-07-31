@@ -1,0 +1,46 @@
+/* Paged media — terpsi-presentation/2026-07-31
+ * Generated from presentation/tokens.yaml. Edit the template, not this file.
+ *
+ * Print is a rendering backend, not an export (scout-21 §2.1: the printed
+ * artifact goes through the same middle as the screen). The one thing this
+ * file may not do is carry a distinction the screen carries and the paper
+ * loses, so every badge below is ink and text — no background, no colour.
+ */
+
+@page {
+  size: letter;
+  margin: 18mm 16mm;
+}
+
+body {
+  background: #ffffff;
+  color: #101418;
+  font-family: "Atkinson Hyperlegible Next", serif;
+  font-size: 11pt;
+  line-height: 1.35;
+}
+
+.badge {
+  border: 0.5pt solid #101418;
+  padding: 0 2pt;
+  white-space: nowrap;
+}
+
+/* The fill glyph, repeated from the ASCII ladder, so the paper carries the
+ * emphasis channel the terminal does. */
+.badge-l1::after { content: " ."; }
+.badge-l2::after { content: " :"; }
+.badge-l3::after { content: " -"; }
+.badge-l4::after { content: " ="; }
+.badge-l5::after { content: " #"; }
+.badge-t0::after { content: " #"; }
+.badge-t1::after { content: " ="; }
+.badge-t2::after { content: " -"; }
+.badge-t3::after { content: " :"; }
+.badge-t4::after { content: " ."; }
+.badge-p1::after { content: " ."; }
+.badge-p2::after { content: " :"; }
+.badge-p3::after { content: " -"; }
+.badge-p4::after { content: " ="; }
+.badge-p5::after { content: " #"; }
+.row { break-inside: avoid; }

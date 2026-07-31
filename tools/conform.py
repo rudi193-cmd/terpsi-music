@@ -126,8 +126,8 @@ def check_write_paths(where: Optional[Path] = None) -> Check:
     return Check("write-paths", what, State.UNKNOWN,
                  f"{n} module(s) scanned by AST: no writes"
                  + (f", {len(r)} read(s)" if r else ", no reads")
-                 + " — but no manifest exists to declare against, so this is not "
-                   "evidence the mechanism works")
+                 + " — but the manifest declares no write paths to reconcile "
+                   "against, so this is not evidence the mechanism works")
 
 
 def check_revocation_is_dated(where: Optional[Path] = None) -> Check:
@@ -229,13 +229,21 @@ def check_declared_sockets() -> Check:
     declaration that shipped first with nothing pointed at it. A `VACUOUS`
     result — no manifest, no listeners — reports `UNKNOWN` rather than `PASS`,
     because a check with nothing to check has not checked anything.
+
+    **The target list is derived from the tree, and was not.** Until the
+    manifest landed this named four paths by hand, so the two packages item 4
+    created — `presentation/` and `surfaces/`, the ones most likely to listen —
+    would have been outside the scan on the day they arrived. `manifest.sources`
+    enumerates instead, and `tests/test_manifest.py` asserts the complement is
+    enumerable.
     """
+    from manifest import sources  # noqa: E402
     from sockets import Verdict, check as scan_check  # noqa: E402
 
-    r = scan_check([ROOT / "records", ROOT / "tools", ROOT / "voice.py",
-                    ROOT / "personas.py"])
+    files = list(sources())
+    r = scan_check(files)
     what = "listening sockets are declared (§4.3, item 4 note ii)"
-    if r.verdict is Verdict.VACUOUS:
+    if r.verdict is Verdict.VACUOUS or not files:
         return Check("declared-sockets", what, State.UNKNOWN,
                      "no manifest and no listeners: nothing was checked. The "
                      "checker is wired and shown to fail (tests/fixtures/decoys), "
@@ -244,7 +252,35 @@ def check_declared_sockets() -> Check:
         return Check("declared-sockets", what, State.FAIL,
                      "; ".join(f.detail for f in r.findings[:3]))
     return Check("declared-sockets", what, State.PASS,
-                 f"{len(r.listeners)} listener(s), all declared; 0 outbound")
+                 f"{len(files)} source file(s) scanned; {len(r.listeners)} "
+                 "listener(s), all declared; 0 outbound")
+
+
+def check_manifest() -> Check:
+    """§6's manifest, with a cloud permission failing the build — and the rest
+    of the declaration reconciled against the tree (`tools/manifest.py`).
+
+    This row was `UNKNOWN` with the words *"no manifest exists in this
+    repository; §18 item 4 has to say what surfaces exist before one can
+    declare them"* until item 4 closed. It is the declaration half only: the
+    manifest may not *ask* for a third-party model, and asserting the provider
+    actually used at run time is a different gate that does not exist yet.
+    """
+    from manifest import reconcile  # noqa: E402
+
+    r = reconcile()
+    what = "manifest with a build-failing cloud-permission check (§6)"
+    if r.vacuous:
+        return Check("manifest", what, State.UNKNOWN,
+                     "; ".join(f.detail for f in r.findings[:2])
+                     or "nothing was checked")
+    if r.findings:
+        return Check("manifest", what, State.FAIL,
+                     "; ".join(f.detail for f in r.findings[:3]))
+    return Check("manifest", what, State.PASS,
+                 f"{len(r.surfaces_declared)} surface(s) declared and present, "
+                 f"{r.scanned} source file(s) reconciled: no listener, no "
+                 "outbound, no cloud permission, no unknown key")
 
 
 def check_component_map() -> Check:
@@ -265,9 +301,6 @@ def _unknown(cid: str, what: str, why: str) -> Callable[[], Check]:
 
 
 UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
-    _unknown("manifest", "manifest with a build-failing cloud-permission check (§6)",
-             "no manifest exists in this repository; §18 item 4 has to say what "
-             "surfaces exist before one can declare them"),
     _unknown("security-audit", "SECURITY_AUDIT.md against the shared rubric (§10)",
              "willow-2.0's 15-check rubric is named in §14 as reusable and has "
              "not been run here; UNVERIFIED at source"),
@@ -279,16 +312,18 @@ UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
              "no destination allowlist exists; §14 records the fleet-wide version "
              "as unique to UTETY"),
     _unknown("named-middles", "a named middle for every pair the app creates (§16)",
-             "not mechanically decidable. Four middles are named and tested "
-             "(crossing, standing.is_self_edge, marking.drift, practice._one_lane); "
-             "whether that is *every* pair is a reading, not a check"),
+             "not mechanically decidable. The middles named and tested are "
+             "crossing, standing.is_self_edge, marking.drift, practice._one_lane, "
+             "and — with the surfaces — scales.drift, render.check and "
+             "manifest.reconcile; whether that is *every* pair is a reading, "
+             "not a check"),
 )
 
 
 CHECKS: Tuple[Callable[[], Check], ...] = (
     check_no_egress, check_write_paths, check_revocation_is_dated,
     check_suite_runs_standalone, check_ablation, check_exit_line,
-    check_component_map, check_declared_sockets,
+    check_component_map, check_declared_sockets, check_manifest,
 ) + UNDECIDABLE
 
 

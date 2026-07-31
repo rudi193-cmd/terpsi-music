@@ -1,9 +1,11 @@
 """Every listener the source can open, against every listener the manifest admits.
 
-**Built before the manifest, deliberately.** §18 item 4 has not decided what
-surfaces exist, so there is nothing to declare yet — and that is the argument for
-writing this now rather than later. §4.3 records the failure it prevents, at
-source and verified:
+**Built before the manifest, deliberately.** When this was written §18 item 4
+had not decided what surfaces exist, so there was nothing to declare yet — and
+that was the argument for writing it then rather than later. The manifest landed
+2026-07-31 against a checker that already refused; `tools/manifest.py` is now its
+caller, and it supplies the target list rather than this file naming paths by
+hand. §4.3 records the failure it prevents, at source and verified:
 
 > `safe-app-willow-grove` declares `"surfaces": ["tui"]`, permissions limited to
 > `lan_listen`/`lan_send`, and a `CLAUDE.md` rule reading **"No web ports for the
@@ -38,7 +40,16 @@ one place where guessing means an open port nobody wrote down.
 listeners this scan has nothing to check, and a check with nothing to check must
 not read as a check that passed. `reconcile()` says so, `conform.py` renders it
 `UNKNOWN`, and the moment a listener appears with no manifest to declare it the
-result is `FAIL` rather than a shrug.
+result is `FAIL` rather than a shrug. `tools/manifest.py` carries the same
+posture one level up: a manifest that cannot be read, or a scan that covered no
+files, is `UNKNOWN` and never `PASS`.
+
+**One thing this file does not distinguish, recorded rather than left to be
+found:** `sqlite3.connect(":memory:")` is read as an outbound connection,
+because the call name is all the parse sees. That is why `tools/manifest.py`
+excuses `docs/` rather than scanning it, and `tests/test_manifest.py` pins the
+misreading so that fixing it here fails there and prompts the exclusion to
+shrink.
 
     python3 tools/sockets.py [path ...]
 

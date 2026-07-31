@@ -71,6 +71,23 @@ tombstone. Same report, same ids, same declaration file.
 python3 -m craft docs/ARCHITECTURE.md --prose --intent docs/prose.intent
 ```
 
+The other working parts are the **presentation middle** and the **four doors**
+`docs/survey/scout-21-surfaces-a11y.md` §3 names — `presentation/` holds the IR,
+the palette and the one mapping table for `L1–L5`, `T0–T4` and `P1–P5`;
+`surfaces/{tui,web,print,text}/` are thin renderers over it. Nothing there is an
+application: no server, no session, no framework. Two middles keep the pairs
+honest, and both run in CI.
+
+```bash
+python3 tools/manifest.py                # the declaration, against the tree
+python3 presentation/render.py --check   # rendered artifacts, against their templates
+```
+
+The first reconciles `manifest.json` — surfaces, listeners, permissions —
+against what the source actually opens, and reports the vacuous case as
+`UNKNOWN` rather than as a pass. The second renders the four backend artifacts
+and exits nonzero if a committed one differs by a byte.
+
 The proposed migration runs against PostgreSQL 16 in CI, where eight forbidden
 acts are attempted and asserted to fail. A guard that cannot be shown to fail
 has not been shown to work.
