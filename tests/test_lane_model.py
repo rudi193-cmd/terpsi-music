@@ -1,11 +1,17 @@
 """The ward clauses survive as schema, not as comments.
 
-`docs/schema/001_lanes.proposed.sql` encodes W-1 (a lane from the first write),
-W-2 (a grant names one ward), W-3 (a shared event is two lane entries with one
-referent) and W-6 (no lane without a written exit). Each is expressed as a
-structural property of the DDL — a NOT NULL, an absent column, a CHECK that
-omits a value — precisely so that it cannot be softened by a later edit that
-looks reasonable in isolation.
+`migrations/001_lanes.sql` encodes W-1 (a lane from the first write), W-2 (a
+grant names one ward), W-3 in both halves (a shared event is two lane entries
+with one referent, **and** a crossing takes a guardian-signed envelope naming
+both lanes, purpose and expiry), W-4 (a ward may request, never authorize), W-5
+(agency grows by signature, per enumerated matter) and W-6 (no lane without a
+written exit). Each is expressed as a structural property of the DDL — a NOT
+NULL, an absent column, a CHECK that omits a value — precisely so that it
+cannot be softened by a later edit that looks reasonable in isolation.
+
+The path moved from `docs/schema/001_lanes.proposed.sql` when the DDL was
+promoted; a tombstone stands at the old path and is checked below, because a
+successor named in prose that nobody verifies is the pointer §16 warns about.
 
 §8 and §18 both say the same thing about why this is worth guarding: retrofitting
 either clause is a data migration across every table referencing a student. The
@@ -27,15 +33,33 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SCHEMA = ROOT / "docs" / "schema" / "001_lanes.proposed.sql"
+SCHEMA = ROOT / "migrations" / "001_lanes.sql"
+TOMBSTONE = ROOT / "docs" / "schema" / "001_lanes.proposed.sql"
 SENSITIVITY = ROOT / "docs" / "SENSITIVITY.md"
 
 # State takes the bitemporal pair; history must not (§7.1's exclusion list).
+# An envelope and a widening are state: both end by a date, never by a DELETE
+# (refusal 3), because a revoked permission that was deleted cannot answer
+# "who could cross into Ben's lane on October 12, and why."
 STATE_TABLES = (
     "person", "lane", "referent", "lane_entry", "scope_object", "edge",
-    "access_grant", "declination",
+    "access_grant", "crossing_envelope", "self_widening", "declination",
 )
 HISTORY_TABLES = ("disclosure_log", "consent_chain", "reconciled_session")
+
+# Tables that authorize. Each names ONE ward, by foreign key, with no join
+# table and no pattern column — W-2/refusal 5 made inexpressible rather than
+# rejected. The suffix check below refuses a join table hung off any of them.
+GRANT_SHAPED = ("access_grant", "crossing_envelope", "self_widening")
+
+# A column name on a grant-shaped table that could hold a set or a pattern
+# instead of a name. `ids` catches `lane_ids`; `glob` and `pattern` catch the
+# shapes a scope language arrives as.
+SET_SHAPED = ("scope", "pattern", "wildcard", "filter", "glob", "ids", "group")
+
+# Tables whose row shape a CHECK cannot reach, and the guard each must carry.
+# Every one of these is a rule about whose signature counts.
+SIGNATURE_TRIGGERS = ("edge", "crossing_envelope", "self_widening")
 
 # A column on `referent` whose name matches any of these has put participants
 # back on the shared object, which is the partition W-1 and W-3 forbid.
@@ -59,8 +83,16 @@ _TRIGGER = re.compile(
 _CLASSIFIED = re.compile(r"\(\s*'(\w+)'\s*,\s*'(\w+)'\s*,\s*'([A-Z_]+)'\s*,\s*'(L[1-5])'\s*\)")
 
 
-def append_only_triggers(sql: str) -> dict[str, str]:
-    """{table: the events its BEFORE trigger fires on}."""
+def before_triggers(sql: str) -> dict[str, str]:
+    """{table: the events its BEFORE trigger fires on}.
+
+    Two families share this reader and they do different work. On the three
+    history tables a `BEFORE UPDATE OR DELETE` trigger is what makes
+    "append-only" an enforcement rather than a comment. On `edge`,
+    `crossing_envelope` and `self_widening` a `BEFORE INSERT OR UPDATE` trigger
+    is the only thing that can reach a second row to ask whether a signature is
+    a guardian's — which a CHECK, seeing one row of one table, cannot.
+    """
     return {m.group(2): m.group(1).upper() for m in _TRIGGER.finditer(strip_comments(sql))}
 
 
@@ -151,13 +183,136 @@ def problems(sql: str) -> list[str]:
         g = columns(t["access_grant"])
         if "NOT NULL" not in g.get("lane_id", ""):
             bad.append("W-2: access_grant.lane_id is missing or nullable")
-        for name in g:
-            if any(w in name.lower() for w in ("scope", "pattern", "wildcard", "filter")):
-                bad.append(f"W-2: access_grant.{name} could express a group scope")
+        # The pattern-column and array-column scans are the GRANT_SHAPED loop
+        # below, which runs over all three authorizing tables rather than this
+        # one. §16: the pair got a middle rather than a second copy.
     for name in t:
         if name != "access_grant" and "grant" in name and "lane" in name:
             bad.append(f"W-2: {name} looks like a grant-to-lane join table — a "
                        "grant must name one lane and be unable to name a set")
+
+    # --- W-2 / refusal 5, generalised over every table that authorizes ----
+    #
+    # The three grant-shaped tables each name one ward. A set arrives three
+    # ways and none of them is a wildcard string: a join table hung off the
+    # grant, a pattern column, or an array column. The last is the one a name
+    # check misses entirely — `to_lane_ids uuid[]` reads as singular enough.
+    for name in t:
+        if name in GRANT_SHAPED:
+            continue
+        for g in GRANT_SHAPED:
+            if name.startswith(g + "_"):
+                bad.append(f"W-2: {name} hangs off {g} — a grant must name one "
+                           "ward and be unable to name a set")
+    for g in GRANT_SHAPED:
+        if g not in t:
+            continue
+        for name, definition in columns(t[g]).items():
+            if any(w in name.lower() for w in SET_SHAPED):
+                bad.append(f"W-2: {g}.{name} could express a group scope")
+            if "[]" in definition:
+                bad.append(f"W-2: {g}.{name} is an array — a column holding a set "
+                           "is a group grant whatever it is called")
+
+    # --- W-3, second half: the crossing the clause permits -----------------
+    #
+    # "a crossing requires a guardian-signed envelope naming both lanes,
+    # purpose, and expiry" (PROTECTED_AGENTS.md Part III, read at source). The
+    # first twelve tables encoded the prohibition and not the permission, so a
+    # legitimate sibling crossing was unrepresentable. Each of the clause's
+    # four requirements is one assertion here.
+    if "crossing_envelope" not in t:
+        bad.append("W-3: no crossing_envelope table — the clause's permission "
+                   "is unrepresentable, so a real crossing can only be served "
+                   "by not recording that it happened")
+    else:
+        env = columns(t["crossing_envelope"])
+        ec = constraints(t["crossing_envelope"])
+        for side in ("from_lane_id", "to_lane_id"):
+            d = env.get(side, "")
+            if "NOT NULL" not in d:
+                bad.append(f"W-3: crossing_envelope.{side} is missing or nullable "
+                           "— an envelope naming one lane is a wildcard over the other")
+            if "REFERENCES lane" not in d:
+                bad.append(f"W-3: crossing_envelope.{side} is not a reference to a "
+                           "lane — a crossing scoped to anything but a named lane "
+                           "is a group grant")
+        if "from_lane_id <> to_lane_id" not in ec.replace("!=", "<>"):
+            bad.append("W-3: crossing_envelope does not CHECK that the two lanes "
+                       "differ — one lane named twice is not a crossing")
+        if "NOT NULL" not in env.get("purpose", ""):
+            bad.append("W-3: crossing_envelope.purpose is missing or nullable")
+        if "purpose" not in ec:
+            bad.append("W-3: crossing_envelope.purpose has no non-blank CHECK — "
+                       "NOT NULL alone is satisfied by an empty string")
+        if "NOT NULL" not in env.get("expires_at", ""):
+            bad.append("W-3: crossing_envelope.expires_at is missing or nullable — "
+                       "an envelope without an expiry is a standing grant (W-5)")
+        if "expires_at > signed_at" not in ec:
+            bad.append("W-3: crossing_envelope does not CHECK that the expiry is "
+                       "after the signature")
+        if "REFERENCES person" not in env.get("signed_by", ""):
+            bad.append("W-3: crossing_envelope.signed_by is missing or is not a "
+                       "person — a role cannot sign")
+        for forbidden in ("symmetric", "both_ways", "reciprocal", "bidirectional"):
+            if any(forbidden in c for c in env):
+                bad.append(f"W-3: crossing_envelope.{forbidden} makes one signature "
+                           "open two seals; direction is the ordered pair")
+        # The envelope crosses a seal and confers no rung. L5 is unreachable
+        # through it because there is nothing to put a rung in — the same move
+        # W-2 makes with group scopes, one axis over.
+        for name in env:
+            if "rung" in name.lower():
+                bad.append(f"W-3: crossing_envelope.{name} gives an envelope a rung; "
+                           "a crossing does not widen the ladder, and a column here "
+                           "is somewhere to write L5")
+
+    # --- W-5 / W-4: the widening, and who may sign it ---------------------
+    if "self_widening" not in t:
+        bad.append("W-5: no self_widening table — the self edge's L3 cap has "
+                   "nothing that lifts it, so §18 item 12's L4 case is "
+                   "unrepresentable")
+    else:
+        w = columns(t["self_widening"])
+        wc = constraints(t["self_widening"])
+        if "REFERENCES person" not in w.get("subject_id", ""):
+            bad.append("W-5: self_widening.subject_id is missing or is not a person")
+        if "NOT NULL" not in w.get("category", ""):
+            bad.append("W-5: self_widening.category is missing or nullable — a "
+                       "widening over no particular matter is a standing grant")
+        if "btrim(category)" not in wc:
+            bad.append("W-5: self_widening.category has no non-blank CHECK")
+        if "'*'" not in wc:
+            bad.append("W-2: self_widening.category has no wildcard CHECK — "
+                       "'everything' is not a matter, a name is")
+        if "NOT NULL" not in w.get("purpose", ""):
+            bad.append("W-5: self_widening.purpose is missing or nullable")
+        if "expires_at > signed_at" not in wc:
+            bad.append("W-5: self_widening does not CHECK that the expiry is after "
+                       "the signature — W-5 forbids the standing grant")
+        if "REFERENCES person" not in w.get("signed_by", ""):
+            bad.append("W-5: self_widening.signed_by is missing or is not a person")
+        if "signed_by <> subject_id" not in wc.replace("!=", "<>"):
+            bad.append("W-4: self_widening does not CHECK that the signer is not "
+                       "the subject — a ward signing its own widening is the "
+                       "clause defeated in one field")
+        if "max_rung" not in wc:
+            bad.append("ladder: self_widening.max_rung has no CHECK")
+        elif "'L5'" in wc:
+            bad.append("ladder: self_widening.max_rung admits L5, which is never "
+                       "served to any principal including the subject")
+
+    # --- a signature claim needs a trigger; a CHECK cannot reach a row ----
+    for name in SIGNATURE_TRIGGERS:
+        if name not in t:
+            continue
+        events = before_triggers(sql).get(name, "")
+        if "INSERT" not in events or "UPDATE" not in events:
+            bad.append(
+                f"signature: {name} has no BEFORE INSERT OR UPDATE trigger — "
+                "whose signature counts is a fact about a second row, which a "
+                "CHECK cannot see (§7.2: say which)"
+            )
 
     # --- W-3: the referent carries no participants ------------------------
     if "referent" not in t:
@@ -222,7 +377,7 @@ def problems(sql: str) -> list[str]:
     # Omitting valid_at/invalid_at does not stop an UPDATE. Confirmed the hard
     # way: against a live instance, UPDATE then DELETE on disclosure_log both
     # succeeded, silently rewriting the FERPA §99.32 disclosure record.
-    triggers = append_only_triggers(sql)
+    triggers = before_triggers(sql)
     for name in HISTORY_TABLES:
         if name not in t:
             continue
@@ -262,9 +417,16 @@ def test_the_parser_finds_the_tables():
     t = tables(_sql())
     assert len(t) == len(STATE_TABLES) + len(HISTORY_TABLES) + 1, sorted(t)
     assert "lane_entry" in t and "access_grant" in t
+    assert "crossing_envelope" in t and "self_widening" in t
     assert len(columns(t["lane_entry"])) >= 10, columns(t["lane_entry"])
-    assert len(append_only_triggers(_sql())) == len(HISTORY_TABLES)
-    assert len(classified(_sql())) > 80, len(classified(_sql()))
+    # Every table carrying a BEFORE trigger, and no others. Asserted as a set
+    # rather than as a length: the count stayed right when the two families
+    # were added and would have hidden a trigger on the wrong table.
+    assert set(before_triggers(_sql())) == set(HISTORY_TABLES) | set(SIGNATURE_TRIGGERS)
+    # Derived from the tree, not written down (rule 17). A literal here decays
+    # the moment a column is added, and decays silently in the safe direction.
+    declared = sum(len(columns(body)) for body in t.values())
+    assert len(classified(_sql())) == declared, (len(classified(_sql())), declared)
 
 
 def test_the_edge_target_has_referential_integrity():
@@ -426,6 +588,165 @@ CREATE TABLE lane (
 );
 """
     assert any("non-blank CHECK" in p for p in problems(decoy)), problems(decoy)
+
+
+def test_a_crossing_envelope_that_names_one_lane_is_caught():
+    """W-3 requires *both* lanes. Every way of naming one, attempted.
+
+    A nullable second lane, a second lane that is not a lane, and a table that
+    CHECKs nothing about the pair so one lane can be named twice. The last is
+    the one that looks correct: two NOT NULL columns, both real foreign keys,
+    and `('ben', 'ben')` sails through.
+    """
+    decoy = """
+CREATE TABLE crossing_envelope (
+    envelope_id  uuid PRIMARY KEY,
+    from_lane_id uuid NOT NULL REFERENCES lane(lane_id),
+    to_lane_id   uuid REFERENCES lane(lane_id),
+    purpose      text NOT NULL,
+    signed_by    uuid NOT NULL REFERENCES person(person_id),
+    signed_at    timestamptz NOT NULL,
+    expires_at   timestamptz NOT NULL,
+    created_at   timestamptz NOT NULL,
+    valid_at     timestamptz NOT NULL,
+    invalid_at   timestamptz
+);
+"""
+    joined = "\n".join(problems(decoy))
+    for expected in (
+        "W-3: crossing_envelope.to_lane_id is missing or nullable",
+        "does not CHECK that the two lanes differ",
+        "crossing_envelope.purpose has no non-blank CHECK",
+        "does not CHECK that the expiry is after the signature",
+        "signature: crossing_envelope has no BEFORE INSERT OR UPDATE trigger",
+    ):
+        assert expected in joined, f"missed {expected!r} in:\n{joined}"
+
+
+def test_a_group_crossing_scope_is_caught_by_shape_and_not_by_name():
+    """Refusal 5 on the crossing axis: "the drumline" is not a scope.
+
+    Three ways to smuggle a set past a table that looks like it names lanes —
+    a scope pattern, an array of lanes, and a join table. None is refused by a
+    wildcard string check, because none of them contains a wildcard.
+    """
+    decoy = """
+CREATE TABLE crossing_envelope (
+    envelope_id  uuid PRIMARY KEY,
+    from_lane_id uuid NOT NULL REFERENCES lane(lane_id),
+    to_lane_id   uuid NOT NULL REFERENCES lane(lane_id),
+    to_lane_ids  uuid[] NOT NULL,
+    lane_pattern text NOT NULL,
+    max_rung     text NOT NULL
+);
+CREATE TABLE crossing_envelope_lanes (
+    envelope_id uuid NOT NULL,
+    lane_id     uuid NOT NULL
+);
+"""
+    joined = "\n".join(problems(decoy))
+    for expected in (
+        "W-2: crossing_envelope.to_lane_ids is an array",
+        "W-2: crossing_envelope.lane_pattern could express a group scope",
+        "W-2: crossing_envelope_lanes hangs off crossing_envelope",
+        "W-3: crossing_envelope.max_rung gives an envelope a rung",
+    ):
+        assert expected in joined, f"missed {expected!r} in:\n{joined}"
+
+
+def test_a_widening_nobody_signed_is_caught():
+    """W-5's signature and W-4's *whose* signature, attempted three ways.
+
+    A nullable signer, a signer the schema never compares to the subject, and
+    no trigger to ask whether the signer is a guardian at all. All three read
+    as a signed widening at a glance, and the third is the one this schema
+    could not express before it grew a trigger.
+    """
+    decoy = """
+CREATE TABLE self_widening (
+    widening_id uuid PRIMARY KEY,
+    subject_id  uuid NOT NULL REFERENCES person(person_id),
+    category    text NOT NULL,
+    purpose     text NOT NULL,
+    max_rung    text NOT NULL,
+    signed_by   uuid,
+    signed_at   timestamptz NOT NULL,
+    expires_at  timestamptz NOT NULL,
+    created_at  timestamptz NOT NULL,
+    valid_at    timestamptz NOT NULL,
+    invalid_at  timestamptz,
+    CONSTRAINT self_widening_category_present CHECK (length(btrim(category)) > 0),
+    CONSTRAINT self_widening_category_is_a_name
+        CHECK (lower(btrim(category)) NOT IN ('*', 'all', 'any', 'every')),
+    CONSTRAINT self_widening_max_rung CHECK (max_rung IN ('L4')),
+    CONSTRAINT self_widening_expiry_is_future CHECK (expires_at > signed_at)
+);
+"""
+    joined = "\n".join(problems(decoy))
+    for expected in (
+        "W-5: self_widening.signed_by is missing or is not a person",
+        "W-4: self_widening does not CHECK that the signer is not the subject",
+        "signature: self_widening has no BEFORE INSERT OR UPDATE trigger",
+    ):
+        assert expected in joined, f"missed {expected!r} in:\n{joined}"
+
+
+def test_an_l5_widening_is_caught():
+    """A widening naming the rung that is never served, to anyone.
+
+    The self edge's cap is `L3` and a widening lifts it to `L4`. `L5` is
+    enforcement-only — never rendered, including to the subject — so a CHECK
+    that admits it hands the ladder's top rung to a guardian's signature. Also
+    caught: a widening over every category, which is W-2 on the other axis.
+    """
+    decoy = """
+CREATE TABLE self_widening (
+    widening_id uuid PRIMARY KEY,
+    subject_id  uuid NOT NULL REFERENCES person(person_id),
+    category    text NOT NULL,
+    purpose     text NOT NULL,
+    max_rung    text NOT NULL,
+    signed_by   uuid NOT NULL REFERENCES person(person_id),
+    signed_at   timestamptz NOT NULL,
+    expires_at  timestamptz NOT NULL,
+    created_at  timestamptz NOT NULL,
+    valid_at    timestamptz NOT NULL,
+    invalid_at  timestamptz,
+    CONSTRAINT self_widening_max_rung CHECK (max_rung IN ('L4', 'L5')),
+    CONSTRAINT self_widening_ward_cannot_sign_its_own CHECK (signed_by <> subject_id),
+    CONSTRAINT self_widening_expiry_is_future CHECK (expires_at > signed_at)
+);
+"""
+    joined = "\n".join(problems(decoy))
+    for expected in (
+        "ladder: self_widening.max_rung admits L5",
+        "W-2: self_widening.category has no wildcard CHECK",
+        "W-5: self_widening.category has no non-blank CHECK",
+    ):
+        assert expected in joined, f"missed {expected!r} in:\n{joined}"
+
+
+def test_the_tombstone_stands_where_the_ddl_used_to_be():
+    """Rule 20, applied to this repository's own retirement.
+
+    A pointer whose target moved is §15's decayed citation, and `LANE-MODEL.md`,
+    `EXIT.md`, `records/crossing.py` and this file all named the old path. The
+    tombstone is what keeps those honest — and it has five parts, because a
+    stub saying only "moved" leaves a reader unable to tell whether the
+    contents came with it.
+    """
+    assert TOMBSTONE.exists(), f"no tombstone at {TOMBSTONE}"
+    text = TOMBSTONE.read_text(encoding="utf-8")
+    head = "\n".join(text.splitlines()[:6]).upper()
+    assert "RETIRED" in head or "STATUS" in head, "status is not first"
+    for part in ("migrations/001_lanes.sql", "NON-AUTHORITATIVE"):
+        assert part.lower() in text.lower(), f"tombstone omits {part!r}"
+    # It must not still be a schema. A stub that silently declares nothing is
+    # worse than one that fails: someone runs it and believes 001 is applied.
+    assert "CREATE TABLE" not in strip_comments(text), \
+        "the tombstone still declares tables"
+    assert "RAISE EXCEPTION" in text, \
+        "running the tombstone succeeds silently, which reads as a migration"
 
 
 def test_the_check_passes_the_real_schema_only_on_merit():

@@ -44,12 +44,12 @@ and it is ordered below.**
 ## Where the tree actually stands (2026-07-31, derived by looking)
 
 ```
-migrations/    ABSENT — DDL in docs/schema/; promotion unblocked, see order 2
+migrations/    001_lanes.sql — fourteen tables, run against PostgreSQL 16;
+               five-part tombstone at docs/schema/
 presentation/  ABSENT — specified by scout-21 §3, now buildable
 surfaces/      ABSENT — same
 craft/         text-only: no student data, no network, no model
-records/       eighteen modules — the domain core; suite green, 503 tests
-               (derived by running them this revision)
+records/       eighteen modules — the domain core; suite green
 tools/         conform, sockets, purity, discipline — the socket checker
                exists BEFORE the first manifest, so it cannot be born wrong
 ```
@@ -60,11 +60,14 @@ tools/         conform, sockets, purity, discipline — the socket checker
    and the manifest — with rule 12's socket-reconciliation test
    (`tools/sockets.py`) in the same commit as the manifest, in this
    repository's own CI. §18 item 4's closing note names both obligations.
-2. **Promote the lane DDL.** Encode the thirteenth table (crossing envelope)
-   and the fourteenth (`Widening`) in SQL — today they exist as types only —
-   then `docs/schema/001_lanes.proposed.sql` becomes `migrations/001_lanes.sql`.
-   The four stated-and-unenforced invariants stay named in `LANE-MODEL.md` and
-   travel with it.
+2. ~~**Promote the lane DDL.**~~ — **Built 2026-07-31, audited and merged** —
+   `migrations/001_lanes.sql`: fourteen tables, `crossing_envelope` (W-3's
+   permission) and `self_widening` (W-5's) encoded structurally, executed
+   against PostgreSQL 16 with 27 forbidden acts refused each by the guard
+   named in its error. Item 4 was found not to gate it. The
+   stated-and-unenforced list drops to three — `edge_self_holder_is_subject`
+   is now a trigger, and writing it found the mirror row (a ward holding
+   `guardian_of` over itself) that would have signed its own envelope.
 3. **Wire the witness composite.** The weekly anchor publication on calendar
    cadence, the annual-deposit procedure (a documented act, not code), and
    Ed25519 receipt issuance before any deployment claim rests on attribution.

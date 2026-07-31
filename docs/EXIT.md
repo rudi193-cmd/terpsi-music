@@ -69,7 +69,7 @@ An empty table is a claim like any other. It means nobody has recorded a regress
 In the order they unblock each other:
 
 1. **§18 item 4 — which surfaces exist.** The account and server rows cannot be answered until something runs.
-2. **A store.** The whole-program export has nothing to read. `docs/schema/001_lanes.proposed.sql` is the shape and it is still proposed, gated on items 3 and 4.
+2. **A store.** The whole-program export has nothing to read. `migrations/001_lanes.sql` is the shape, adopted 2026-07-31; what is missing is anything that has run it outside a test database.
 3. **Media and transcripts.** §11.1's sentence includes commentary audio and its transcript. `records/marking.py` anchors commentary; nothing captures or exports the audio.
 4. **A restore test.** §11 requires restores tested on a schedule and §11.1 says the exit line should be *"tested like a restore."* Exporting is half of leaving; the other half is somebody opening the folder on a different machine and finding their record in it.
 

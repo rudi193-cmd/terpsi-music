@@ -28,7 +28,7 @@ block a first commit and two of them are decisions rather than documents — §1
 | `docs/ARCHITECTURE.md` | Canonical. 18 sections. **Read §18 first** — the open list — then §14 for what exists versus what is proposed |
 | `docs/CAPABILITY-MAP.md` | The domain surface. §24 is the craft-feedback capability, the only one not already built somewhere |
 | `docs/SENSITIVITY.md` | The `L1`–`L5` rungs, the class-to-rung mapping, the sensitivity→trust crossing |
-| `docs/LANE-MODEL.md` | The W-1/W-3 schema, with the DDL at `docs/schema/001_lanes.proposed.sql` |
+| `docs/LANE-MODEL.md` | The W-1/W-3 schema, with the DDL at `migrations/001_lanes.sql` |
 | `docs/CROSSINGS.md` | Findings record — one session's defects and the six patterns under them |
 | `docs/FLEET-READS.md` | The 36 fleet repositories this design rests on, and why none is readable right now |
 | `docs/CRAFT-SOURCES.md` | What §24 claims already exists in the field, with its evidence and how weak that evidence is |
@@ -71,9 +71,12 @@ tombstone. Same report, same ids, same declaration file.
 python3 -m craft docs/ARCHITECTURE.md --prose --intent docs/prose.intent
 ```
 
-The proposed migration runs against PostgreSQL 16 in CI, where eight forbidden
-acts are attempted and asserted to fail. A guard that cannot be shown to fail
-has not been shown to work.
+`migrations/001_lanes.sql` runs against PostgreSQL 16 in CI, where 27 forbidden
+acts are attempted and each is asserted to fail **by the guard named in its
+error** — not merely to fail, because a `BEFORE ROW` trigger fires ahead of every
+`CHECK` and foreign key on the row, and an attack that only counts refusals
+cannot tell which one spoke. Six legitimate writes are asserted still to land.
+A guard that cannot be shown to fail has not been shown to work.
 
 ## Fleet
 
