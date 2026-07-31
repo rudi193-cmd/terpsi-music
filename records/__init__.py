@@ -12,6 +12,9 @@ from .dispatch import Dispatch, dispatch
 from .exit import Lane, Threshold, open_lane, transfer
 from .classify import Classification, Decision, Descriptor, classify, unclassified
 from .disclosure import Entry, Ledger, Log, verify_against
+from .inference import (Answer, InferenceRefused, LocalModelUnavailable,
+                        NonLocalInference, OffBoxLocalModel, Refusal, Unclassified,
+                        UnknownProvider, accept, covered, through)
 from .receipts import (GuardianReceipt, authentic, contradictions, gaps, held_by, issue)
 from .dispositions import Disposition, Request, answer, ask, extend, state_at
 from .conflict import Escalation, NotComputable, Stake, halt, refuse_to_rank
@@ -33,6 +36,9 @@ __all__ = [
     "who_could_see",
     "Descriptor", "Classification", "Decision", "classify", "unclassified",
     "Log", "Ledger", "Entry", "verify_against",
+    "Answer", "Refusal", "InferenceRefused", "Unclassified", "UnknownProvider",
+    "NonLocalInference", "OffBoxLocalModel", "LocalModelUnavailable",
+    "accept", "through", "covered",
     "GuardianReceipt", "issue", "authentic", "held_by", "gaps", "contradictions",
     "Record", "State", "draft", "seal", "reject", "redraft",
     "Request", "Disposition", "ask", "answer", "state_at", "extend",

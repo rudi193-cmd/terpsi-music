@@ -49,9 +49,12 @@ migrations/    001_lanes.sql — fourteen tables, run against PostgreSQL 16;
 presentation/  ABSENT — specified by scout-21 §3, now buildable
 surfaces/      ABSENT — same
 craft/         text-only: no student data, no network, no model
-records/       eighteen modules — the domain core; suite green
-tools/         conform, sockets, purity, discipline — the socket checker
-               exists BEFORE the first manifest, so it cannot be born wrong
+records/       the domain core; suite green
+inference      GUARD ONLY — refusal 1 asserted in records/inference.py;
+               no call site exists to route yet, which is the point
+tools/         conform, sockets, purity, providers, discipline — checkers
+               exist BEFORE the things they check, so those cannot be
+               born wrong
 ```
 
 ## Order
@@ -71,9 +74,15 @@ tools/         conform, sockets, purity, discipline — the socket checker
 3. **Wire the witness composite.** The weekly anchor publication on calendar
    cadence, the annual-deposit procedure (a documented act, not code), and
    Ed25519 receipt issuance before any deployment claim rests on attribution.
-4. **Refusal-1 by assertion**, before any inference path is written: require
-   `provider_used == "ollama"` and fail otherwise. The environment variable
-   stays an off-switch, never the enforcement.
+4. ~~**Refusal-1 by assertion**~~ — **Built 2026-07-31, audited and merged** —
+   `records/inference.py` asserts on what actually answered, with five refusal
+   states and no field a caller could use to allowlist a provider;
+   `tools/providers.py` watches by AST for a call site that skips the guard,
+   wired into `conform.py` and honestly `UNKNOWN` while nothing here infers.
+   The ordering held: the guard exists first, so an inference path cannot be
+   born unguarded. Opening the upstream found `llm_edge.py` discarding
+   `provider_used` and a fourth chain mode posting to another node's local
+   runner — which is why the guard checks the address as well as the label.
 5. ~~**The rule-13 acceptance test** (was C3)~~ — **Built 2026-07-31,
    audited and merged** — `tests/test_rule13_acceptance.py`. Every seam broken
    rather than skipped, and the breakage found three places where a source

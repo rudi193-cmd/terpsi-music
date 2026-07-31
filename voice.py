@@ -32,6 +32,10 @@ them with denominators. The tier above is a classifier, and refusal 1 says
 where it has to run: locally, on program hardware, never a cloud fallback.
 Until that exists this is one tier, and it says so.
 
+The refusal that governs that tier is now built ahead of it:
+`records/inference.py` refuses any answer that cannot be shown to have come
+from the local model, so the classifier tier cannot arrive unguarded.
+
 Acceptance is by mutation (rule 19). `tests/test_voice.py` breaks each rule
 deliberately and asserts something catches it.
 """

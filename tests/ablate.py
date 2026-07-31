@@ -257,6 +257,81 @@ MUTATIONS = [
      "a missing file fails verification", "tests/test_export.py"),
     ("records/export.py", "if not transfer.complete:", "if False:",
      "an incomplete transfer exports nothing", "tests/test_export.py"),
+    # records/inference.py — refusal 1, enforced on what answered. Every clause
+    # here has a mutation, because this is the one guard in the tree whose
+    # subject is a disclosure that has *already happened* by the time it runs:
+    # a hole does not produce a wrong answer, it produces a fluent one.
+    ("records/inference.py", "    if provider != LOCAL:", "    if False:",
+     "only the local provider may answer", "tests/test_inference.py"),
+    ("records/inference.py", "    if not tags:", "    if False:",
+     "an untagged call is unknown", "tests/test_inference.py"),
+    ("records/inference.py", "    if unknown:", "    if False:",
+     "an unrecognised class is unknown", "tests/test_inference.py"),
+    ("records/inference.py",
+     "    if not isinstance(provider, str) or not provider.strip():",
+     "    if False:", "a missing provider label is unknown", "tests/test_inference.py"),
+    ("records/inference.py", "    if not is_local_address(endpoint):", "    if False:",
+     "the local label at another machine", "tests/test_inference.py"),
+    ("records/inference.py",
+     "    if not isinstance(text, str) or not text.strip():",
+     "    if False:", "an empty answer is absence", "tests/test_inference.py"),
+    ("records/inference.py",
+     "    if (rung is not None and at_least(rung, DERIVE_AT)\n"
+     "            and not (tags & COVERED_CLASSES)):",
+     "    if False:", "the rung and the classes must agree", "tests/test_inference.py"),
+    # The refusal must arrive *before* the record reaches a model. Removing this
+    # line still refuses -- from accept(), afterwards -- which is an audit note
+    # rather than a guard, and only the fired-flag test can tell the two apart.
+    ("records/inference.py", "    _tags(classes)\n    try:\n        pair = call()",
+     "    try:\n        pair = call()",
+     "the tagging is checked before the call", "tests/test_inference.py"),
+    ("records/inference.py",
+     '        raise LocalModelUnavailable(\n'
+     '            f"the inference call raised {type(exc).__name__}: {exc}") from exc',
+     '        raise NonLocalInference(\n'
+     '            f"the inference call raised {type(exc).__name__}: {exc}") from exc',
+     "a stopped local model has its own state", "tests/test_inference.py"),
+    # The ADD mutation: refusal 1 defeated by keyword rather than by branch.
+    # `records/conflict.py`'s shape is that the wrong answer has no field to
+    # live in, so the ablation is the field a later reader would add for
+    # "resilience".
+    ("records/inference.py",
+     "def through(call: Callable[[], object], *, classes: Sequence[str], endpoint: str,",
+     "def through(call: Callable[[], object], *, classes: Sequence[str], endpoint: str,\n"
+     "            fallback=None,",
+     "no parameter can allowlist a provider", "tests/test_inference.py"),
+    # The type, not only the constructor. With the vetting gone from
+    # __post_init__ an Answer holding a third party's text becomes
+    # representable, and accept() is left as the only thing standing.
+    ("records/inference.py",
+     "        text, provider, tags, endpoint = _vet(\n"
+     "            self.text, self.provider, self.classes, self.endpoint, self.rung)",
+     "        text, provider, tags, endpoint = (\n"
+     "            self.text, self.provider, frozenset(self.classes), self.endpoint)",
+     "the type itself vets", "tests/test_inference.py"),
+    # tools/providers.py — the tripwire. Its mutations are the fail-open
+    # direction first: a checker that clears everything is silent in exactly
+    # the direction nobody notices.
+    ("tools/providers.py", "        guarded = id(node) in inside", "        guarded = True",
+     "an unguarded call is a finding", "tests/test_providers.py"),
+    ("tools/providers.py",
+     '        prefix = dotted.rsplit(".", 1)[0] if "." in dotted else ""\n'
+     "        is_guard = (dotted in entries\n"
+     "                    or (_tail(dotted) in GUARD_ENTRIES\n"
+     '                        and (prefix in modules or prefix.split(".")[0] in modules)))',
+     '        prefix = ""\n        is_guard = bool(entries or modules)',
+     "importing the guard is not going through it", "tests/test_providers.py"),
+    ("tools/providers.py",
+     "        marker = _endpoint_in(node) if _tail(dotted) in _SENDERS else None",
+     "        marker = None",
+     "a provider reached without the router", "tests/test_providers.py"),
+    ("tools/providers.py", "    if not calls:", "    if False:",
+     "a scan of nothing is not clean", "tests/test_providers.py"),
+    ("tools/conform.py",
+     '    if r.verdict is Verdict.VACUOUS:\n'
+     '        return Check("local-inference", what, State.UNKNOWN,',
+     '    if False:\n        return Check("local-inference", what, State.UNKNOWN,',
+     "refusal 1 is UNKNOWN, not PASS, while nothing infers", "tests/test_providers.py"),
     ("tools/conform.py", "return 1 if fails else 0", "return 0",
      "a failing check fails the build", "tests/test_conform.py"),
     ("tools/conform.py", "return self.state is State.PASS", "return True",
@@ -679,7 +754,8 @@ def main() -> int:
         "tests/test_serving.py", "tests/test_sending.py", "tests/test_classify.py",
         "tests/test_disclosure.py", "tests/test_sealing.py", "tests/test_dispositions.py",
         "tests/test_exit.py", "tests/test_crossing.py", "tests/test_dispatch.py",
-        "tests/test_witness.py", "tests/test_receipts.py"))
+        "tests/test_witness.py", "tests/test_receipts.py",
+        "tests/test_inference.py", "tests/test_providers.py"))
     print("green" if healthy else "RED — every result below is meaningless")
     if not healthy:
         return 1
