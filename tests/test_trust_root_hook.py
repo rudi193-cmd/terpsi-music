@@ -38,6 +38,13 @@ FORBIDDEN = (
     "season.grant",
     "roster.lease",
     "nested/dir/_net_leases/held.key",
+    # The gitlink shapes Bugbot and the security pass both caught: the trust
+    # root as a single bare index entry (a submodule pointer), which
+    # `mcp_apps/*` alone did not match. Here as plain staged paths; the genuine
+    # mode-160000 gitlink has its own test below.
+    "mcp_apps",
+    "_net_leases",
+    "vendor/mcp_apps",
 )
 
 #: The control: ordinary versioned files a commit must still accept, including
@@ -95,6 +102,23 @@ def test_a_forced_grant_file_is_refused_at_the_commit():
             # And nothing landed: HEAD is still the seed commit.
             log = _git(repo, "log", "--format=%s").stdout.split()
             assert "sneak" not in " ".join(log)
+
+
+def test_a_bare_gitlink_at_the_trust_root_path_is_refused():
+    """**The exact gap the reviewers found, with a genuine gitlink.** A
+    submodule pointer at `mcp_apps` is a mode-160000 index entry with nothing
+    after the name, so `mcp_apps/*` never matched it — a force-added submodule
+    could index the trust root past the gate. Staged the way git records a
+    gitlink (`update-index --cacheinfo 160000`), not as a file, so the test
+    reproduces the real shape rather than a stand-in."""
+    for name in ("mcp_apps", "_net_leases"):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = _repo(tmp)
+            sha = _git(repo, "rev-parse", "HEAD").stdout.strip()  # any real object
+            _git(repo, "update-index", "--add", "--cacheinfo", f"160000,{sha},{name}")
+            r = _git(repo, "commit", "-m", f"sneak {name} as a submodule", want_ok=False)
+            assert r.returncode != 0, f"a bare gitlink at {name} committed; the gate missed it"
+            assert name in (r.stderr + r.stdout) and "refusal 2" in (r.stderr + r.stdout)
 
 
 def test_an_ordinary_commit_still_passes():

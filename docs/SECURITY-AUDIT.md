@@ -217,6 +217,15 @@ trust root there, naming the path and refusal 2. `tests/test_trust_root_hook.py`
 runs it against the force-add case `.gitignore` cannot catch and against a
 clean control, so the guard is shown to fail rather than trusted to exist.
 
+**The gitlink gap, closed 2026-07-31 after review.** The first patterns matched
+`mcp_apps/*` but not a **bare** `mcp_apps` or `_net_leases` — the shape of a
+submodule gitlink, a single index entry with nothing after the name — so a
+force-added submodule pointer at the trust-root path slipped the gate. Both
+automated review passes on PR #16 caught it. The patterns now match each
+directory name four ways (exact, under, nested-exact, nested-under), and
+`test_a_bare_gitlink_at_the_trust_root_path_is_refused` stages a genuine
+mode-160000 entry and asserts the refusal.
+
 **One residual, stated rather than closed over.** The hook is a gate only where
 `core.hooksPath` points at it (`scripts/install-hooks.sh`, one act per clone).
 Uninstalled, it is a ledger — so the enforcement is per-clone, not automatic

@@ -25,8 +25,16 @@ staged="$(git diff --cached --name-only --diff-filter=ACMR)"
 refused=""
 while IFS= read -r path; do
   [ -z "$path" ] && continue
+  # The dir names match four ways each: exact (`mcp_apps` — the gitlink/submodule
+  # shape, where the trust root is a single index entry with nothing after it),
+  # under (`mcp_apps/x`), nested-exact (`vendor/mcp_apps`), and nested-under.
+  # The exact and nested-exact arms are the gitlink gap Bugbot and the security
+  # pass both caught: `mcp_apps/*` alone lets a force-added submodule pointer at
+  # the bare path index trust-root material past the gate.
   case "$path" in
-    mcp_apps/*|*/mcp_apps/*|_net_leases/*|*/_net_leases/*|*.grant|*.lease)
+    mcp_apps|mcp_apps/*|*/mcp_apps|*/mcp_apps/*| \
+    _net_leases|_net_leases/*|*/_net_leases|*/_net_leases/*| \
+    *.grant|*.lease)
       refused="${refused}  ${path}"$'\n' ;;
   esac
 done <<< "$staged"
