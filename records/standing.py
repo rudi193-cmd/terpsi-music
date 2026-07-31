@@ -69,7 +69,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Sequence, Tuple
+from typing import Callable, Optional, Sequence, Tuple
 
 from .crossing import _NOT_A_PERSON
 from .disclosure import Entry, Log
@@ -175,8 +175,19 @@ class Widening:
         return self.signed_at <= when < self.expires_at
 
 
-def widens(widenings: Sequence[Widening], *, subject_id: str,
-           category: Optional[str], at: datetime,
+class WideningsUnknown(RuntimeError):
+    """The widening source could not be consulted.
+
+    Raised rather than returned, because `widens()` answers `Optional[Widening]`
+    and `None` already means *nothing widens this category* — a third meaning in
+    the same value is how the seam came to be indistinguishable in the first
+    place. A caller that wants the softer answer catches this; `serving.serve`
+    does, and turns it into `Outcome.UNKNOWN`.
+    """
+
+
+def widens(widenings: Sequence[Widening] | Callable[[], Sequence[Widening]], *,
+           subject_id: str, category: Optional[str], at: datetime,
            signer_edges: Sequence[Edge] = ()) -> Optional[Widening]:
     """The live widening covering this category, or `None`.
 
@@ -189,7 +200,22 @@ def widens(widenings: Sequence[Widening], *, subject_id: str,
     individual **and** carries a category the law follows*; if the category is
     missing the field is misclassified, and inventing a match here would widen
     on the strength of a defect.
+
+    **`widenings` takes a sequence or a callable**, the shape
+    `records/sending.py::recipients` has always carried. A callable that raises
+    is `WideningsUnknown`, never `None`: a guardian who signed nothing and a
+    store that could not be asked led to the same `None` and the same held cap,
+    which is the row `tests/test_rule13_acceptance.py` carried for this seam
+    until the store gave the error somewhere to come from.
     """
+    if callable(widenings):
+        try:
+            widenings = tuple(widenings())
+        except Exception as exc:  # noqa: BLE001 — any failure is unknown, not empty
+            raise WideningsUnknown(
+                f"the widening source failed: {exc!r}; an unwidened category and "
+                "a source that could not be read are different facts (rule 13)"
+            ) from exc
     if not category:
         return None
     for w in widenings:

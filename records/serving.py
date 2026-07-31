@@ -30,7 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field as _field
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Sequence
+from typing import Callable, Optional, Sequence
 
 from .rungs import DERIVE_AT, NEVER_SERVED, Rung, at_least, compose
 
@@ -234,17 +234,40 @@ class Serving:
 # --- the predicate ---------------------------------------------------------
 
 
+def _consulted(source, what: str):
+    """`(rows, None)` for a source that answered; `(None, why)` for one that did not.
+
+    **The callable-or-sequence shape, arriving on the read path.**
+    `records/sending.py::recipients` has carried it since it was written — *"a
+    consent or guardianship backend that errored surfaces as `unknown`, never as
+    'no restrictions'"* — and this predicate did not, which is what put
+    `entitlement_store` and `envelope_store` on
+    `tests/test_rule13_acceptance.py`'s `CANNOT_DISTINGUISH` list: an edge store
+    that errored and a principal with no edge both arrived here as `()`, and
+    both were REFUSED with the same reason.
+
+    A sequence still means *consulted, and this is what there was*. Only a
+    callable can fail, and it fails to `UNKNOWN` rather than to empty.
+    """
+    if not callable(source):
+        return tuple(source), None
+    try:
+        return tuple(source()), None
+    except Exception as exc:  # noqa: BLE001 — any failure is unknown, not empty
+        return None, f"the {what} source failed: {exc!r}"
+
+
 def serve(
     fld: Field,
     principal: Principal,
-    edges: Sequence[Edge],
+    edges: Sequence[Edge] | Callable[[], Sequence[Edge]],
     at: datetime,
     lane_id: Optional[str] = None,
     known_as_of: Optional[datetime] = None,
-    envelopes: Sequence = (),
+    envelopes: Sequence | Callable[[], Sequence] = (),
     *,
     threshold: Optional[datetime] = None,
-    widenings: Sequence = (),
+    widenings: Sequence | Callable[[], Sequence] = (),
     grants: Optional[Sequence[Grant]] = None,
 ) -> Serving:
     """Decide what `principal` is served for `fld` at instant `at`.
@@ -268,7 +291,30 @@ def serve(
     passing an empty list, and cannot get the ceiling by forgetting the
     argument — the two failures point in opposite directions and a single
     sentinel would have merged them.
+
+    **`edges`, `envelopes` and `widenings` take a sequence or a callable.** A
+    callable that raises makes the whole decision `UNKNOWN` — the store could not
+    say who was entitled, which is not the same fact as nobody being entitled.
+    `store/reading.py`'s `Reading` is callable for exactly this, so a store that
+    went down mid-read reaches this predicate as an unknown rather than as a
+    refusal for a reason nobody established.
     """
+    edges, why = _consulted(edges, "entitlement")
+    if edges is None:
+        return Serving(Outcome.UNKNOWN, None, fld.rung,
+                       f"{why}; an entitlement source that errored is not a "
+                       "principal with no edge (rule 13)")
+    envelopes, why = _consulted(envelopes, "envelope")
+    if envelopes is None:
+        return Serving(Outcome.UNKNOWN, None, fld.rung,
+                       f"{why}; a crossing nobody signed and a crossing nobody "
+                       "could look up are different facts (rule 13)")
+    widenings, why = _consulted(widenings, "widening")
+    if widenings is None:
+        return Serving(Outcome.UNKNOWN, None, fld.rung,
+                       f"{why}; an unwidened category and a widening store that "
+                       "failed are different facts (rule 13)")
+
     # Rule 13. An unclassified field is a build failure; if one reaches here
     # anyway it reads as unknown and is not served. Never L1 by default.
     if fld.rung is None:

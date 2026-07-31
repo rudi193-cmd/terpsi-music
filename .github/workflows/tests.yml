@@ -36,15 +36,34 @@ jobs:
       # to work both ways (see each module's __main__ block). The workflow was
       # dependency-free until 2026-07-31, on purpose; it now installs exactly
       # the requirements file and nothing else — the posture is unchanged, the
-      # set is one element larger, and the reason is written where the pin is.
+      # set is two elements larger, and the reason is written where each pin is.
+      #
+      # tests/test_store_*.py are held back for the schema job, which has a
+      # cluster. They do NOT skip when there is no database: each exits 2 and
+      # says UNKNOWN, so running them here would paint this job red every time
+      # and teach everyone to ignore it. Holding them back is a routing
+      # decision and it is the kind that goes stale silently, so
+      # tests/test_manifest.py asserts that every file held back here is named
+      # in the schema job below — a store test that stopped being run anywhere
+      # is exactly the ledger §7.2 distinguishes from a gate.
       - name: Run guards
         run: |
           status=0
           for f in tests/test_*.py; do
+            case "$f" in
+              tests/test_store_*) echo "=== $f — needs a cluster; the schema job runs it"; continue;;
+            esac
             echo "=== $f"
             python3 "$f" || status=1
           done
           exit $status
+
+      # The second dependency's tripwire. The store's driver was accepted
+      # narrowly and this is what keeps the acceptance narrow: an import of it
+      # anywhere outside store/ fails here, and so does a scan that found the
+      # driver nowhere at all (exit 2 — a vacuous scan is not a passing one).
+      - name: The driver appears only in the store
+        run: python3 tools/drivers.py
 
       # The declaration, reconciled against the source, in THIS repository's
       # CI. §18 item 4's closing note makes it an obligation of the first
@@ -102,6 +121,10 @@ jobs:
     env:
       PGPASSWORD: postgres
       PSQL: psql -h localhost -U postgres -d postgres
+      # What tests/cluster.py connects with. Each store test module creates and
+      # drops its own database off this one, so a failure leaves nothing behind
+      # for the next module to inherit.
+      TERPSI_TEST_DSN: "host=localhost user=postgres password=postgres dbname=postgres"
     steps:
       - uses: actions/checkout@v4
         with:
@@ -111,8 +134,19 @@ jobs:
           # calling a true pin foreign before this line existed.
           fetch-depth: 0
 
-      - name: Apply the migration
-        run: $PSQL -v ON_ERROR_STOP=1 -q -f migrations/001_lanes.sql
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the declared dependencies
+        run: python3 -m pip install -r requirements.txt
+
+      - name: Apply the migrations
+        run: |
+          for f in migrations/*.sql; do
+            echo "=== $f"
+            $PSQL -v ON_ERROR_STOP=1 -q -f "$f"
+          done
 
       - name: Every column is classified
         run: |
@@ -295,3 +329,85 @@ jobs:
           test "$($PSQL -At -c 'SELECT count(*) FROM disclosure_log')" = "1" \
             || { echo "the disclosure log did not survive the attacks"; exit 1; }
           echo "legitimate writes still land; the log is intact"
+
+      # --- S-1: the store, against the cluster this job already has ----------
+      #
+      # These are the tests the guards job held back. They do not skip: with no
+      # database each module exits 2 and prints UNKNOWN, so a job that lost its
+      # service goes red rather than quietly green. Every module is named here
+      # explicitly rather than globbed, and tests/test_manifest.py asserts the
+      # list matches tests/test_store_*.py on disk — a glob would silently
+      # cover a module that had stopped existing, and an explicit list that
+      # nothing checks would silently miss one that started.
+      - name: The store, attacked (S-1)
+        run: |
+          status=0
+          for f in tests/test_store_roles.py \
+                   tests/test_store_migrate.py \
+                   tests/test_store_reading.py \
+                   tests/test_store_narration.py \
+                   tests/test_store_writing.py; do
+            echo "=== $f"
+            python3 "$f" || status=1
+          done
+          exit $status
+
+      # Rule 19 for the guards that need a cluster. tests/ablate.py's table
+      # covers the ones that can be mutated with no database; these three are
+      # in the schema instead of in Python, so they are ablated the way the
+      # workflow already ablates self_widening's CHECK — by removing the guard
+      # and requiring the attack that was passing to start landing.
+      #
+      # A mutation that kills no gate is a failed mutation, not a passing one
+      # (scout-13 row B), so each step asserts the forbidden act SUCCEEDS once
+      # the guard is gone. If it still fails, the test was being carried by
+      # something else and the report would have said `caught` for the wrong
+      # reason.
+      - name: Ablate the store's schema guards, and require the attacks to land
+        run: |
+          set -e
+          DB=ablate_store
+          $PSQL -q -c "DROP DATABASE IF EXISTS $DB"
+          $PSQL -q -c "CREATE DATABASE $DB"
+          A="psql -h localhost -U postgres -d $DB -v ON_ERROR_STOP=1 -q"
+          for f in migrations/*.sql; do $A -f "$f"; done
+
+          BEN=11111111-1111-1111-1111-111111111111
+          ANN=11111111-3333-3333-3333-333333333333
+          LBEN=22222222-1111-1111-1111-111111111111
+          E1=33333333-2222-2222-2222-222222222222
+          $A -c "INSERT INTO person VALUES ('$BEN','2010-05-01',now(),now(),NULL)"
+          $A -c "INSERT INTO person VALUES ('$ANN','1979-02-02',now(),now(),NULL)"
+          $A -c "INSERT INTO lane VALUES ('$LBEN','$BEN','keys at majority',now(),now(),now(),NULL)"
+          $A -c "INSERT INTO lane_entry VALUES ('$E1','$LBEN',NULL,'commentary','{}'::jsonb,'$ANN','sealed','$ANN',now(),now(),NULL)"
+
+          # (a) With lane_entry_sealed_is_history in place, rewriting a sealed
+          #     row is refused. Establish that first: a mutation is only
+          #     evidence if the unmutated state is green.
+          if $A -c "UPDATE lane_entry SET payload = '{\"x\":1}'::jsonb WHERE entry_id = '$E1'" 2>/dev/null; then
+            echo "the sealed-row trigger did not refuse; there is nothing to ablate"; exit 1
+          fi
+          echo "guard present: a sealed row cannot be rewritten"
+
+          # (b) Drop it, and require the same statement to land. If it still
+          #     fails, something other than this trigger was doing the work.
+          $A -c "DROP TRIGGER lane_entry_sealed_is_history ON lane_entry"
+          $A -c "UPDATE lane_entry SET payload = '{\"x\":1}'::jsonb WHERE entry_id = '$E1'" \
+            || { echo "ABLATION KILLED NOTHING: the attack still fails with the trigger gone"; exit 1; }
+          echo "ablation confirmed: the trigger was the guard"
+
+          # (c) The same discipline for the app role's missing privileges.
+          $A -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='ablate_app') THEN CREATE ROLE ablate_app LOGIN; END IF; END \$\$;"
+          $A -c "GRANT USAGE ON SCHEMA public TO ablate_app"
+          $A -c "GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA public TO ablate_app"
+          $A -c "REVOKE UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public FROM ablate_app"
+          if $A -c "SET ROLE ablate_app; DELETE FROM lane_entry" 2>/dev/null; then
+            echo "the app role deleted a row; the revoke did nothing"; exit 1
+          fi
+          echo "guard present: the app role cannot delete"
+          $A -c "GRANT UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ablate_app"
+          $A -c "SET ROLE ablate_app; DELETE FROM lane_entry WHERE entry_id = '$E1'" \
+            || { echo "ABLATION KILLED NOTHING: the delete still fails with the grant restored"; exit 1; }
+          echo "ablation confirmed: the missing privilege was the guard"
+
+          $PSQL -q -c "DROP DATABASE $DB"

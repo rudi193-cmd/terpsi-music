@@ -23,6 +23,12 @@ expensive direction, so this plan exists before the first write does.
    Sovereignty is not the counterargument it usually is: `docs/EXIT.md`'s
    artifact is CSV and plain text, never the database file.
 
+   **The driver is this repository's second dependency, added 2026-07-31 with
+   S-1**: `psycopg[binary]==3.1.18`, pinned in `requirements.txt` beneath
+   `cryptography` with its reason on the same terms, admitted in `store/` alone
+   and nowhere else by `tools/drivers.py`, which fails the build on an import
+   anywhere outside it.
+
 2. **The write model is rule 11 with the seal cascade as its middle.** Writes
    land as **drafts** — the sidecar, writable by the app's role. A named
    human's seal (`records/sealing.py`) **is** the promotion. Sealed rows are
@@ -80,8 +86,8 @@ expensive direction, so this plan exists before the first write does.
 |---|---|---|
 | G-A | ~~maintainer picks~~ **Picked 2026-07-31: E-1, 3-of-5** — `docs/ESCROW.md` records the policy; names and the first rehearsal are install-acceptance acts, and until that rehearsal is dated the disposition honestly reads unrehearsed. R16's fuse stands: the first at-rest write before the rehearsal is still the build failure it should be | done (policy) |
 | G-B | ~~maintainer confirms~~ **Confirmed 2026-07-31** — the composition route recorded (`registry.Route.COMPOSITION`, the seed comment beside the columns); the three fields are ELEVATED with the rule named, the registry reads CLEAN, and the conformance row passes on the merits | done |
-| G-C | Manifest write-paths declaration + its reconciliation, same commit | build |
-| G-D | The two-role split exists before the first table is populated — a store born single-role never sheds the habit | build |
+| G-C | ~~Manifest write-paths declaration + its reconciliation, same commit~~ **Passed 2026-07-31 with S-1.** `manifest.json` gains `write_paths` (four entries, each with its reason) and a module-scoped `outbound`; `tools/purity.py` learns that a statement handed to a database is a write; `tools/manifest.py` reconciles both directions and `tools/conform.py`'s `write-paths` row stops being a ledger. Decoys: `store_write_undeclared.py` fails the build by name, `store_write_in_prose.py` must not | done |
+| G-D | ~~The two-role split exists before the first table is populated~~ **Passed 2026-07-31 with S-1.** `terpsi_migrator` owns the DDL; `terpsi_app` holds `SELECT` and `INSERT` and is refused `UPDATE`, `DELETE`, `TRUNCATE` and `CREATE` by `SQLSTATE 42501` naming the table. Migration 002 adds the half a privilege cannot express — a sealed row is rewritable by nobody, `invalid_at` excepted — and it is attacked as the **owner**, because a privilege check runs ahead of every trigger and would otherwise stand in for it | done |
 
 ## Escrow options (G-A) — pick one, or name a fourth
 
@@ -118,9 +124,25 @@ itself. Each must be attempted and refused, and each refusal ablated:
 
 ## Decomposition, for dispatch after G-A and G-B
 
-- **S-1 — the spine**: `store/` package, roles, migration runner, the
-  error-channel adapter, same-transaction narration. Everything else waits
-  on it; this one is not parallel.
+- ~~**S-1 — the spine**~~: **built 2026-07-31.** `store/` — `connecting`,
+  `roles`, `migrate`, `reading`, `narration`, `writing`, `classification` —
+  with `migrations/002_seal_history.sql`, `tools/drivers.py`, and five test
+  modules against a real PostgreSQL 16. **Four of the seven forbidden acts
+  above are attempted and refused by the guard named in each refusal** — the
+  errored connection, the unclassified column, the unpaired read-and-narration,
+  and the undeclared write path — and **two of the first item's three clauses**:
+  the app role cannot rewrite a sealed row and cannot delete anything. Its third
+  clause (a payload read in the clear) is S-3's, because nothing is sealed at
+  rest yet; the lane crossing is S-2's and the erasure-and-chain is S-3's. Said
+  precisely rather than rounded up: a forbidden act nobody has attempted is not
+  one this build has refused. **Two findings came out of it and are recorded
+  where they belong rather than here**: `tools/purity.py` read
+  `path.open("x")` as a *read* because it looked for the mode at the wrong
+  argument — so `tools/conform.py`'s own record writer was invisible to the
+  write gate — and the same module's SQL pattern ended in `\b`, which made
+  `UPDATE`, `DROP`, `ALTER`, `GRANT` and `REVOKE` match only where the next
+  identifier was one character long. Both were found by pointing a new check at
+  the tree and noticing something known to be there was missing.
 - **S-2 — RLS and the differential middle** (after S-1).
 - **S-3 — the sealing seam**: atrest wiring, escrow disposition surfaced in
   conformance, R16's transition exercised deliberately in a test before it

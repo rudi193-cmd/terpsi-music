@@ -42,6 +42,7 @@ Stdlib only. No network, no writes — asserted by scanning this file with itsel
 from __future__ import annotations
 
 import ast
+import re
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -89,12 +90,56 @@ _FS_OWNERS = frozenset({"os", "shutil", "tempfile", "pathlib", "path"})
 
 _WRITE_MODES = ("w", "a", "x", "+")
 
+#: Statements that change what a database holds. `GRANT`/`REVOKE` are here
+#: because a privilege is state: `store/roles.py` is a write path and would
+#: otherwise be invisible to the check that its own gate depends on.
+#:
+#: **The trailing `\b` was a bug and a test found it.** The first version ended
+#: the alternation with `\b`, so `UPDATE\s+\w` had to be followed by a word
+#: boundary — which meant it matched `UPDATE l` only when the table name was one
+#: character long. `UPDATE lane_entry` was invisible, and so were `DROP`,
+#: `ALTER`, `GRANT` and `REVOKE`. `INSERT INTO` and `DELETE FROM` matched,
+#: because their second word supplies its own boundary, so the scan looked like
+#: it worked on every case anybody tried by hand.
+_SQL_WRITE = re.compile(
+    r"\b(INSERT\s+INTO|UPDATE\s+\w|DELETE\s+FROM|CREATE\s+(TABLE|SCHEMA|ROLE|"
+    r"FUNCTION|TRIGGER|INDEX)|DROP\s+\w|ALTER\s+\w|TRUNCATE|GRANT\s+\w|"
+    r"REVOKE\s+\w|COPY\s+\w)", re.I)
+
+#: Callables that hand a statement to a database. Narrow on purpose: the finding
+#: is SQL *handed to something*, never SQL in a docstring. `tools/discipline.py`
+#: reached the same rule from the other direction — its first version flagged
+#: its own decoy's prose — and the two scanners now share the shape without
+#: sharing a copy, because each owns a different question.
+#:
+#: **`run` was in this set for one measurement and came straight back out.**
+#: `subprocess.run([...])` matched it, so five of `tools/conform.py`'s process
+#: launches were reported as unreadable SQL. A false positive is how a check
+#: earns the reputation that gets it switched off — this module's own docstring
+#: records the same lesson from the `dataclasses.replace()` case — so the set is
+#: the verbs that only ever mean a database.
+_SQL_EXECUTORS = frozenset({
+    "execute", "executemany", "executescript", "execute_batch",
+    "execute_values", "exec_driver_sql",
+})
+
 
 class Reach(Enum):
     EGRESS = "egress"
     SPAWN = "spawn"
     WRITE = "write"
     READ = "read"
+    #: A statement handed to a database that changes what it holds. A write is a
+    #: write whether the bytes land on a disk this process owns or in a cluster
+    #: it connects to, and until the store existed this scanner could only see
+    #: the first — so `manifest.json`'s write-path declaration would have been
+    #: reconciled against a check that could not see the thing being declared.
+    DB_WRITE = "db_write"
+    #: SQL handed to an executor that this scanner cannot read: a name, a
+    #: variable, a composed object. Counted as a write, for `UNKNOWN_MODE`'s
+    #: reason — unresolvable is not a pass, and it is at exactly the places the
+    #: code is least legible that a checker must not go quiet.
+    UNKNOWN_SQL = "unknown_sql"
     UNKNOWN_MODE = "unknown_mode"   # a write until shown otherwise
     #: A file that would not parse. **Anything** until shown otherwise, so it
     #: counts against every gate rather than one. It had its own reach only from
@@ -118,7 +163,12 @@ class Touch:
     def is_write(self) -> bool:
         """A read is a dependency; a write is a write. Kept apart on purpose —
         a check that cries wolf on every `open()` gets switched off."""
-        return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE, Reach.UNPARSEABLE)
+        return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE, Reach.UNPARSEABLE,
+                              Reach.DB_WRITE, Reach.UNKNOWN_SQL)
+
+    @property
+    def is_db(self) -> bool:
+        return self.reach in (Reach.DB_WRITE, Reach.UNKNOWN_SQL)
 
     def __str__(self) -> str:
         return f"{self.module}:{self.line} {self.detail}"
@@ -157,16 +207,34 @@ def _on_a_path(func) -> bool:
 
 
 def _mode_of(call: ast.Call) -> Optional[str]:
-    """The mode `open()` was called with, or `None` when it is not a literal."""
-    if len(call.args) >= 2:
-        a = call.args[1]
+    """The mode `open()` was called with, or `None` when it is not a literal.
+
+    **The mode is not always the second argument, and reading it as though it
+    were made a real write invisible.** `open(path, "w")` puts it second;
+    `path.open("w")` — the `pathlib` spelling, which this repository uses —
+    puts it *first*, because the path is the receiver. The first version of this
+    function looked only at index 1, found nothing, fell through to the default
+    and answered `"r"`. So `tools/conform.py`'s own record writer, `path.open("x",
+    encoding=…)`, was classified as a **read** by the gate that exists to find
+    writes, and `check_write_paths` reported *"no writes"* over a module whose
+    whole job is to write a file.
+
+    Found by pointing the new write-path reconciliation at the tree and noticing
+    that a module known to write did not appear. That is the same defect this
+    module's docstring already records twice, in the same function family: a
+    guard written against the tree it guards passes whether or not it works.
+    """
+    receiver_is_path = isinstance(call.func, ast.Attribute)
+    index = 0 if receiver_is_path else 1
+    if len(call.args) > index:
+        a = call.args[index]
         return a.value if isinstance(a, ast.Constant) and isinstance(a.value, str) else None
     for kw in call.keywords:
         if kw.arg == "mode":
             return (kw.value.value
                     if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str)
                     else None)
-    return "r"  # open(path) reads
+    return "r"  # open(path) and path.open() both read
 
 
 def scan_source(src: str, module: str) -> Tuple[Touch, ...]:
@@ -230,7 +298,47 @@ def scan_source(src: str, module: str) -> Tuple[Touch, ...]:
                 out.append(Touch(Reach.WRITE, module, node.lineno,
                                  f"{owner + '.' if owner else 'Path(…).'}{name}()"))
 
+            if name in _SQL_EXECUTORS:
+                out.extend(_sql_touches(node, module))
+
     return tuple(out)
+
+
+def _sql_literal(node) -> Optional[str]:
+    """The literal SQL an argument carries, or `None` when it is not literal.
+
+    f-strings count, and they are the normal spelling: `execute(f"INSERT INTO
+    {table} …")` is an `ast.JoinedStr`, and a scan over constants alone sees
+    nothing. `tools/discipline.py` shipped that defect once and recorded it.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.JoinedStr):
+        return "".join(v.value for v in node.values
+                       if isinstance(v, ast.Constant) and isinstance(v.value, str))
+    return None
+
+
+def _sql_touches(call: ast.Call, module: str) -> List[Touch]:
+    """Whether this `execute()`-shaped call changes what a database holds.
+
+    A read (`SELECT`) is not a write, exactly as `open(..., 'r')` is not: a
+    check that flagged every query would be switched off within a week. What
+    cannot be read at all is `UNKNOWN_SQL` and counts against the gate.
+    """
+    args = list(call.args) + [k.value for k in call.keywords]
+    if not args:
+        return []
+    literal = _sql_literal(args[0])
+    if literal is None:
+        return [Touch(Reach.UNKNOWN_SQL, module, call.lineno,
+                      f"{_name_of(call.func)}() with SQL this scan cannot read — "
+                      "counted as a write, because unresolvable is not a pass")]
+    if _SQL_WRITE.search(literal):
+        head = " ".join(literal.split()[:3])
+        return [Touch(Reach.DB_WRITE, module, call.lineno,
+                      f"{_name_of(call.func)}({head!r}…) changes what the store holds")]
+    return []
 
 
 def scan(paths: Sequence[Path]) -> Tuple[Touch, ...]:
