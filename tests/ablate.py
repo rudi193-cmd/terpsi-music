@@ -739,6 +739,40 @@ MUTATIONS = [
     ("tools/manifest.py", "    return tuple(p for p in _all_python(base) if _excused(p.relative_to(base)) is None)",
      "    return tuple(p for p in _all_python(base) if 'presentation' not in p.parts)",
      "the scan covers the whole tree", "tests/test_manifest.py"),
+    # tools/registry.py — the middle between the two implementations of the
+    # class-to-L mapping. Every mutation below is a fail-open: each makes the
+    # reconciliation report agreement it did not find, which is the only
+    # direction that matters for a check whose failure mode is a rung quietly
+    # dropping. The elevation rows are the delicate half — a middle that
+    # permits an elevation and a middle that permits anything upward look the
+    # same against a seed that has not drifted yet.
+    ("tools/registry.py", "    if seeded == derived:", "    if True:",
+     "the seeded rung is the derived one", "tests/test_registry.py"),
+    ("tools/registry.py", "    if not outranks(seeded_rung, got.rung):", "    if False:",
+     "only an elevation may differ from the class", "tests/test_registry.py"),
+    ("tools/registry.py", "    decided = ELEVATIONS.get((table, column))",
+     "    decided = Elevation(seeded_rung, Route.CLAUSE, 'assumed')",
+     "an elevation cites a rule somebody recorded", "tests/test_registry.py"),
+    ("tools/registry.py",
+     "        if got.rung is None or str(got.rung) != documented[data_class]:",
+     "        if False:",
+     "classify.py and SENSITIVITY.md derive the same rung", "tests/test_registry.py"),
+    ("tools/registry.py", "    if not seed or not declared or not documented:",
+     "    if False:",
+     "a registry nobody could read is not clean", "tests/test_registry.py"),
+    ("tools/registry.py",
+     "    for state in (Agreement.DISAGREES, Agreement.UNCLASSIFIED, Agreement.STALE):",
+     "    for state in (Agreement.DISAGREES,):",
+     "an unclassified column fails the build", "tests/test_registry.py"),
+    ("tools/registry.py", "        if key[0] in present:", "        if True:",
+     "a stale elevation is scoped to the schema read", "tests/test_registry.py"),
+    # tools/conform.py — the row, not the reconciliation. A middle that works
+    # and a row that reports it as PASS anyway is the state §17 measured:
+    # the gate exists, the ledger says something else.
+    ("tools/conform.py",
+     "    undecided = r.of(Agreement.UNDECIDED)\n    if undecided:",
+     "    undecided = r.of(Agreement.UNDECIDED)\n    if False:",
+     "an undecided field is not a passing row", "tests/test_registry.py"),
 ]
 
 

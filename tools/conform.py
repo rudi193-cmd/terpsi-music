@@ -441,6 +441,48 @@ def check_deposit_procedure() -> Check:
                  "was performed is not decidable from a tree")
 
 
+def check_classification_registry(schema: Optional[Path] = None,
+                                  doc: Optional[Path] = None) -> Check:
+    """§9 item 2's pair, and the middle between its two halves.
+
+    The class-to-`L` mapping is implemented twice — `records/classify.py` runs
+    `SENSITIVITY.md`'s procedure, and `migrations/001_lanes.sql` seeds a
+    `(class, rung)` for every column — so `tools/registry.py` reconciles the two
+    against the document's own table and against the DDL's column list.
+
+    **`UNDECIDED` is not a pass and not a build failure.** An elevation above
+    the rung a class derives is permitted by step 3's clause and step 4's rules,
+    both human-evaluated at schema-definition time; where nothing records which
+    applies, this row says so with both values rather than picking one. A
+    disagreement — a rung below what the class derives, an unclassified column,
+    a row for a column nothing declares — is a `FAIL`.
+    """
+    from registry import Agreement, Verdict, check as registry_check  # noqa: E402
+
+    r = registry_check(schema, doc)
+    what = "the class-to-L mapping is enforced in one place (§9 item 2, §16)"
+    if r.verdict is Verdict.VACUOUS:
+        return Check("classification-registry", what, State.UNKNOWN,
+                     "; ".join(f.detail for f in r.findings[:2])
+                     or "nothing was read")
+    if r.findings:
+        return Check("classification-registry", what, State.FAIL,
+                     "; ".join(str(f) for f in r.findings[:3]))
+    undecided = r.of(Agreement.UNDECIDED)
+    if undecided:
+        return Check(
+            "classification-registry", what, State.UNKNOWN,
+            f"{r.agreed} of {len(r.judgements)} field(s) reconciled "
+            f"({len(r.of(Agreement.ELEVATED))} elevated by a recorded rule); "
+            f"{len(undecided)} undecided and named: "
+            + ", ".join(f"{j.field} registry={j.seeded} derives={j.derived}"
+                        for j in undecided[:4]))
+    return Check("classification-registry", what, State.PASS,
+                 f"{len(r.judgements)} field(s): the seed, records/classify.py "
+                 f"and SENSITIVITY.md's table agree "
+                 f"({len(r.of(Agreement.ELEVATED))} elevated by a recorded rule)")
+
+
 def check_component_map() -> Check:
     """Item 0: an unverified table and a verified one must not look identical."""
     r = subprocess.run([sys.executable, str(ROOT / "tests" / "test_component_map.py")],
@@ -470,12 +512,13 @@ UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
              "no destination allowlist exists; §14 records the fleet-wide version "
              "as unique to UTETY"),
     _unknown("named-middles", "a named middle for every pair the app creates (§16)",
-             "not mechanically decidable. Eleven middles are named and tested "
+             "not mechanically decidable. Twelve middles are named and tested "
              "(crossing, standing.is_self_edge, marking.drift, practice._one_lane, "
              "publication.reconcile, inference.CLASSES<->SENSITIVITY.md, "
              "inference.COVERED_CLASSES<->CLAUDE.md refusal 1, "
              "providers.GUARD_ENTRIES<->records.inference, scales.drift, "
-             "render.check, manifest.reconcile); "
+             "render.check, manifest.reconcile, "
+             "registry.reconcile<->migrations/001_lanes.sql+records/classify.py); "
              "whether that is *every* pair is a reading, not a check"),
 )
 
@@ -483,7 +526,8 @@ UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
 CHECKS: Tuple[Callable[[], Check], ...] = (
     check_no_egress, check_write_paths, check_revocation_is_dated,
     check_suite_runs_standalone, check_ablation, check_exit_line,
-    check_component_map, check_declared_sockets, check_manifest,
+    check_component_map, check_classification_registry,
+    check_declared_sockets, check_manifest,
     check_local_inference, check_anchor_payload, check_anchor_published,
     check_receipt_attribution, check_deposit_procedure,
 ) + UNDECIDABLE
