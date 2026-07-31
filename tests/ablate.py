@@ -19,6 +19,7 @@ and a mutation that does not apply is an **error**, not a pass.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -185,6 +186,31 @@ MUTATIONS = [
      "if False:", "a backlog is not an address", "tests/test_sockets.py"),
     ("tools/sockets.py", "for e in outbound:", "for e in ():",
      "outbound is a finding", "tests/test_sockets.py"),
+    # tools/purity.py — the two checks that lived in conform.py and shipped
+    # broken. Each mutation restores one of the holes the decoys found.
+    ("tools/purity.py", "files = [base] if base.is_file() else sorted(base.rglob(\"*.py\"))",
+     "files = [base] if base.is_file() else sorted(base.glob(\"*.py\"))",
+     "a subpackage is scanned", "tests/test_purity.py"),
+    ("tools/purity.py", "if name in _DYNAMIC:", "if False:",
+     "a dynamic import is egress", "tests/test_purity.py"),
+    ("tools/purity.py", "elif owner in _SPAWN_MODULES and name in _SPAWN_CALLS:",
+     "elif False:", "a process spawn is egress", "tests/test_purity.py"),
+    ("tools/purity.py", "if mode is None:", "if False:",
+     "a non-literal mode is a write", "tests/test_purity.py"),
+    ("tools/purity.py", "elif any(m in mode for m in _WRITE_MODES):",
+     "elif False:", "open(w) is a write", "tests/test_purity.py"),
+    ("tools/purity.py", "elif name in _UNAMBIGUOUS_WRITES:", "elif False:",
+     "write_text is a write", "tests/test_purity.py"),
+    ("tools/purity.py",
+     "elif name in _OWNED_WRITES and (owner in _FS_OWNERS or _on_a_path(node.func)):",
+     "elif name in _OWNED_WRITES:",
+     "dataclasses.replace is not os.replace", "tests/test_purity.py"),
+    ("tools/purity.py", "return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE)",
+     "return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE, Reach.READ)",
+     "a read is not a write", "tests/test_purity.py"),
+    ("tools/conform.py", "    if not n:\n        return Check(\"no-egress\", what, State.UNKNOWN,",
+     "    if False:\n        return Check(\"no-egress\", what, State.UNKNOWN,",
+     "a scan of nothing is not a pass", "tests/test_purity.py"),
     ("tools/sockets.py",
      "            if not any(d.covers(e) for e in listeners):", "            if False:",
      "a stale declaration is a finding", "tests/test_sockets.py"),
@@ -240,10 +266,46 @@ MUTATIONS = [
 
 
 def run(suite: str) -> bool:
-    """True when the suite passes."""
-    r = subprocess.run([sys.executable, str(ROOT / suite)],
-                       capture_output=True, cwd=ROOT)
+    """True when the suite passes.
+
+    **Bytecode caching is disabled, and it is not a tidiness measure.** This
+    harness mutates a file, runs a suite, and restores the file — the whole
+    cycle inside one second. CPython validates a cached `.pyc` against
+    `(mtime_seconds, size)`, so a mutation whose replacement is the *same length*
+    as the original can leave a `.pyc` that survives the restore, and the next
+    subprocess then executes code that is on nobody's disk.
+
+    The failure it produces is silent and points the wrong way: a mutation
+    reported as `caught` when the running code was never mutated, or as
+    `SURVIVES` when it was. That is scout-13 row B again — *"a mutation which
+    kills no gate is a failed mutation, not a passing one"* — arriving through
+    the interpreter rather than through a `sed` that stopped matching.
+
+    Found the ordinary way, 2026-07-31: a stale `__pycache__` entry made
+    `tools/conform.py` return `PASS` from a branch the source could not reach,
+    and it reproduced outside pytest, which is what ruled out test pollution.
+    """
+    env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
+    r = subprocess.run([sys.executable, "-B", str(ROOT / suite)],
+                       capture_output=True, cwd=ROOT, env=env)
     return r.returncode == 0
+
+
+def _purge_bytecode() -> int:
+    """Drop every `__pycache__` before the first mutation.
+
+    A cache written before this run is keyed to the *unmutated* file and can
+    outlive a same-size mutation. Clearing once at the start costs a second of
+    recompilation and removes the class of problem.
+    """
+    n = 0
+    for d in ROOT.rglob("__pycache__"):
+        if ".git" in d.parts:
+            continue
+        for f in d.glob("*.pyc"):
+            f.unlink()
+            n += 1
+    return n
 
 
 def ablate(target: str, pattern: str, repl: str, label: str, suite: str) -> str:
@@ -260,6 +322,9 @@ def ablate(target: str, pattern: str, repl: str, label: str, suite: str) -> str:
 
 
 def main() -> int:
+    dropped = _purge_bytecode()
+    if dropped:
+        print(f"  purged {dropped} stale .pyc before mutating")
     print("  control".ljust(38), end="")
     healthy = all(run(s) for s in (
         "tests/test_serving.py", "tests/test_sending.py", "tests/test_classify.py",
