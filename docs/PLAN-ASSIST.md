@@ -1,11 +1,11 @@
 # PLAN-ASSIST — §9 item 11: local agent assistance, behind the gate
 
 `docs/ARCHITECTURE.md §9` item 11 is *"Local agent assistance behind the gate."*
-The domain surface is capability-map **§19 Insight and Assistance**, whose first
-line is the whole constraint: *"All of this runs behind the egress gate on local
-models, since nearly every input is `PII_MINOR` or `MEDIA_MINOR`."* This phase
-builds the **gated assistance seam** plus one representative capability that
-exercises it end to end — not the full §19 breadth.
+The domain surface is **§19 of the capability map** (Insight and Assistance),
+whose first line is the whole constraint: *"All of this runs behind the egress
+gate on local models, since nearly every input is `PII_MINOR` or `MEDIA_MINOR`."*
+This phase builds the **gated assistance seam** plus one representative capability
+that exercises it end to end — not the full breadth of §19 of the capability map.
 
 **The two hard clauses this phase exists to enforce:**
 - **Refusal 1 / §6:** anything touching `PII_MINOR`/`PII_GUARDIAN`/`HEALTH`/
@@ -106,11 +106,11 @@ commentary already does) rather than adding a store record-write. The build must
 confirm R16 is still `FINDING`/`S2` with `durable_callers: ()` on the finished
 tree.
 
-## The representative capability (make it concrete, not the whole §19)
+## The representative capability (make it concrete, not the whole of §19 of the capability map)
 
 Build **one** capability end to end so the four slices are exercised on real
-shapes: a **per-student longitudinal growth narrative** — capability-map §19,
-*"longitudinal growth narratives for conferences, drafted from real data"* —
+shapes: a **per-student longitudinal growth narrative** (§19 of the capability map)
+— *"longitudinal growth narratives for conferences, drafted from real data"* —
 one student (one lane, W-1), drafted by a local model through A-1, landed as a
 `draft` through A-2, refused as an unattended loop through A-3, and carrying no
 score through A-4. It is the capability that touches the most clauses at once.
@@ -120,8 +120,8 @@ score through A-4. It is the capability that touches the most clauses at once.
 | Deferred | Why | Successor |
 |---|---|---|
 | The model deployment / client | The app ships no model; `inference.through` takes a `call` closure the deployment provides | An install/ops concern, not this repo's commit |
-| The rest of §19 (rehearsal & commentary summarization, program notes, newsletter) | One representative capability proves the seam; breadth is repetition | Later capability commits, each behind the same gate |
+| The rest of §19 of the capability map (rehearsal & commentary summarization, program notes, newsletter) | One representative capability proves the seam; breadth is repetition | Later capability commits, each behind the same gate |
 | Scaffold-withdrawal proposal flow (W-5 *surfaces the case, a human signs*) | Its own decision surface | A later commit; A-4's no-score rule is the piece of it that lands now |
-| Draft-to-draft diff (§19) | A craft surface, not the gate | Later |
+| Draft-to-draft diff (§19 of the capability map) | A craft surface, not the gate | Later |
 
 Nothing above is excused — each is a named middle owed a later commit, not a gap.
