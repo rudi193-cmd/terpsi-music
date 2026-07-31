@@ -36,7 +36,9 @@ inspect them would open the sockets it was written to detect.
 | `deletes_in_prose.py` | `tools/discipline.py` | the false positive the shipped check actually made |
 | `runners/test_no_runner.py` | `tools/discipline.py` | mentions `__main__` in a docstring and has no runner |
 | `runners/test_empty_runner.py` | `tools/discipline.py` | `if __name__ == "__main__": pass` |
-| `runners/test_swallowing_runner.py` | `tools/discipline.py` | a runner that prints `FAIL` and **exits 0** |
+| `runners/test_swallowing_runner.py` | `tools/discipline.py` | a runner that prints `FAIL` and falls off the end |
+| `runners/test_zero_exit_runner.py` | `tools/discipline.py` | a runner that prints `FAIL` and **explicitly `sys.exit(0)`** |
+| `runners/test_not_really_an_exit.py` | `tools/discipline.py` | `logger.exit()` — an `exit` belonging to something else |
 | `runners/test_good_runner.py` | `tools/discipline.py` | the shape every suite here uses; the control |
 
 **All five checkers have now been tested for the first time. Four were broken.**

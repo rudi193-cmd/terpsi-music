@@ -60,7 +60,27 @@ STANDING_NAMES = frozenset({
 REMOVERS = frozenset({"remove", "pop", "clear", "discard", "popitem",
                       "difference_update", "symmetric_difference_update"})
 
-_SQL_DELETE = re.compile(r"\bDELETE\s+FROM\b|\bDROP\s+(TABLE|ROW)\b", re.I)
+_SQL_DELETE = re.compile(
+    r"\bDELETE\s+FROM\b|\bDROP\s+(TABLE|ROW)\b|\bTRUNCATE\s+(TABLE\s+)?\w", re.I)
+
+
+def _sql_deletes(node) -> bool:
+    """Whether this argument is SQL that removes rows.
+
+    **f-strings are the normal spelling and the first version missed them.**
+    `execute(f"DELETE FROM edge WHERE id={eid}")` is an `ast.JoinedStr`, not an
+    `ast.Constant`, so a scan over constants alone sees nothing — and
+    parameterised SQL built by interpolation is what this looks like the moment
+    a store exists. The named limit (`sql = "..."` then `execute(sql)`) is a
+    different and rarer shape; this one was neither named nor caught.
+    """
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return bool(_SQL_DELETE.search(node.value))
+    if isinstance(node, ast.JoinedStr):
+        literal = "".join(v.value for v in node.values
+                          if isinstance(v, ast.Constant) and isinstance(v.value, str))
+        return bool(_SQL_DELETE.search(literal))
+    return False
 
 
 class Cut(Enum):
@@ -90,7 +110,17 @@ def _trailing_name(node) -> str:
 
 
 def _is_standing(name: str) -> bool:
-    return name.lstrip("_").lower() in STANDING_NAMES
+    """Whether this receiver holds standing.
+
+    **The comment on `STANDING_NAMES` claimed `live_edges` counted and it did
+    not.** `lstrip("_")` removes leading underscores only, so `_edges` matched
+    and `live_edges` did not — a declaration with nothing behind it, in the
+    checker written to find declarations with nothing behind them. Now the
+    trailing `_`-separated segment is matched as well, so `live_edges`,
+    `suppressed_edges` and `self._edges` all count.
+    """
+    n = name.lstrip("_").lower()
+    return n in STANDING_NAMES or n.rsplit("_", 1)[-1] in STANDING_NAMES
 
 
 def scan_deletions(src: str, module: str) -> Tuple[Deletion, ...]:
@@ -130,8 +160,7 @@ def scan_deletions(src: str, module: str) -> Tuple[Deletion, ...]:
             # is invisible. Constant propagation is not worth it here; the store
             # is where this gets enforced properly, and there is no store.
             for arg in list(node.args) + [k.value for k in node.keywords]:
-                if (isinstance(arg, ast.Constant) and isinstance(arg.value, str)
-                        and _SQL_DELETE.search(arg.value)):
+                if _sql_deletes(arg):
                     out.append(Deletion(
                         Cut.SQL, module, node.lineno,
                         "a DELETE statement is executed — a deleted row leaves no "
@@ -185,24 +214,66 @@ def _is_main_guard(node) -> bool:
             and isinstance(comps[0], ast.Constant) and comps[0].value == "__main__")
 
 
-def _exits_nonzero(block: Sequence[ast.stmt]) -> bool:
-    """Whether this block can end the process with a failing status.
+def _is_exit_call(func) -> bool:
+    """`sys.exit`, `os._exit`, bare `exit`/`quit` — and nothing else.
 
-    `raise SystemExit(...)` or `sys.exit(...)`. A runner that prints `FAIL` and
-    returns is the shape that passed the shipped check and reports success to
-    everything downstream.
+    The first version accepted **any** attribute named `exit`, so `logger.exit()`
+    and `self.exit()` counted as ending the process.
+    """
+    if isinstance(func, ast.Name):
+        return func.id in ("exit", "quit")
+    if isinstance(func, ast.Attribute):
+        owner = func.value.id if isinstance(func.value, ast.Name) else ""
+        return owner in ("sys", "os") and func.attr in ("exit", "_exit")
+    return False
+
+
+def _can_be_nonzero(arg) -> bool:
+    """Whether this exit status can be a failure.
+
+    Absent, `0` and `None` are successes; everything else — a name, a
+    conditional, a string (`SystemExit("msg")` exits 1) — can fail.
+    """
+    if arg is None:
+        return False
+    if isinstance(arg, ast.Constant):
+        return arg.value not in (0, None, False)
+    return True
+
+
+def _exits_nonzero(block: Sequence[ast.stmt]) -> bool:
+    """Whether this block can end the process with a **failing** status.
+
+    **The name promised two conditions and the first version checked one.** It
+    asked whether an exit call existed and never what it returned, so the exact
+    shape this check was built to catch passed in a different spelling:
+
+        print("FAIL"); sys.exit(0)          -> OK
+        print("FAIL"); raise SystemExit(0)  -> OK
+
+    That is *"catches every failure, prints FAIL, and exits 0"* — the case
+    `check_suite_runs_standalone` exists for — reported as a working runner.
+    Worse, `test_sys_exit_counts_as_well_as_raise_SystemExit` asserted `OK` on
+    `sys.exit(0)`: the test meant to fix the *spelling* and the `0` was
+    incidental, so a green test locked the hole in.
+
+    **A guard with two conditions needs two decoys, or one condition is
+    decorative** — this PR's own sentence, arriving one level up. `raise
+    SystemExit(1 if failures else 0)` and `sys.exit(failures)` both still pass,
+    which is every real suite in this repository.
     """
     for node in block:
         for sub in ast.walk(node):
             if isinstance(sub, ast.Raise) and sub.exc is not None:
-                name = sub.exc.func if isinstance(sub.exc, ast.Call) else sub.exc
-                if isinstance(name, ast.Name) and name.id == "SystemExit":
-                    return True
-            if isinstance(sub, ast.Call):
-                f = sub.func
-                if isinstance(f, ast.Attribute) and f.attr == "exit":
-                    return True
-                if isinstance(f, ast.Name) and f.id == "exit":
+                if isinstance(sub.exc, ast.Call):
+                    f = sub.exc.func
+                    if isinstance(f, ast.Name) and f.id == "SystemExit":
+                        if _can_be_nonzero(sub.exc.args[0] if sub.exc.args else None):
+                            return True
+                # `raise SystemExit` with no call instantiates with no args and
+                # exits 0, so it is not a failing exit.
+            elif isinstance(sub, ast.Call) and _is_exit_call(sub.func):
+                if _can_be_nonzero(sub.args[0] if sub.args else None):
                     return True
     return False
 

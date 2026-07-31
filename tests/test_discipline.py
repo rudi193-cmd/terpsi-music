@@ -44,6 +44,29 @@ def test_every_spelling_of_deletion_is_found():
     assert len(got) == 5
 
 
+def test_a_prefix_does_not_hide_a_removal_either():
+    """`STANDING_NAMES`' comment claimed `live_edges` counted and it did not:
+    `lstrip("_")` removes leading underscores only. A declaration with nothing
+    behind it, in the checker written to find declarations with nothing behind
+    them."""
+    for name in ("live_edges", "suppressed_edges", "_edges", "edges"):
+        got = scan_deletions(f"def f():\n    {name}.remove(x)\n", "m.py")
+        assert got and got[0].cut is Cut.REMOVE, f"{name} was not seen"
+
+
+def test_an_f_string_DELETE_is_found():
+    """Parameterised SQL built by interpolation is the normal spelling once a
+    store exists, and an `ast.JoinedStr` is not an `ast.Constant`."""
+    got = scan_deletions('db.execute(f"DELETE FROM edge WHERE id={eid}")\n', "m.py")
+    assert got and got[0].cut is Cut.SQL
+    assert scan_deletions('X = f"never DELETE FROM edge {x}"\n', "m.py") == ()
+
+
+def test_truncate_removes_rows_too():
+    got = scan_deletions('db.execute("TRUNCATE TABLE edge")\n', "m.py")
+    assert got and got[0].cut is Cut.SQL
+
+
 def test_a_leading_underscore_does_not_hide_a_removal():
     """`\\bedges` finds no word boundary in `self._edges`, because an underscore
     is a word character. The shipped regex missed it for that reason alone."""
@@ -131,9 +154,60 @@ def test_the_shape_this_repository_uses_passes():
 
 
 def test_sys_exit_counts_as_well_as_raise_SystemExit():
+    """**Rewritten.** The first version used `sys.exit(0)` and asserted `OK` —
+    the intent was the *spelling* and the `0` was incidental, but the effect was
+    a green test locking in the hole below. A nonzero status makes the assertion
+    about what it claims to be about."""
     src = ('def test_x():\n    assert True\n\n'
-           'if __name__ == "__main__":\n    import sys\n    sys.exit(0)\n')
+           'if __name__ == "__main__":\n    import sys\n    sys.exit(1)\n')
     assert scan_runner(src, "m.py").runner is Runner.OK
+
+
+def _runner(body):
+    return scan_runner('def test_x():\n    assert True\n\n'
+                       'if __name__ == "__main__":\n' + body, "m.py").runner
+
+
+def test_an_exit_that_cannot_fail_is_a_swallowing_runner():
+    """**The finding this check was built for, in the spelling it missed.**
+    `print("FAIL"); sys.exit(0)` is exactly *"catches every failure, prints
+    FAIL, and exits 0"* — and `_exits_nonzero` reported it OK, because the name
+    promised two conditions and the body checked one.
+
+    This repository's own sentence, one level up: a guard with two conditions
+    needs two decoys, or one condition is decorative."""
+    assert _runner("    import sys\n    sys.exit(0)\n") is Runner.SWALLOWS
+    assert _runner("    raise SystemExit(0)\n") is Runner.SWALLOWS
+    assert _runner("    raise SystemExit(None)\n") is Runner.SWALLOWS
+
+
+def test_a_bare_raise_SystemExit_exits_zero():
+    """`raise SystemExit` instantiates with no args, which is status 0."""
+    assert _runner("    raise SystemExit\n") is Runner.SWALLOWS
+
+
+def test_an_exit_with_no_argument_exits_zero():
+    """`sys.exit()` and `SystemExit()` both mean success. Found by ablation:
+    the bare-exit guard survived its mutation because the only test near it used
+    `raise SystemExit` *without a call*, which takes a different path and never
+    reaches the argument check at all."""
+    assert _runner("    import sys\n    sys.exit()\n") is Runner.SWALLOWS
+    assert _runner("    raise SystemExit()\n") is Runner.SWALLOWS
+
+
+def test_a_computed_status_can_fail_and_counts():
+    """Every real suite here uses one of these two shapes."""
+    assert _runner("    raise SystemExit(1 if failures else 0)\n") is Runner.OK
+    assert _runner("    import sys\n    sys.exit(failures)\n") is Runner.OK
+    assert _runner('    raise SystemExit("something went wrong")\n') is Runner.OK
+
+
+def test_an_exit_belonging_to_something_else_is_not_an_exit():
+    """`logger.exit()` is not `sys.exit`. The first version matched any
+    attribute named `exit`."""
+    assert _runner("    logger.exit()\n") is Runner.SWALLOWS
+    assert _runner("    self.exit(1)\n") is Runner.SWALLOWS
+    assert _runner("    import os\n    os._exit(1)\n") is Runner.OK
 
 
 def test_the_left_side_must_be_dunder_name():
@@ -178,6 +252,12 @@ def test_pointing_it_at_the_fixtures_finds_every_one():
     got = runners([decoy("runners")], skip=())
     assert {s.runner for s in got} == {Runner.OK, Runner.EMPTY, Runner.MISSING,
                                        Runner.SWALLOWS}
+    swallowing = {s.module.split("/")[-1] for s in got
+                  if s.runner is Runner.SWALLOWS}
+    assert swallowing == {"test_swallowing_runner.py", "test_zero_exit_runner.py",
+                          "test_not_really_an_exit.py"}, (
+        "the three ways to report success while failing must all be decoyed"
+    )
 
 
 def test_the_real_check_passes_and_counts_what_it_looked_at():
