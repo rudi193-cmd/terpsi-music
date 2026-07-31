@@ -144,9 +144,44 @@ itself. Each must be attempted and refused, and each refusal ablated:
   identifier was one character long. Both were found by pointing a new check at
   the tree and noticing something known to be there was missing.
 - **S-2 — RLS and the differential middle** (after S-1).
-- **S-3 — the sealing seam**: atrest wiring, escrow disposition surfaced in
-  conformance, R16's transition exercised deliberately in a test before it
-  happens by accident (after S-1, parallel with S-2).
+- ~~**S-3 — the sealing seam**~~: **built 2026-07-31.**
+  `migrations/004_sealed_payloads.sql`, `store/sealing_plan.py`, the seam in
+  `store/writing.py` and the envelope read in `store/reading.py`, with
+  `tests/test_sealing_plan.py`, `tests/test_key_custody.py` and
+  `tests/test_store_atrest.py`. **The column-by-column seal decision is derived,
+  not listed** — `python3 store/sealing_plan.py` grades every classified column
+  against seven named exclusions, and the migration is reconciled against it in
+  both directions. It returns **one column of 120**: `lane_entry.payload`. Said
+  plainly rather than rounded up — one column in this schema is a payload and
+  the rest are predicates, keys, dates, chain links or the vocabulary the store
+  selects on, which is decision 3's argument arriving at its own conclusion.
+  **Three more of the seven forbidden acts are now attempted and refused by the
+  guard named in each**: a payload column read in the clear (the first item's
+  third clause, which S-1 correctly recorded as unattempted), readable bytes
+  written into the sealed column as the app role, and the erasure-and-chain
+  composition — `atrest.composes()` over ciphertext read back out of
+  PostgreSQL and a chain rebuilt from `disclosure_log`, returning `COMPOSES`.
+  **Three findings came out of it**, recorded where they belong rather than
+  here: migration 002's claim that *"a column added without a thought for this
+  rule is refused by default"* is false — an unlisted column is silently
+  editable on a sealed row, confirmed against PostgreSQL 16, and 004 is the
+  commit that would have shipped four such columns; the first version of the
+  derivation read migration 004's own tombstone as evidence that the column it
+  had just sealed should be clear; and `docs/SECURITY-AUDIT.md`'s R16 narrative
+  had said `ABSENT` since F3 while its own table row said `FINDING`/`S2`,
+  because the reconciler reads the table.
+- **R16's boundary, settled rather than left implicit.** `store/` writes, so the
+  check had to say what *at rest* means: a byte that outlives the process. Every
+  caller of the store's write path in this tree is under `tests/`, where the
+  database is dropped per module, so the durable count is zero and the real tree
+  reads `S2` with the condition named — not `S1`. CI does not go red waiting for
+  a ceremony that happens in a room (§11.1). Both sides of the transition are
+  driven against a synthetic tree.
+- **The escrow row stopped reading `ABSENT`.** Its evidence was *"no keyring and
+  no sealed store exist here"* and both halves moved: G-A recorded 3-of-5 and a
+  sealed store can now exist. It reads **`UNKNOWN`** — recorded and never
+  rehearsed — citing `docs/ESCROW.md`, and it is neither `PASS` nor `ABSENT` on
+  purpose. Both walls are ablated.
 - **S-4 — the TUI vertical over the store** (after S-2 and S-3): the first
   surface with real data behind it, zero listeners, the knock wired in
   enforcement mode at last — `conform.py`'s `knock-enforcing` row stops

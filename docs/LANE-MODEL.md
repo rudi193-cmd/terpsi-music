@@ -391,6 +391,16 @@ mechanism.
 - **Whether `payload jsonb` is right.** It defers the per-kind field work that
   §8's entity list implies and will need revisiting per module. It is not a
   decision to store everything as JSON forever.
+
+  **Update, 2026-07-31 (`migrations/004_sealed_payloads.sql`).** The column is
+  now sealed at rest and the clear `jsonb` column is a tombstone constrained to
+  `NULL`; what a row carries is `payload_sealed`/`_key_id`/`_scheme`/`_sealed_at`
+  — `records/atrest.py`'s `Sealed`, as columns. The open question above is
+  unchanged and has become slightly sharper: per-kind columns would let the rung
+  fall below `L4`, and a column below the derive floor is one the sealing
+  derivation (`store/sealing_plan.py`) leaves in the clear. Splitting the payload
+  is therefore also a decision about what stops being encrypted, which is not a
+  reason not to do it and is a reason to do it deliberately.
 - **Identity reconciliation.** §8 assigns it to `Nestor`'s `EntityResolver` —
   sealed canonical mapping, sub-threshold returns an unsealed suggestion rather
   than a silent merge. Nothing here models the suggestion state, because the

@@ -513,8 +513,13 @@ def check_classification_registry(schema: Optional[Path] = None,
     # and a check that scans the installed copy reports health out of a source
     # that is not there. Invisible while this row was UNKNOWN; the sweep caught
     # it the day the row first turned PASS (same class as check_manifest).
+    #
+    # The **directory**, not `001_lanes.sql`. Naming one file was correct while
+    # the schema was one file, and became a second way to believe in an old
+    # schema the moment migration 004 seeded four columns: this row would have
+    # gone on reporting 116 reconciled fields out of a tree that had 120.
     r = registry_check(
-        schema if schema is not None else ROOT / "migrations" / "001_lanes.sql",
+        schema if schema is not None else ROOT / "migrations",
         doc if doc is not None else ROOT / "docs" / "SENSITIVITY.md")
     what = "the class-to-L mapping is enforced in one place (§9 item 2, §16)"
     if r.verdict is Verdict.VACUOUS:
@@ -543,17 +548,38 @@ def check_key_escrow() -> Check:
     """§5's escrow gap, and §10's proposed **R16 — data at rest is encrypted,
     with the key escrowed.**
 
-    **This check is expected to read `ABSENT` and that is the finding.** §5 is
-    unambiguous that a locally-generated, never-copied key means *a single file
-    loss destroys every secret in the box, irrecoverably, by design*, and that
-    the trade is wrong for an organization holding minors' education records.
-    The policy — how many shares, who holds them, how often the drill runs — is
-    a maintainer's decision and this repository has not made it.
+    **This row read `ABSENT` until S-3, on grounds that stopped being true.** Its
+    evidence was *"no keyring and no sealed store exist here, so no master has a
+    disposition to report"*, and both halves have since moved: gate G-A picked
+    `E-1`, 3-of-5, recorded in `docs/ESCROW.md` on 2026-07-31, and
+    `migrations/004_sealed_payloads.sql` means a sealed store now **can** exist.
+    A row still saying `ABSENT` would be claiming nothing had been decided about
+    a policy that had been decided, which is worse than saying nothing.
 
-    So the check reports the absence rather than skipping it. A conformance
-    series in which this row never appears and a series in which it is answered
-    look identical, which is item 0's defect; a row that says `ABSENT` on every
-    run until someone decides does not.
+    **So it reads `UNKNOWN`, and `UNKNOWN` is the whole point.** It is neither
+    `PASS` nor `ABSENT`, and neither by accident:
+
+    * not `ABSENT`, because a policy *is* recorded — a threshold, five
+      custodians, an annual drill — and absence is a different fact from
+      unrehearsed (rule 13, which is why `records/atrest.py` has four escrow
+      states and not a boolean);
+    * not `PASS`, because §5 is flat about it: *an untested key recovery is not
+      escrow.* `docs/ESCROW.md`'s "Rehearsals recorded" section says *none yet*
+      and says so on purpose, *"so nobody reads a table of policy as a table of
+      practice."* The first rehearsal is an install-acceptance act (§11.1) — it
+      happens in a room with five people in it, and CI cannot hold it.
+
+    **The state name is `records/atrest.py`'s, not a second vocabulary.** The
+    mapping from the document's facts to an `EscrowState` is made here, once,
+    and the member is imported so it cannot drift from the module that defines
+    the ladder. The tree deliberately holds **no keyring** (refusal 2: no key
+    material in the tree, ever), so the disposition lives in a document rather
+    than in a `Keyring`, and `escrow_survey` over an empty one is still consulted
+    — it is the answer for the masters this tree depends on, and there are none.
+
+    The row goes green the day `docs/ESCROW.md` gains a dated rehearsal, and
+    `tests/test_conform.py` drives that transition against a synthetic document
+    rather than waiting for the ceremony.
     """
     what = "data at rest is sealed and its key escrowed (§5; §10's R16)"
     src = ROOT / "records" / "atrest.py"
@@ -565,6 +591,8 @@ def check_key_escrow() -> Check:
     from records.atrest import (EscrowState, Keyring, available,  # noqa: E402
                                 escrow_survey)
 
+    from audit import ESCROW_DOC, escrow_facts  # noqa: E402
+
     at = datetime.now(timezone.utc)
     # This repository holds no keyring and must not (refusal 2: no key material,
     # no grant material, in the tree). The survey of an empty one is empty, and
@@ -572,6 +600,28 @@ def check_key_escrow() -> Check:
     survey = escrow_survey(Keyring(), at=at)
     primitive = ("the sealing primitive is usable" if available()
                  else "the sealing primitive is NOT usable on this box")
+    facts = escrow_facts()
+    # Relative when it is inside the tree, absolute when a test has pointed the
+    # module at a synthetic document. `relative_to` raises rather than falling
+    # back, and a check that crashed on its own evidence line would be a check
+    # nobody could drive the transition of.
+    try:
+        cite = ESCROW_DOC.relative_to(ROOT)
+    except ValueError:
+        cite = ESCROW_DOC
+
+    # What a sealed store would be sealed *for*, derived rather than assumed:
+    # the columns store/sealing_plan.py says seal. Zero of them means no sealed
+    # store is possible yet and the old ABSENT reading was right.
+    try:
+        from store.sealing_plan import sealed_columns  # noqa: E402
+        sealable = sealed_columns()
+    except Exception as exc:  # noqa: BLE001 — an unreadable plan is unknown, not empty
+        return Check("key-escrow", what, State.UNKNOWN,
+                     f"the sealing plan could not be read ({exc!r}), so whether a "
+                     "sealed store can exist here is not established. That is not "
+                     "the same as no store existing (rule 13)")
+
     if survey:
         undecided = [m for m, state, _ in survey
                      if state is not EscrowState.RECORDED]
@@ -582,12 +632,37 @@ def check_key_escrow() -> Check:
         return Check("key-escrow", what, State.PASS,
                      f"{len(survey)} master(s), each with a rehearsed disposition "
                      "inside its declared window")
-    return Check("key-escrow", what, State.ABSENT,
-                 f"no keyring and no sealed store exist here, so no master has a "
-                 f"disposition to report; {primitive}. §5 leaves the escrow "
-                 f"policy open and calls single-file key loss the failure mode "
-                 f"that ends the program — records/atrest.py reports ABSENT for "
-                 f"any master with none, and that guard is ablated")
+
+    at_rest_possible = (
+        f"{len(sealable)} column(s) seal at rest "
+        f"({', '.join(f'{t}.{c}' for t, c in sealable) or 'none'}), so a sealed "
+        f"store can exist here")
+
+    if not facts.exists or not facts.recorded:
+        return Check("key-escrow", what, State.ABSENT,
+                     f"{cite} records no k-of-n threshold, so no policy is "
+                     f"decided; {primitive}. {at_rest_possible}. §5 calls "
+                     f"single-file key loss the failure mode that ends the "
+                     f"program — records/atrest.py reports "
+                     f"{EscrowState.ABSENT.value.upper()} for any master with "
+                     f"none, and that guard is ablated")
+
+    if not facts.rehearsed:
+        return Check(
+            "key-escrow", what, State.UNKNOWN,
+            f"{cite}: policy recorded, threshold {facts.threshold}, "
+            f"{facts.holders} custodian(s), {len(facts.rehearsals)} rehearsal(s) "
+            f"on record. That is records/atrest.py's "
+            f"{EscrowState.UNKNOWN.value.upper()} — recorded and never rehearsed "
+            f"— and §5 is why it is not a pass: an untested key recovery is not "
+            f"escrow. {at_rest_possible}, so this is not "
+            f"{EscrowState.ABSENT.value.upper()} either. The first rehearsal is "
+            f"an install-acceptance act (§11.1); {primitive}")
+
+    return Check("key-escrow", what, State.PASS,
+                 f"{cite}: {facts.threshold} across {facts.holders} custodian(s), "
+                 f"last rehearsed {facts.rehearsals[-1]}. {at_rest_possible}; "
+                 f"{primitive}")
 
 
 #: How old an audit may be before this check stops believing it.

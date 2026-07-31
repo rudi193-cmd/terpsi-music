@@ -15,20 +15,41 @@ what this app lands in foundation 1–5 is what every later app inherits.
 
 ## What is built, and what it is worth calling
 
-Rule 18, first, because the answer is the least flattering part:
+Rule 18, first, because the answer is the part most worth getting precise.
 
-**A mechanism, and a ledger of key state. Not a gate.** Nothing routes through
-it, because there is no store. §5 says so itself — a collection's `store.db`
-*"is not described as encrypted at rest"*, and *"the box is sovereign" and "the
-box is encrypted" are different claims and only the first is currently true.*
-Whether the canonical store is sealed at rest is a deployment decision that
-this module makes **representable** and does not make. Calling it enforcement
-today would be the exact substitution §17 and rule 18 are about.
+**This section said "a mechanism and a ledger, not a gate" until 2026-07-31, and
+it was accurate: nothing routed through it, because there was no store.** S-3
+changed that and the sentence has to change with it rather than be left as a
+flattering understatement in the other direction.
 
-What *is* enforcement, on the path that uses it: `reconcile()` runs before any
+**It is enforcement on the store's write path, and a mechanism everywhere else.**
+`store/writing.py` routes every payload for a sealed-class column through
+`seal_bytes()` before the `INSERT`, and there is no code path that spells a clear
+one: the clear column is tombstoned by `migrations/004_sealed_payloads.sql` and
+constrained to `NULL`, the envelope columns are refused by name if a caller tries
+to write one, and a hand-written `INSERT` going round the adapter entirely is
+refused by `lane_entry_payload_sealed_is_ciphertext`. Which columns those are is
+**derived** (`store/sealing_plan.py`), not listed, and the migration is
+reconciled against the derivation in both directions.
+
+**What is still not decided here** is the same list as before, unchanged: where
+the master lives, who holds escrow shares, and whether a *deployment*'s store is
+sealed. What S-3 settled is that when one is, this is how.
+
+What *is* enforcement on the reading path: `reconcile()` runs before any
 ciphertext is touched, and `unseal()` routes through it rather than beside it.
 `tests/test_atrest.py` asserts that routing against the source, so removing the
 call is a failing test rather than a silent downgrade.
+
+**And the store does not unseal.** Reads return the `Sealed` envelope; the caller
+holding the lane key opens it. That is §6's core/seam partition, and it is a
+guard rather than a paragraph — `tests/test_sealing_plan.py` scans `store/` for
+the opening verbs and fails on any of them. The reason it costs nothing is §5's
+own `L3`+ rule: above the derive floor `records/serving.py` serves an
+*instruction* and never the payload, so a store that cannot open a payload still
+answers every question the resolver asks.
+`tests/test_store_atrest.py::test_serve_at_L4_completes_without_a_single_unseal`
+instruments the three opening verbs and requires zero calls.
 
 ## The hierarchy as built
 
@@ -169,9 +190,21 @@ declaring. The survey is derived from the wrappings rather than from a list
 somebody maintains, so a master that is depended on and appears in no escrow
 record is the row that surfaces.
 
-`tools/conform.py` carries this as `key-escrow` and it reads `ABSENT` today.
-That is the honest answer and it will keep being the answer until a maintainer
-decides.
+`tools/conform.py` carries this as `key-escrow`. ~~It reads `ABSENT` today~~ **it
+reads `UNKNOWN` since 2026-07-31**, and the change was earned by a decision
+landing rather than by the check softening: gate G-A picked `E-1` — 3-of-5 across
+five custodian roles, `docs/ESCROW.md` — and migration 004 means a sealed store
+can exist here. `ABSENT` would now be claiming nothing had been decided about
+something that had.
+
+`UNKNOWN` is the middle rung and both walls matter. Not `ABSENT`, because a
+policy is recorded and *nothing decided* is a different fact from *decided and
+never drilled*. Not `PASS`, because §5 is flat: *an untested key recovery is not
+escrow*, and `docs/ESCROW.md` records zero rehearsals on purpose — the first one
+is an install-acceptance act (§11.1) and happens in a room, not in CI. The row
+goes green the day that document gains a dated rehearsal, and
+`tests/test_conform.py` drives that transition against a synthetic document
+rather than waiting for it.
 
 ## What this does not decide
 

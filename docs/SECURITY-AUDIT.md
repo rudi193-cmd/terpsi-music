@@ -93,7 +93,7 @@ the five are not a pass.
 | `R13` | Entry point in the manifest is importable | **NOT-APPLICABLE** | — | There is no manifest, so there is no declared entry point to check. The nearest decidable thing was checked and holds: all 95 tracked Python files parse (`ast.parse` over each, run today, 0 unparseable), and `tools/conform.py`'s `standalone-suites` row reports that each of the 32 suites has a `__main__` runner that exits nonzero on failure. **Applies when** a manifest exists — `§18` item 4. |
 | `R14` | Dependency pinning | **FINDING** | `S3` | `TM-DEPS-01`. There is no `requirements.txt`, no `pyproject.toml`, and no lock file — and no third-party import either: derived today, of 41 distinct top-level imports across 95 files, 0 resolve outside `sys.stdlib_module_names` and this repository's own packages. So the supply-chain risk `R14` targets is absent by construction, and the finding is the other half: nothing enforces the stdlib-only posture, which is asserted in 57 files as counted from the tree today. Open. |
 | `R15` | Hardcoded developer home paths | **PASS** | — | Zero matches for `/home/`, `/Users/`, `C:\Users` or a `~/`-prefixed path in any tracked file. Derived: `grep -rnE "/home/\|/Users/\|C:\\\\Users\|~/[a-zA-Z]" --include=*.py`. Every root is `Path(__file__).resolve().parent.parent`. No environment variable is read for a path. |
-| `R16` | Encryption at rest and key escrow — `records/` scanned by AST for a sealing seam; `docs/ESCROW.md`; `tools/purity.py` for anything that writes | **FINDING** | `S2` | ~~No at-rest sealing entry point exists~~ **The seam landed 2026-07-31** (`records/atrest.py`, §9 foundation 3) — ahead of its store, which is this repository's deliberate ordering. Nothing is at rest yet: `purity.writes()` over `records/` still reports 0 write sites, so a lost key file cannot yet strand a record, and no escrow disposition exists (`docs/ESCROW.md` absent; §5 records escrow as this design's largest gap). **Becomes `S1` and fails the build** at the first commit where anything under `records/` writes a record to a disk without a recorded, rehearsed escrow disposition. The first version of this row flipped to `S1` on seam presence alone — corrected when F3 merged, because the condition above is what this row had promised. |
+| `R16` | Encryption at rest and key escrow — `records/` scanned by AST for a sealing seam; `docs/ESCROW.md`; `tools/purity.py` over `records/` **and `store/`**; the store's write path scanned for non-test callers | **FINDING** | `S2` | ~~No at-rest sealing entry point exists~~ **The seam landed 2026-07-31** (`records/atrest.py`, §9 foundation 3) and **is wired to the store the same day** (S-3: `migrations/004_sealed_payloads.sql`, `store/writing.py`). Escrow policy is now **recorded and unrehearsed** — 3-of-5, `docs/ESCROW.md`, gate G-A — which is `UNKNOWN`, not a disposition (§5: *an untested key recovery is not escrow*). **Nothing durable is at rest**, and that is the judgement this row now turns on rather than a raw write count: `purity.writes()` finds 8 sites in `store/` and **0 non-test callers of that path**, so every byte it has written went into a database `tests/cluster.py` created and dropped inside one module. The boundary is stated in `tools/audit.py::AT_REST_BOUNDARY` and both sides of it are driven in `tests/test_audit.py`. **Becomes `S1` and fails the build** at the first non-test caller of the store's write path (`PLAN-STORE`'s S-4) without a dated rehearsal; §11.1's install acceptance is where the rehearsal is asserted for a deployment. The first version of this row flipped to `S1` on seam presence alone — corrected when F3 merged, because the condition above is what this row had promised. |
 | `R17` | A structural no-egress test that fails when neutralised — `tools/purity.py`, `tools/conform.py::check_no_egress`, the ablation registry, and the newest conformance record | **PASS** | — | 4 mutations covering 4 required egress-detection sites, read out of `tests/ablate.py` by AST and derived today (136 rows in the registry), and the newest conformance record reports `no-egress=PASS` and `ablation=PASS`. See below. |
 
 **Tally: 7 pass, 4 findings, 6 not-applicable, 0 absent, 0 unknown, of 17 checks** — counted from the verdict column above. (Was 3 findings and 1 absent until 2026-07-31: R16 moved when the at-rest seam landed, per its own condition — history in the R16 row.)
@@ -253,24 +253,41 @@ runs `pip install` against something this repository did not write down.
 
 ## `R16` — encryption at rest, with the key escrowed
 
-**Verdict today: `ABSENT`.** Reported by `tools/audit.py::r16_at_rest`, which is
-built and wired; the mechanism it checks is not.
+**Verdict today: `FINDING` at `S2`.** Reported by
+`tools/audit.py::r16_at_rest`.
 
-Three things were derived rather than assumed:
+**This section said `ABSENT` until 2026-07-31 and disagreed with its own table
+row, which had already moved to `FINDING`/`S2` when the seam landed.** The
+reconciler between this document and the live checks
+(`tests/test_audit.py::test_the_document_records_what_the_checks_report_today`)
+reads the *table*, so the prose drifted for exactly as long as nobody read it —
+the pair-without-a-middle shape §16 is about, inside the audit document itself.
+Recorded rather than quietly corrected.
 
-- **No at-rest sealing entry point exists.** The check walks `records/` with
-  `ast` and looks for any of 9 verbs a sealing module must expose
-  (`seal_at_rest`, `wrap_dek`, `unseal_blob`, …). It finds none.
-- **Nothing is at rest.** `tools/purity.py`'s `writes()` over `records/` reports
-  0 write sites. That is the difference between *records are stored
-  unencrypted*, which would be a `FINDING` at `S1`, and *no record is stored at
-  all*, which is `ABSENT`. Recording it as a finding would be as wrong as
-  recording it as a pass, in the other direction.
-- **No escrow disposition exists.** §5 already says so — *"there is no escrow…
-  the largest remaining gap in this design"* — and rule 15 says every ask gets a
-  dated disposition. The check looks for `docs/ESCROW.md` carrying a k-of-n
-  threshold and a dated rehearsal, because §5's own standard is that *an
-  untested key recovery is not escrow*. Neither is present.
+Four things are derived rather than assumed:
+
+- **A sealing seam exists.** The check walks `records/` with `ast` and looks for
+  any of 9 verbs a sealing module must expose (`seal_at_rest`, `wrap_dek`,
+  `unseal_blob`, `rewrap`, …). `records/atrest.py` satisfies it.
+- **It is wired.** S-3 routed the store's payload writes through it:
+  `migrations/004_sealed_payloads.sql` gives `lane_entry.payload` a sealed form
+  and tombstones the clear column, and `store/writing.py` seals before the
+  `INSERT`. That is the difference between a mechanism and a gate (rule 18), and
+  it changed on this commit.
+- **Nothing durable is at rest**, which is the judgement this row turns on and is
+  stated in the check's own terms at `tools/audit.py::AT_REST_BOUNDARY`: *at rest
+  is a byte that outlives the process that wrote it.* `purity.writes()` finds 8
+  sites in `store/`, and the scan for non-test callers of that path finds **0**,
+  so the only databases those writes have ever reached were created and dropped
+  inside a single test module. Counting them would make this an install-blocking
+  `S1` that no commit can clear — what clears it is five people in a room — and a
+  gate nobody can turn green is a gate everybody learns to ignore.
+- **The escrow disposition is recorded and unrehearsed.** Gate G-A picked `E-1`
+  (3-of-5, five named custodian roles) on 2026-07-31 and `docs/ESCROW.md` records
+  zero rehearsals, deliberately. Rule 15 says every ask gets a dated disposition;
+  §5's standard is that *an untested key recovery is not escrow*. So the check
+  reads the threshold and the rehearsal dates out of that file and finds the
+  first and not the second.
 
 **The false positive this check is built to refuse.** `records/sealing.py` is in
 the tree, is named sealing, and is not this: it is rule 10's named-human seal
@@ -281,12 +298,19 @@ verbs a sealing module exposes and never by its name, and
 `tests/test_audit.py::test_the_human_seal_is_not_at_rest_sealing` asserts the
 real module does not satisfy it. That test is ablated.
 
-**The condition that ends `ABSENT`,** stated so the check re-enters scope by
-itself: the first commit in which anything under `records/` writes a record to a
-disk. At that commit `R16` becomes an open `S1` finding unless a sealing seam and
-an escrow disposition land with it — and `tools/conform.py` fails the build while
-an `S1` is open. At-rest sealing is being built elsewhere; this check is written
-against the seam it will land on, and nothing here builds it.
+**The condition that ends `S2`,** stated so the check re-enters scope by itself:
+the first module outside `tests/` that calls the store's write path —
+`docs/PLAN-STORE.md`'s S-4, the TUI vertical. At that commit `R16` becomes an
+open `S1` finding unless `docs/ESCROW.md` carries a dated rehearsal by then, and
+`tools/conform.py` fails the build while an `S1` is open. §11.1's install
+acceptance is where the rehearsal is asserted for a real deployment.
+
+**Both sides of that transition are driven, not waited for.**
+`tests/test_audit.py` builds a synthetic tree with a seam, a store and a
+tests-only caller (`S2`), moves one file into a deployment package (`S1`), and
+dates a rehearsal in the escrow document (`PASS`). The condition is therefore a
+branch that has been shown to fire rather than one nobody has run — which is what
+R17 is about, applied to R16.
 
 ## `R17` — a structural no-egress test that fails when neutralised
 

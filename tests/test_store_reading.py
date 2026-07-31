@@ -49,9 +49,15 @@ def seed(owner):
                         (who, born))
         cur.execute("INSERT INTO lane VALUES (%s,%s,%s,now(),now(),now(),NULL)",
                     (LBEN, BEN, "everything, as CSV, on request"))
+        # No payload at all: this file is about the *error channel* of a read,
+        # and a lane_entry needs no payload for a SELECT to succeed or fail.
+        # Since migration 004 the clear column is constrained to NULL, and
+        # minting a real envelope here would put key handling into a module that
+        # is not about key handling.
         cur.execute(
-            "INSERT INTO lane_entry VALUES (%s,%s,NULL,'attendance','{}'::jsonb,"
-            "%s,'draft',NULL,now(),now(),NULL)", (uuid.uuid4(), LBEN, ANN))
+            "INSERT INTO lane_entry (entry_id, lane_id, kind, author_id, "
+            " created_at, valid_at) VALUES (%s,%s,'attendance',%s,now(),now())",
+            (uuid.uuid4(), LBEN, ANN))
     owner.commit()
 
 

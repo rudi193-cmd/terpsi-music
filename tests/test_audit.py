@@ -31,9 +31,10 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import audit  # noqa: E402
 from audit import (  # noqa: E402
-    AT_REST_VERBS, REQUIRED_EGRESS_SITES, Severity, Verdict, at_rest_seam,
-    audit_commit, audit_date, egress_coverage, escrow_disposition, findings,
-    r16_at_rest, r17_no_egress_neutralised, recorded, registry, record_rows,
+    AT_REST_BOUNDARY, AT_REST_VERBS, REQUIRED_EGRESS_SITES, Severity, Verdict,
+    at_rest_seam, audit_commit, audit_date, durable_callers, egress_coverage,
+    escrow_disposition, escrow_facts, findings, r16_at_rest,
+    r17_no_egress_neutralised, recorded, registry, record_rows, store_writes,
 )
 
 AUDIT_DOC = ROOT / "docs" / "SECURITY-AUDIT.md"
@@ -183,6 +184,153 @@ def test_an_unrehearsed_escrow_plan_is_not_escrow():
 def test_a_missing_escrow_document_says_so_rather_than_passing():
     disposed, why = escrow_disposition(ROOT / "docs" / "does-not-exist.md")
     assert not disposed and "does not exist" in why
+
+
+# --- R16's at-rest boundary (S-3) ------------------------------------------
+#
+# S-1 put a write path in the tree and R16 had to decide what that means. The
+# decision is `audit.AT_REST_BOUNDARY` — *at rest is a byte that outlives the
+# process* — and these four tests are that decision driven from both sides,
+# against synthetic trees, so the transition happens on purpose here rather than
+# by accident on some later commit.
+
+#: A store package: a write path, and nothing that says who drives it.
+A_STORE = """\
+def insert_draft(conn, table, values):
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO lane_entry (payload_sealed) VALUES (%s)",
+                    (values["payload_sealed"],))
+"""
+
+#: A test module driving it. Under `tests/`, so the database it writes to is
+#: created and dropped inside one run.
+A_TEST = """\
+from store.writing import insert_draft
+
+
+def test_it(conn):
+    insert_draft(conn, "lane_entry", {"payload_sealed": b"gAAAA"})
+"""
+
+#: A deployment module driving it by import. This is the commit the condition
+#: names.
+AN_APP = """\
+from store.writing import insert_draft
+
+
+def record_a_note(conn, values):
+    insert_draft(conn, "lane_entry", values)
+"""
+
+#: A second one driving it **without importing it** — the module is handed in,
+#: which is how a TUI written for testability would actually reach the store.
+#: Two files rather than one because the scan has two detection routes, and a
+#: single file exercising both leaves either one ablatable with no test failing:
+#: this is scout-13 row B, found by a mutation that reported SURVIVES.
+AN_APP_BY_CALL = """\
+def record_a_note(store, conn, values):
+    store.insert_draft(conn, "lane_entry", values)
+"""
+
+
+def _store_tree(d, *, with_app: bool, escrow: str = ""):
+    """`(records, store, root)` for a tree with a seam, a store, and callers."""
+    p = Path(d)
+    (p / "records").mkdir()
+    (p / "store").mkdir()
+    (p / "tests").mkdir()
+    (p / "records" / "atrest.py").write_text(SEALED, encoding="utf-8")
+    (p / "store" / "writing.py").write_text(A_STORE, encoding="utf-8")
+    (p / "tests" / "test_store.py").write_text(A_TEST, encoding="utf-8")
+    if with_app:
+        (p / "app").mkdir()
+        (p / "app" / "main.py").write_text(AN_APP, encoding="utf-8")
+        (p / "app" / "handler.py").write_text(AN_APP_BY_CALL, encoding="utf-8")
+    (p / "ESCROW.md").write_text(escrow or "no policy here\n", encoding="utf-8")
+    return p / "records", p / "store", p
+
+
+def test_a_store_written_only_by_its_tests_is_not_a_record_at_rest():
+    """**The boundary, from the side the real tree is on.**
+
+    `store/` writes; `purity.writes()` finds the statements. Nobody outside
+    `tests/` calls it, so every byte it has ever written went into a database
+    `tests/cluster.py` created and dropped inside one module. Counting that as a
+    record at rest would make R16 an `S1` that no commit can clear — the thing
+    that would clear it is a key ceremony in a room (`docs/ESCROW.md`, §11.1) —
+    and a gate nobody can turn green is a gate everybody learns to ignore.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        records, store, root = _store_tree(d, with_app=False)
+        assert store_writes(store) > 0, "the synthetic store writes nothing"
+        assert durable_callers(root, store) == ()
+        got = r16_at_rest(records=records, escrow=root / "ESCROW.md",
+                          store=store, tree=root)
+    assert got.verdict is Verdict.FINDING and got.severity is Severity.S2, got
+    assert "nothing durably at rest" in got.evidence
+    assert "in store/" in got.evidence, "the store's writes are not reported"
+    assert AT_REST_BOUNDARY in got.evidence, (
+        "the boundary is applied and not stated; a judgement a reader cannot "
+        "find is a judgement nobody can disagree with")
+    assert "S1" in got.condition and "non-test caller" in got.condition
+
+
+def test_the_first_non_test_caller_makes_it_durable_and_R16_high():
+    """**The transition, exercised deliberately before it happens by accident.**
+
+    One file moves — the same store, the same seam, the same unrehearsed escrow
+    document — and R16 goes from `S2` to `S1`. That is `docs/PLAN-STORE.md`'s
+    S-4 commit, and the point of driving it here is that nobody has to notice.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        records, store, root = _store_tree(d, with_app=True)
+        callers = dict(durable_callers(root, store))
+        assert callers, "a non-test caller was not seen"
+        # Both detection routes, each on its own file, each named. Asserting
+        # only that *some* caller was found let a mutation disabling the call
+        # route report SURVIVES: main.py's import was still covering for it.
+        assert "imports store.writing" in callers["app/main.py"], callers
+        assert "calls insert_draft()" in callers["app/handler.py"], callers
+        got = r16_at_rest(records=records, escrow=root / "ESCROW.md",
+                          store=store, tree=root)
+    assert got.verdict is Verdict.FINDING and got.severity is Severity.S1, got
+    assert "durable write site" in got.evidence
+    assert "single file loss" in got.evidence
+
+
+def test_the_same_durable_tree_passes_once_the_rehearsal_is_dated():
+    """The other half of the transition: `S1` is not a wall, it is a ceremony
+    that has not happened. A dated rehearsal in the document clears it, and
+    nothing about the code changes."""
+    with tempfile.TemporaryDirectory() as d:
+        records, store, root = _store_tree(d, with_app=True, escrow=ESCROW_OK)
+        got = r16_at_rest(records=records, escrow=root / "ESCROW.md",
+                          store=store, tree=root)
+    assert got.verdict is Verdict.PASS, got.evidence
+    assert "3-of-5" in got.evidence
+    assert "2 non-test caller" in got.evidence, got.evidence
+
+
+def test_the_real_tree_reads_S2_with_the_condition_named_and_not_S1():
+    """**And CI does not go red waiting for a room.**
+
+    The assertion the boundary exists to make safe: this repository has a
+    sealing seam, a store that writes, an escrow policy with no dated rehearsal,
+    and nothing durable at rest. That is `S2` with the condition named, not
+    `S1`. If this ever flips without `docs/ESCROW.md` gaining a rehearsal, it is
+    because something outside `tests/` started writing records — which is
+    exactly when R16 *should* go high.
+    """
+    got = r16_at_rest()
+    assert got.verdict is Verdict.FINDING, got
+    assert got.severity is Severity.S2, (
+        f"R16 is {got.severity.value} on the real tree: {got.evidence}")
+    assert durable_callers() == (), durable_callers()
+    assert store_writes() > 0, (
+        "the real store writes nothing, so this test proves nothing about the "
+        "boundary it is here to hold")
+    assert AT_REST_BOUNDARY in got.evidence
+    assert "§11.1" in got.condition
 
 
 # --- R17: the registry half ---------------------------------------------------
