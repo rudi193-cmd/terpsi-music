@@ -47,6 +47,7 @@ from pathlib import Path
 from typing import Callable, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 RECORDS = ROOT / "docs" / "conformance"
 
 
@@ -71,58 +72,62 @@ class Check:
 
 # --- checks that genuinely run ---------------------------------------------
 
-#: Modules that reach the network. `records/` claims *stdlib only, no network*
-#: in every docstring; this is the difference between the claim and the check.
-_EGRESS = {"socket", "http", "urllib", "requests", "httpx", "aiohttp", "ftplib",
-           "smtplib", "telnetlib", "asyncio", "websockets", "xmlrpc"}
-
-
 def check_no_egress(where: Optional[Path] = None) -> Check:
-    """§6 core purity, as an AST scan rather than a docstring.
+    """§6 core purity. Delegates to `tools/purity.py`, which is pointed at
+    decoys in `tests/fixtures/decoys/` and shown to complain.
 
-    Takes a directory so the check itself can be pointed at a decoy and shown
-    to complain (rule 19). A checker that has only ever passed is
-    indistinguishable from one that cannot fail — which this repository has now
-    found three times in its own tests.
+    **The version that lived here returned PASS** for a directory holding
+    `__import__("socket")`, `subprocess.run(["curl", …])` and a subpackage
+    importing `socket` — dynamic imports were invisible, `subprocess` was not in
+    the set, and the scan globbed `*.py` rather than `**/*.py`.
     """
-    offenders = []
-    for py in sorted((where or (ROOT / "records")).glob("*.py")):
-        tree = ast.parse(py.read_text(encoding="utf-8"))
-        for node in ast.walk(tree):
-            mods = []
-            if isinstance(node, ast.Import):
-                mods = [a.name for a in node.names]
-            elif isinstance(node, ast.ImportFrom) and node.module:
-                mods = [node.module]
-            for m in mods:
-                if m.split(".")[0] in _EGRESS:
-                    offenders.append(f"{py.name}:{node.lineno} imports {m}")
-    if offenders:
-        return Check("no-egress", "core purity: the inner ring cannot reach out",
-                     State.FAIL, "; ".join(offenders))
-    n = len(list((where or (ROOT / "records")).glob("*.py")))
-    return Check("no-egress", "core purity: the inner ring cannot reach out",
-                 State.PASS, f"{n} modules scanned by AST; no network import")
+    from purity import counted, egress  # noqa: E402
+
+    targets = [where] if where is not None else [ROOT / "records"]
+    found = egress(targets)
+    n = counted(targets)
+    what = "core purity: the inner ring cannot reach out"
+    if found:
+        return Check("no-egress", what, State.FAIL,
+                     "; ".join(str(t) for t in found[:4]))
+    if not n:
+        return Check("no-egress", what, State.UNKNOWN,
+                     "no files scanned; nothing was checked")
+    return Check("no-egress", what, State.PASS,
+                 f"{n} module(s) scanned recursively by AST; no egress import, "
+                 "no dynamic import of one, no process spawn")
 
 
-def check_write_paths() -> Check:
-    """§6's *declared write paths*. §14 records this as open fleet-wide —
-    *'the AST checker sees imports, not filesystem writes'* — so the honest
-    answer here is a scan for the writes and no declaration to compare them to.
+def check_write_paths(where: Optional[Path] = None) -> Check:
+    """§6's *declared write paths*, against a core that declares none.
+
+    **The version that lived here took no path argument**, so it could not be
+    pointed at a decoy at all, and it matched substrings — a docstring saying
+    *"never calls `open(`"* failed the file while `Path.open()`, `os.rename`
+    and `tempfile` passed it.
+
+    Reads are reported separately and do not fail. A write check that cries wolf
+    on every `open()` is a write check somebody switches off.
     """
-    writers = []
-    for py in sorted((ROOT / "records").glob("*.py")):
-        src = py.read_text(encoding="utf-8")
-        for pat in ("open(", ".write_text(", ".write_bytes(", "os.remove", "shutil."):
-            if pat in src:
-                writers.append(f"{py.name}:{pat}")
-    if writers:
-        return Check("write-paths", "declared write paths (§6)", State.FAIL,
-                     f"records/ writes and nothing declares it: {'; '.join(writers)}")
-    return Check("write-paths", "declared write paths (§6)", State.UNKNOWN,
-                 "records/ performs no filesystem writes, so there is nothing to "
-                 "declare — but no manifest exists to declare against, so this is "
-                 "not evidence the mechanism works")
+    from purity import counted, reads, writes  # noqa: E402
+
+    targets = [where] if where is not None else [ROOT / "records"]
+    found = writes(targets)
+    n = counted(targets)
+    what = "declared write paths (§6)"
+    if found:
+        return Check("write-paths", what, State.FAIL,
+                     f"records/ writes and nothing declares it: "
+                     + "; ".join(str(t) for t in found[:4]))
+    if not n:
+        return Check("write-paths", what, State.UNKNOWN,
+                     "no files scanned; nothing was checked")
+    r = reads(targets)
+    return Check("write-paths", what, State.UNKNOWN,
+                 f"{n} module(s) scanned by AST: no writes"
+                 + (f", {len(r)} read(s)" if r else ", no reads")
+                 + " — but no manifest exists to declare against, so this is not "
+                   "evidence the mechanism works")
 
 
 def check_revocation_is_dated() -> Check:
@@ -186,6 +191,31 @@ def check_exit_line() -> Check:
                  f"docs/EXIT.md, {len(text.splitlines())} lines")
 
 
+def check_declared_sockets() -> Check:
+    """§18 item 4 note (ii): every listener the source opens must be declared.
+
+    **Built before the manifest, on purpose.** §4.3's worked failure is a
+    declaration that shipped first with nothing pointed at it. A `VACUOUS`
+    result — no manifest, no listeners — reports `UNKNOWN` rather than `PASS`,
+    because a check with nothing to check has not checked anything.
+    """
+    from sockets import Verdict, check as scan_check  # noqa: E402
+
+    r = scan_check([ROOT / "records", ROOT / "tools", ROOT / "voice.py",
+                    ROOT / "personas.py"])
+    what = "listening sockets are declared (§4.3, item 4 note ii)"
+    if r.verdict is Verdict.VACUOUS:
+        return Check("declared-sockets", what, State.UNKNOWN,
+                     "no manifest and no listeners: nothing was checked. The "
+                     "checker is wired and shown to fail (tests/fixtures/decoys), "
+                     "so the first surface item 4 lands is caught on arrival")
+    if r.findings:
+        return Check("declared-sockets", what, State.FAIL,
+                     "; ".join(f.detail for f in r.findings[:3]))
+    return Check("declared-sockets", what, State.PASS,
+                 f"{len(r.listeners)} listener(s), all declared; 0 outbound")
+
+
 def check_component_map() -> Check:
     """Item 0: an unverified table and a verified one must not look identical."""
     r = subprocess.run([sys.executable, str(ROOT / "tests" / "test_component_map.py")],
@@ -227,7 +257,7 @@ UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
 CHECKS: Tuple[Callable[[], Check], ...] = (
     check_no_egress, check_write_paths, check_revocation_is_dated,
     check_suite_runs_standalone, check_ablation, check_exit_line,
-    check_component_map,
+    check_component_map, check_declared_sockets,
 ) + UNDECIDABLE
 
 
