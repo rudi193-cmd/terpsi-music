@@ -390,6 +390,22 @@ jobs:
           done
           exit $status
 
+      # --- S-4: the knock, wired in enforcement mode -------------------------
+      #
+      # The read vertical over the store: a session declares a purpose, reads a
+      # lane through RLS *and* the predicate, narrates in the same transaction,
+      # and reconciles declared against observed on exit — landing the
+      # reconciled_session row. `tests/test_console.py` (guards job, no cluster)
+      # covers the Python-only half; this needs a database and is held back here
+      # like every other `tests/test_store_*.py`, named explicitly so
+      # `tests/test_manifest.py`'s routing assertion stays true. It is the suite
+      # `tools/conform.py`'s `knock-enforcing` row runs, so a run in which it did
+      # not execute is a run in which that row is a ledger again.
+      - name: The knock, enforced (S-4)
+        run: |
+          echo "=== tests/test_store_knock.py"
+          python3 tests/test_store_knock.py
+
       # Rule 19 for both halves of that pair. Twenty mutations across the
       # migration and the two predicate modules, each required to turn a named
       # suite red — and one declared survivor, printed with the assertion that

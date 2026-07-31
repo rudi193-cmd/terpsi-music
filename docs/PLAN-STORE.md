@@ -219,10 +219,42 @@ itself. Each must be attempted and refused, and each refusal ablated:
   rehearsed — citing `docs/ESCROW.md`, and it is neither `PASS` nor `ABSENT` on
   purpose. Both walls are ablated.
 
-- **S-4 — the TUI vertical over the store** (after S-2 and S-3): the first
-  surface with real data behind it, zero listeners, the knock wired in
-  enforcement mode at last — `conform.py`'s `knock-enforcing` row stops
-  being a ledger.
+- ~~**S-4 — the TUI vertical over the store**~~: **built 2026-07-31.** `console/`
+  — `session.py` (knock → acting → RLS+predicate read → IR → narration in one
+  transaction → exit reconciliation), `render.py` (the IR into `surfaces/text`,
+  monochrome the exact floor), `__main__.py` (a thin terminal driver, no
+  framework) — plus `store/reconcile.py` (the exit diff over `disclosure_log`,
+  landing the `reconciled_session` row) and `store/connecting.py::app_connection`.
+  **`tools/conform.py`'s `knock-enforcing` row is now a gate, not a ledger**: a
+  session routes through the knock, refused a read without a declared purpose,
+  and reconciled declared against observed on exit — `tests/test_store_knock.py`
+  (cluster) and `tests/test_console.py` (guards) drive it, and the row `PASS`es on
+  the merits. **The reconciliation reuses `records/commentary.py`'s session model**
+  (`Declaration`/`GuestSession`/`reconcile_exit`) over a `Ledger` rebuilt from the
+  store's chain — no second session model (rule 12).
+  **R16 stayed `S2`, and settling that was the design work.** The vertical is
+  read-first: it narrates (`disclosure_log`) and reconciles (`reconciled_session`)
+  but never calls `store/writing.py`'s record-write path, and both history tables
+  carry no sealed column (`store/sealing_plan.py` derives one, `lane_entry.payload`,
+  and it is on the record-write path). So `tools/audit.py`'s `AT_REST_BOUNDARY` was
+  refined to turn the escrow fuse on the **record-write** path rather than on any
+  store write — `durable_callers()` counts only that path, `narration_callers()`
+  reports the history writers separately, and R16 reads `FINDING`/`S2` with
+  `console/session.py` named as a narration caller, not a durable one. The fuse
+  still trips on the first record-write caller — the write surface (attendance
+  marks, a human sealing a draft) named as waiting on install acceptance and the
+  escrow rehearsal (§11.1), and **not built here**.
+  **Two findings came out of it**, recorded here rather than smoothed over: an
+  out-of-lane read cannot narrate its own refusal — `disclosure_log`'s
+  `INSERT … RETURNING` is sealed out of a lane the reader does not reach — so a
+  principal refused by the *lane seal* reads `unavailable` while a principal
+  refused by the *predicate* reads `REFUSED`; both show the director nothing, but
+  they are different states and whether an out-of-lane refusal should leave a
+  footprint is a store-layer question S-4 surfaces and does not decide. And
+  `reconciled_session.declared/observed/diff` are stored **clear** at `L4` (the
+  registry's three still-undecided fields, §7.4 note 2), so this first writer of
+  that table lands real `L4` PII in the clear — by the schema's existing decision,
+  not R16's, whose subject is the sealing-plan columns.
 
 ## What this plan deliberately does not do
 

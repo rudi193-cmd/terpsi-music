@@ -1194,9 +1194,12 @@ MUTATIONS = [
      "the store's writes count once something drives them",
      "tests/test_audit.py"),
     # And the detector under both: a caller scan that finds nothing makes (a)
-    # and (b) indistinguishable.
+    # and (b) indistinguishable. Since S-4 the scan is shared by `durable_callers`
+    # and `narration_callers` in `_scan_callers`, so this disables the call route
+    # for both — and `test_the_first_non_test_caller` still fails, because the
+    # record-write caller reached by a bare call (app/handler.py) goes unseen.
     ("tools/audit.py",
-     "                if name in _WRITE_PATH_VERBS:\n                    out.append((rel, f\"calls {name}()\"))",
+     "                if name in verbs:\n                    out.append((rel, f\"calls {name}()\"))",
      "                if False:\n                    out.append((rel, f\"calls {name}()\"))",
      "a call into the store's write path is a caller", "tests/test_audit.py"),
     ("tools/audit.py", "    if uncovered:", "    if False:",
@@ -1651,6 +1654,18 @@ MUTATIONS = [
      "rule 14: a provenance is on the ladder", "tests/test_aggregate.py"),
     ("records/aggregate.py", "        if len(group) > 1:", "        if False:",
      "the differencing ledger reports an overlap", "tests/test_aggregate.py"),
+    # --- console/ — the knock in enforcement mode (S-4) --------------------
+    #
+    # The two pure-Python guards of the director session. The cluster half — the
+    # read through RLS and the predicate, the narration, the reconciled_session
+    # row — is attacked in tests/test_store_knock.py, run by the schema job, for
+    # the reason the store's other cluster guards are: a mutation whose suite
+    # cannot run reports SURVIVES for the wrong reason.
+    ("console/session.py", '    if not (purpose or "").strip():', "    if False:",
+     "a session cannot open without a declared purpose (§7.2)",
+     "tests/test_console.py"),
+    ("console/session.py", "        if not self.open:", "        if False:",
+     "a closed session refuses a further read", "tests/test_console.py"),
 ]
 
 

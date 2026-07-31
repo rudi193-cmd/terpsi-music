@@ -33,7 +33,7 @@ import audit  # noqa: E402
 from audit import (  # noqa: E402
     AT_REST_BOUNDARY, AT_REST_VERBS, REQUIRED_EGRESS_SITES, Severity, Verdict,
     at_rest_seam, audit_commit, audit_date, durable_callers, egress_coverage,
-    escrow_disposition, escrow_facts, findings, r16_at_rest,
+    escrow_disposition, escrow_facts, findings, narration_callers, r16_at_rest,
     r17_no_egress_neutralised, recorded, registry, record_rows, store_writes,
 )
 
@@ -352,6 +352,62 @@ def test_the_real_tree_reads_S2_with_the_condition_named_and_not_S1():
         "boundary it is here to hold")
     assert AT_REST_BOUNDARY in got.evidence
     assert "§11.1" in got.condition
+
+
+#: A deployment module that narrates and reconciles but never writes a record —
+#: S-4's read-first vertical, in miniature. It calls `serve_field` (disclosure_log)
+#: and `land_reconciliation` (reconciled_session) and imports neither the writing
+#: module nor its verbs.
+A_NARRATOR = """\
+from store.narration import serve_field
+from store.reconcile import land_reconciliation
+
+
+def show(conn, **kw):
+    serve_field(conn, **kw)
+
+
+def leave(conn, session, rec, at):
+    land_reconciliation(conn, session, rec, at=at)
+"""
+
+
+def test_a_narration_only_caller_does_not_make_the_store_a_record_at_rest():
+    """**The boundary S-4 settled: narration is not a record at rest.**
+
+    A deployment module that reads, narrates and reconciles writes only the
+    append-only history tables, which carry no sealed column
+    (`store/sealing_plan.py` derives one, `lane_entry.payload`, and it is on the
+    record-write path). So it is a `narration_callers()` entry and **not** a
+    `durable_callers()` one, and R16 stays `S2` — the escrow fuse does not turn on
+    a surface that stores no sealed payload. It still trips on the first
+    record-write caller, which is the write surface after S-4."""
+    with tempfile.TemporaryDirectory() as d:
+        records, store, root = _store_tree(d, with_app=False)
+        (root / "console").mkdir()
+        (root / "console" / "session.py").write_text(A_NARRATOR, encoding="utf-8")
+        narrators = dict(narration_callers(root, store))
+        assert "console/session.py" in narrators, narrators
+        assert "serve_field" in narrators["console/session.py"]
+        assert "land_reconciliation" in narrators["console/session.py"]
+        # The escrow-relevant scan sees nothing: no record-write caller.
+        assert durable_callers(root, store) == (), durable_callers(root, store)
+        got = r16_at_rest(records=records, escrow=root / "ESCROW.md",
+                          store=store, tree=root)
+    assert got.verdict is Verdict.FINDING and got.severity is Severity.S2, got
+    assert "narration/reconcile caller" in got.evidence
+    assert "not a record at rest" in got.evidence
+
+
+def test_the_real_tree_has_a_narration_caller_and_no_record_writer():
+    """S-4 landed: `console/` narrates and reconciles over the real tree, and
+    still nothing outside `tests/` writes a record. Both halves in one assertion,
+    so removing the vertical (narrators empty) or adding a write surface (durable
+    non-empty) each fails here."""
+    assert narration_callers(), (
+        "no deployment module narrates; S-4's read-first vertical is missing and "
+        "the knock has no surface routing through it")
+    assert durable_callers() == (), durable_callers()
 
 
 # --- R17: the registry half ---------------------------------------------------

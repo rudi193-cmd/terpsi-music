@@ -120,6 +120,24 @@ def connect(dsn: Optional[str] = None, *, autocommit: bool = False,
                            autocommit=autocommit, **kw)
 
 
+def app_connection(*, autocommit: bool = False) -> "psycopg.Connection":
+    """The application's connection, opened as `terpsi_app` from `app_dsn()`.
+
+    **The one factory a surface calls, and the reason it exists is `tools/sockets.py`.**
+    That checker reads a bare `connect(...)` as an outbound endpoint by call name,
+    and the manifest's `outbound` declaration names exactly this module. A surface
+    that spelled `connect()` itself would be a second outbound site the manifest
+    does not admit — a finding on the next run — so the surface asks for a
+    connection by a name that is not `connect`, and the one `connect()` stays here
+    where it is declared. `store/connecting.py` is still the whole outbound list.
+
+    `app_dsn()` refuses to be the owner's (gate G-D), so a session opened through
+    here holds `INSERT` and `SELECT` and nothing else — the store's read-first
+    surface (S-4) cannot rewrite history or end a record even if it tried.
+    """
+    return connect(app_dsn(), autocommit=autocommit)
+
+
 def reachable(dsn: str, *, timeout: int = 5) -> tuple:
     """`(ok, why)` for a store somebody is about to use.
 
