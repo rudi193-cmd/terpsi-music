@@ -20,12 +20,24 @@ closed one commit after the tree the pin names.
 `tools/conform.py::check_security_audit` checks the pin for the one thing it
 decides: that this history contains it.
 
-**Not a clean bill.** *Findings: 5 recorded, 4 closed, 1 open* — the four were
-fixed in the commit that carries this file, and the figures are counted from the
-findings table below by `tests/test_audit.py::test_the_findings_summary_is_derived`
-rather than typed. Two checks report a state that is not a pass. A rubric run
-that came back with nothing would be the outcome §10 warns about, not a good
-one.
+**Not a clean bill, and now an aging one.**
+*Findings: 5 recorded, 5 closed, 0 open* — four were fixed in the commit that
+carries this file; the fifth,
+`TM-DEPS-01`, was fixed later (`tools/imports.py`), which is why it says so and
+the others do not. The figures are counted from the findings table below by
+`tests/test_audit.py::test_the_findings_summary_is_derived` rather than typed.
+A rubric run that came back with nothing would be the outcome §10 warns about,
+not a good one.
+
+**This document is due a re-pin and a re-run.** Its `commit` above names a tree
+that predates the store, the two accepted dependencies, and most of the code an
+`R1`–`R17` pass would now examine — so several rows describe a tree that no
+longer exists (`R14`'s *"no `requirements.txt`"* is the clearest). The
+`security-audit` conform check validates the pin's ancestry and the date, not
+the rubric, so nothing forced a re-run; that it is overdue is recorded here
+rather than left for a reader to infer from the dates. Closing `TM-DEPS-01`
+against the current tree from a doc pinned to an old one is the seam of that
+staleness, named at the place it shows.
 
 ---
 
@@ -115,7 +127,7 @@ entirely.
 | `TM-TMP-01` | R10 | `S2` | closed 2026-07-31 | A fixed sidecar name under `gettempdir()`, written through symlinks. |
 | `TM-RACE-02` | R11 | `S3` | closed 2026-07-31 | The conformance record's append-only rule was check-then-act too. |
 | `TM-ROOT-01` | R4 | `S2` | closed 2026-07-31 | Nothing kept the trust root out of the tree. Mitigated by `.gitignore`; enforced by `.githooks/pre-commit` (per-clone install, one residual named below). |
-| `TM-DEPS-01` | R14 | `S3` | open | The stdlib-only posture is prose in docstrings; nothing checks it. |
+| `TM-DEPS-01` | R14 | `S3` | closed 2026-07-31 | The stdlib-only posture was prose in docstrings; `tools/imports.py` now enforces it — every import resolves to stdlib, a `requirements.txt`-declared dependency, or a local module, or it fails the build. Closed many commits after this doc's pin; see the note below. |
 
 ### `TM-RACE-01` — the ablation lock could be held twice (`S2`, closed)
 
@@ -234,15 +246,32 @@ the `.gitignore` mitigation alone. Wiring the install into a repository
 bootstrap (a `make setup`, or CI asserting `core.hooksPath`) would make it
 automatic; that step is not written, and this is where it is recorded.
 
-### `TM-DEPS-01` — the stdlib-only posture is unenforced (`S3`, open)
+### `TM-DEPS-01` — the stdlib-only posture is unenforced (`S3`, ~~open~~ closed 2026-07-31)
 
-**Files:** the tree; and the docstrings that assert the posture, counted today
-by reading each tracked file for the phrase — 57 files.
+**Files:** `tools/imports.py` (the gate), `tests/test_imports.py`,
+`tests/fixtures/decoys/imports_undeclared.py`, `tools/conform.py`
+(`check_stdlib_only`); originally the tree and the docstrings that assert the
+posture.
 
 `R14` in the fleet rubric is about lower-bound version specifiers pulling
-unexpected code. This repository inverts the problem: there is no dependency
-manifest at all, and today there is nothing to declare.
-Derived today by an AST walk: 0 of 41 distinct top-level imports across 95 tracked files resolve outside the standard library and this repository's own packages.
+unexpected code. **At this doc's pin** the repository had no dependency manifest
+at all and nothing to declare, and an AST walk found 0 of 41 top-level imports
+outside the standard library and this repository's own packages — so the
+supply-chain risk was absent by construction and the finding was the other
+half: nothing *enforced* that posture, so a later `import numpy` would have
+sailed in.
+
+**Closed by making it a gate.** `tools/imports.py` reconciles every top-level
+import against the standard library, the dependencies `requirements.txt`
+declares (derived from the file, not hard-coded, so the gate and the
+declaration cannot drift), and this repository's own modules. An undeclared
+import is a build failure. `tools/drivers.py` answers *where* the one declared
+driver may be imported; this answers *whether* an import is declared at all, and
+the two compose. The decoy `imports_undeclared.py` imports `requests` and
+`flask` and is caught; the mutation in `tests/ablate.py` that judges every
+import resolved turns `tests/test_imports.py` red. The tree gained its manifest
+and its two dependencies between this doc's pin and this close — see the re-pin
+note at the top.
 
 **A note on how this was found, because it is the finding.** The instruction
 this audit ran under said to `pip install -r requirements.txt` first, on the

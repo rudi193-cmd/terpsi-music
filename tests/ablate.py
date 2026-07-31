@@ -512,6 +512,13 @@ MUTATIONS = [
      "        text, provider, tags, endpoint = (\n"
      "            self.text, self.provider, frozenset(self.classes), self.endpoint)",
      "the type itself vets", "tests/test_inference.py"),
+    # tools/imports.py — TM-DEPS-01's gate. The fail-open direction: a check
+    # that judges every import resolved never flags the undeclared one, and the
+    # decoy's `requests`/`flask` stop being findings.
+    ("tools/imports.py",
+     "        out.append(Reach(kind, module, line, root, detail, root in allowed))",
+     "        out.append(Reach(kind, module, line, root, detail, True))",
+     "an undeclared import is a finding", "tests/test_imports.py"),
     # tools/providers.py — the tripwire. Its mutations are the fail-open
     # direction first: a checker that clears everything is silent in exactly
     # the direction nobody notices.
@@ -1333,7 +1340,8 @@ MUTATIONS = [
      "| **FINDING** | `S2` | ~~No at-rest sealing entry point exists~~",
      "| **PASS** | `S2` | ~~No at-rest sealing entry point exists~~",
      "the recorded R16 verdict is reconciled", "tests/test_audit.py"),
-    ("docs/SECURITY-AUDIT.md", "| `TM-DEPS-01` | R14 | `S3` | open |",
+    ("docs/SECURITY-AUDIT.md",
+     "| `TM-DEPS-01` | R14 | `S3` | closed 2026-07-31 |",
      "| `TM-DEPS-01` | R14 | `S1` | open |",
      "an open S1 in the document fails conformance", "tests/test_conform.py"),
     # venue/ — §9 foundation 6. The package has no lane and no person in it, so

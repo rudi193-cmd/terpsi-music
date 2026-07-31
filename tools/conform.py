@@ -335,6 +335,36 @@ def check_manifest() -> Check:
                  "outbound, no cloud permission, no unknown key")
 
 
+def check_stdlib_only() -> Check:
+    """TM-DEPS-01 (§10): every import is stdlib, a declared dependency, or
+    local — the enforcement half of a posture that was asserted in dozens of
+    docstrings and enforced by nobody until `tools/imports.py`. A finding is an
+    undeclared import; the set of admitted third-party roots is derived from
+    `requirements.txt`, so the gate and the declaration cannot drift.
+    """
+    from imports import (Verdict, check as imports_check, _default_paths,  # noqa: E402
+                         ROOT as IMPORTS_ROOT)
+
+    # Re-root the path shape under conform.ROOT so the acceptance test — which
+    # points conform.ROOT at an empty tree — scans *that* tree, finds nothing,
+    # and reports UNKNOWN rather than PASS over the real tree (rule 13). In an
+    # ordinary run conform.ROOT == IMPORTS_ROOT and the list is unchanged.
+    targets = [ROOT / p.relative_to(IMPORTS_ROOT) for p in _default_paths()]
+    r = imports_check([p for p in targets if p.exists()],
+                      requirements=ROOT / "requirements.txt", where=ROOT)
+    what = "every import is stdlib, declared, or local (TM-DEPS-01, §10)"
+    if r.verdict is Verdict.VACUOUS:
+        return Check("stdlib-only", what, State.UNKNOWN,
+                     "no Python scanned; a scan of nothing is not a pass")
+    if r.findings:
+        return Check("stdlib-only", what, State.FAIL,
+                     "; ".join(f"{f.module}:{f.line} imports {f.root!r} "
+                               "(undeclared)" for f in r.findings[:3]))
+    return Check("stdlib-only", what, State.PASS,
+                 f"{r.scanned} file(s): every import stdlib / declared / local; "
+                 "the two declared roots are cryptography and psycopg")
+
+
 def check_local_inference(where: Optional[Path] = None) -> Check:
     """Refusal 1 (§6): nothing reaches a model except through the guard.
 
@@ -841,6 +871,7 @@ NAMED_MIDDLES: Tuple[str, ...] = (
     # `row-security-differential` — because a middle nobody runs is a middle in
     # name, which is the distinction rule 18 asks to be said out loud.
     "test_store_differential<->serving.serve+migrations/003_row_security.sql",
+    "imports.declared_roots<->requirements.txt",
 )
 
 UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
@@ -879,8 +910,9 @@ CHECKS: Tuple[Callable[[], Check], ...] = (
     check_component_map, check_classification_registry,
     check_row_security_differential,
     check_declared_sockets, check_manifest, check_key_escrow,
-    check_security_audit, check_local_inference, check_anchor_payload,
-    check_anchor_published, check_receipt_attribution, check_deposit_procedure,
+    check_security_audit, check_stdlib_only, check_local_inference,
+    check_anchor_payload, check_anchor_published, check_receipt_attribution,
+    check_deposit_procedure,
 ) + UNDECIDABLE
 
 
