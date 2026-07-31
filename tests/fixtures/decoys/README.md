@@ -30,5 +30,26 @@ inspect them would open the sockets it was written to detect.
 | `reads_only.py` | `tools/purity.py` | a read is not a write; a check that cries wolf gets switched off |
 | `clean.py`, `egress_in_prose.py`, `writes_in_prose.py` | both | **decoys against the wrong implementation** — each names the forbidden thing in prose, so a grep-based checker fails them and an AST-based one does not |
 
-Three of the four checkers these serve were shipped broken and passing. The
+| `deletes_standing.py` | `tools/discipline.py` | `del`, `_edges.remove()`, an executed `DELETE FROM`, `clear()`, `discard()` |
+| `deletes_nested/buried.py` | `tools/discipline.py` | a removal one directory down |
+| `dates_standing.py` | `tools/discipline.py` | revocation done right — `invalid_at`, plus the comprehension this scan deliberately does not flag |
+| `deletes_in_prose.py` | `tools/discipline.py` | the false positive the shipped check actually made |
+| `runners/test_no_runner.py` | `tools/discipline.py` | mentions `__main__` in a docstring and has no runner |
+| `runners/test_empty_runner.py` | `tools/discipline.py` | `if __name__ == "__main__": pass` |
+| `runners/test_swallowing_runner.py` | `tools/discipline.py` | a runner that prints `FAIL` and falls off the end |
+| `runners/test_zero_exit_runner.py` | `tools/discipline.py` | a runner that prints `FAIL` and **explicitly `sys.exit(0)`** |
+| `runners/test_not_really_an_exit.py` | `tools/discipline.py` | `logger.exit()` — an `exit` belonging to something else |
+| `runners/test_good_runner.py` | `tools/discipline.py` | the shape every suite here uses; the control |
+
+**All five checkers have now been tested for the first time. Four were broken.**
+`no-egress`, `write-paths`, `dated-revocation` and `standalone-suites` all
+passed against the tree they guarded and failed against a decoy. The socket
+checker was written with decoys from the start and still had a bug the decoys
+caught on the first run.
+
+`runners/` is excluded from the real scan by `discipline.NOT_SUITES`, and
+`tests/test_discipline.py` asserts the exclusion **both ways** — the real scan
+skips these files, and pointing the scan at them finds every one. An exclusion
+that could not be aimed at its own decoys would be the blind spot this directory
+exists to prevent. The
 decoys found all three in one run.
