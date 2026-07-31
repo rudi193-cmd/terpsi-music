@@ -68,6 +68,20 @@ Note that this is not a defect in either module. Both do what they were built to
 do, and the gap is between them — which is rule 12's pair, arriving because a
 surface was added that reads through one and not the other.
 
+**The send side has the matching half, found independently.**
+`docs/PLAN-GUARDIANSHIP.md` records an ablation in which two mutants passed all
+of G1–G11: a predicate ignoring edge dates entirely, and a predicate messaging
+*every* edge holder — because **one of the original eleven is about a
+restriction and none is about the standing edge itself.** *"The plan reasoned
+carefully about what suppresses a recipient and never wrote down what makes
+one."*
+
+So this is not one seam. `serve()` consults edges and not restrictions;
+`recipients()` was gated on restrictions and not on what constitutes standing.
+Each module tested its own half of the same question and neither owned the
+join — which is why the answer to *needs a human 1* should name where the
+agreement lives, not merely that the two should agree.
+
 ## GU5, and the capability that is already built
 
 **G10** requires `who_could_see(student, field, at)` to answer *"with a reason,
