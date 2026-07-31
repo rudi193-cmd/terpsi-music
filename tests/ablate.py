@@ -403,8 +403,19 @@ MUTATIONS = [
     ("records/consent.py", "return self.model is Model.SESSION",
      "return self.model is not Model.DELEGATED",
      "UNKNOWN is not askable", "tests/test_consent.py"),
-    ("records/practice.py", "if len(lanes) > 1:", "if False:",
+    # The one-lane rule moved to records/conflict.py on 2026-07-31, when
+    # attendance and fees became its second and third callers (rule 12). One
+    # guard, three suites — each row proves that suite notices, because a
+    # shared middle whose only ablation points at one caller is a middle whose
+    # other callers are decorative.
+    ("records/conflict.py", "if len(lanes) > 1:", "if False:",
      "a statistic reads one lane", "tests/test_practice.py"),
+    ("records/conflict.py", "if len(lanes) > 1:", "if False:",
+     "an attendance statistic reads one lane", "tests/test_attendance.py"),
+    ("records/conflict.py", "if len(lanes) > 1:", "if False:",
+     "a balance reads one lane", "tests/test_fees.py"),
+    ("records/conflict.py", "if len(lanes) > 1:", "if False:",
+     "one_lane refuses rather than filtering", "tests/test_conflict.py"),
     ("records/practice.py", "if (as_of - days[-1]).days <= 1:", "if True:",
      "a broken streak is not current", "tests/test_practice.py"),
     # `return None  # (` commented out the opening paren and left the rest of
@@ -1081,6 +1092,95 @@ MUTATIONS = [
     # different file to notice -- the shape the §14 header-figure mutation
     # established, after the first attempt at it disabled an assertion and asked
     # the assertion to catch itself.
+    # --- §9 item 8: attendance, fees, and step 2a over an aggregate --------
+    #
+    # records/classify.py's aggregate gate. Both new modules route their
+    # cross-lane figures through it, so a hole here is a hole in two places.
+    ("records/classify.py", "    if compose(*over) is NEVER_SERVED:", "    if False:",
+     "counting does not declassify L5", "tests/test_classify.py"),
+    ("records/classify.py", "    passed = cohort >= floor", "    passed = True",
+     "the suppression floor applies", "tests/test_classify.py"),
+    ("records/classify.py", "    if floor < 2:", "    if False:",
+     "a floor of nothing is not a floor", "tests/test_classify.py"),
+    # And the two callers, ablated at their own call sites: a gate both modules
+    # route through can be correct while a caller passes it the wrong rung.
+    ("records/attendance.py",
+     '    c = aggregate("headcount", over=(Rung.L3,), cohort=cohort, floor=floor)',
+     '    c = aggregate("headcount", over=(Rung.L2,), cohort=cohort, floor=floor)',
+     "a headcount inherits the mark's rung", "tests/test_attendance.py"),
+    ("records/fees.py",
+     '    c = aggregate("program_total", over=(Rung.L4,), cohort=cohort, floor=floor)',
+     '    c = aggregate("program_total", over=(Rung.L2,), cohort=cohort, floor=floor)',
+     "a total inherits FINANCIAL's rung", "tests/test_fees.py"),
+    ("records/fees.py", "        if not self.servable:", "        if False:",
+     "an unservable total yields no number", "tests/test_fees.py"),
+    # records/attendance.py — refusal 7's seam. Both isinstance checks, because
+    # they are two doors into one room and closing one is the shape of guard
+    # this tree keeps finding half-ablated.
+    ("records/attendance.py", "    if not isinstance(referent, Referent):",
+     "    if False:", "a record cannot become a signal", "tests/test_attendance.py"),
+    ("records/attendance.py", "    if not isinstance(sig, Signal):", "    if False:",
+     "only a signal reaches the carrier", "tests/test_attendance.py"),
+    # W-3 and rule 13 over the roll.
+    ("records/attendance.py", "        if subject_id in seen:", "        if False:",
+     "two marks for one student are not collapsed", "tests/test_attendance.py"),
+    ("records/attendance.py", '        if not (lane_id or "").strip():',
+     "        if False:", "a mark outside a lane (W-1)", "tests/test_attendance.py"),
+    ("records/attendance.py", '        if not (self.season or "").strip():',
+     "        if False:", "a referent carries a season (§10)", "tests/test_attendance.py"),
+    ("records/attendance.py", "    if requests is None:", "    if False:",
+     "an unconsulted request source is unknown", "tests/test_attendance.py"),
+    # Restores revocation-by-rewrite exactly: the correction becomes the record
+    # and the original mark stops having existed (refusal 3).
+    ("records/attendance.py", "    closed = replace(entry, invalid_at=at, corrected_by=by)",
+     "    closed = later", "a correction supersedes, never overwrites",
+     "tests/test_attendance.py"),
+    # records/fees.py — the PAN refusal, in both directions. A check that
+    # matches everything and a check that matches nothing are both broken, and
+    # only one of them is noticed by the test that says the guard fires.
+    ("records/fees.py", "    return total % 10 == 0", "    return False",
+     "Luhn catches a card number", "tests/test_fees.py"),
+    ("records/fees.py", "    return total % 10 == 0", "    return True",
+     "Luhn does not fail an invoice number", "tests/test_fees.py"),
+    # The partial guard somebody would plausibly write: close the token field
+    # and leave the memo line, which is where a PAN would actually go.
+    ("records/fees.py", "    for f in _fields(obj):",
+     '    for f in [x for x in _fields(obj) if x.name == "token_ref"]:',
+     "every string field is scanned, not just the token", "tests/test_fees.py"),
+    ("records/fees.py",
+     "        if self.tender is Tender.CARD_TOKEN and not (self.token_ref or \"\").strip():",
+     "        if False:", "a card payment carries a token", "tests/test_fees.py"),
+    ("records/fees.py", "    if isinstance(value, bool) or not isinstance(value, int):",
+     "    if False:", "money is integer minor units", "tests/test_fees.py"),
+    # The design error this module was written twice to avoid: no membership
+    # falling back to the standard band, which makes the absence of a row mean
+    # something. This mutation is the first draft of that line, restored.
+    ("records/fees.py", "    bands = [g for g in for_activity if g.group_id in live]",
+     "    bands = [g for g in for_activity if g.group_id in live] or for_activity",
+     "no live band is unknown, not the standard fee", "tests/test_fees.py"),
+    ("records/fees.py", "    if len(bands) > 1:", "    if False:",
+     "two live bands escalate rather than minimise", "tests/test_fees.py"),
+    # Rule 13 where it bills a family.
+    ("records/fees.py",
+     "        if self.state is not Source.DERIVED or self._cents is None:",
+     "        if False:", "an unknown balance is not zero", "tests/test_fees.py"),
+    ("records/fees.py", "        if lane_id is None:", "        if False:",
+     "an empty result from an unnamed lane is unknown", "tests/test_fees.py"),
+    # Revocation by rewriting the amount — the money-side spelling of refusal 3.
+    ("records/fees.py",
+     "    return replace(payment, invalid_at=at, reversed_by=by, reversal_reason=why)",
+     "    return replace(payment, cents=0, reversed_by=by, reversal_reason=why)",
+     "a reversal dates, never rewrites", "tests/test_fees.py"),
+    # The openSIS widget, and the two rankings.
+    ("records/fees.py", '    raise NotDisclosable(\n        "no roster or search surface',
+     '    return (\n        "no roster or search surface',
+     "no surface filters students by money", "tests/test_fees.py"),
+    ("records/fees.py", '    refuse_to_rank("a need ranking for aid", applicants)',
+     "    return tuple(sorted(applicants))",
+     "aid is not ranked between students", "tests/test_fees.py"),
+    ("records/fees.py", '    refuse_to_rank("a payment-plan priority", students)',
+     "    return tuple(sorted(students))",
+     "a payment plan is not a priority", "tests/test_fees.py"),
     ("docs/SECURITY-AUDIT.md",
      "| **FINDING** | `S2` | ~~No at-rest sealing entry point exists~~",
      "| **PASS** | `S2` | ~~No at-rest sealing entry point exists~~",
