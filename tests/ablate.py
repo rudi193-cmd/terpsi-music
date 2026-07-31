@@ -470,6 +470,8 @@ MUTATIONS = [
      "the monochrome backend is singled out", "tests/test_surfaces.py"),
     ("presentation/parity.py", "    if not renderings:", "    if False:",
      "a parity check of nothing", "tests/test_surfaces.py"),
+    ("presentation/parity.py", "    for prefix in unknown:", "    for prefix in ():",
+     "a badge on no ladder", "tests/test_surfaces.py"),
     ("surfaces/tui/render.py",
      'return f"\\x1b[38;5;{palette.resolve(seg.token).xterm256}m{seg.text}{_RESET}"',
      'return f"\\x1b[38;5;{palette.resolve(seg.token).xterm256}m'

@@ -55,8 +55,19 @@ class Finding:
 
 
 def expected(view: View) -> Tuple[str, ...]:
-    """Every badge in this view, as the one table says it must read."""
-    return tuple(level(b.level.prefix).text for b in view.badges)
+    """Every badge in this view, as the one table says it must read.
+
+    A badge naming a rung that is on no ladder is returned as a finding rather
+    than raised: this module's contract is that it reports, and a checker that
+    raised would be indistinguishable from a checker that crashed.
+    """
+    texts, unknown = [], []
+    for b in view.badges:
+        try:
+            texts.append(level(b.level.prefix).text)
+        except (ValueError, TypeError, AttributeError):
+            unknown.append(getattr(getattr(b, "level", None), "prefix", b))
+    return tuple(texts), tuple(unknown)
 
 
 def parity(view: View, renderings: Dict[str, str]) -> Tuple[Finding, ...]:
@@ -70,9 +81,13 @@ def parity(view: View, renderings: Dict[str, str]) -> Tuple[Finding, ...]:
     if not renderings:
         return (Finding("NOTHING_RENDERED",
                         "no backend output was supplied; nothing was compared"),)
-    want = expected(view)
-    if view.badges and not want:
-        return (Finding("NO_BADGES", "the view carries badges that resolve to no text"),)
+    want, unknown = expected(view)
+    for prefix in unknown:
+        findings.append(Finding(
+            "UNKNOWN_RUNG",
+            f"{prefix!r} is on none of the three ladders, so nothing here can say "
+            "what it must read; a badge that cannot be checked is not a badge "
+            "that passed"))
 
     for name, out in sorted(renderings.items()):
         plain = strip_colour(out)
@@ -100,11 +115,14 @@ def parity(view: View, renderings: Dict[str, str]) -> Tuple[Finding, ...]:
                 f"the text backend is missing {missing}; forced monochrome lost "
                 "a distinction the coloured backends carry"))
 
-    distinct = {t for t in want}
-    if len(distinct) != len({t.split(" ", 1)[0] for t in want}):
-        findings.append(Finding(
-            "COLOUR_ALONE",
-            "two rungs render as the same string, so they are distinguishable "
-            "only by colour"))
+    # **There was a fourth check here and it could not fire.** It compared the
+    # number of distinct badge texts against the number of distinct prefixes to
+    # catch two rungs rendering alike — but a text is its prefix plus a word and
+    # `TABLE` is keyed by prefix, so the two counts are equal by construction.
+    # A branch that cannot fail is §16's *middle that cannot fire*, and the fact
+    # that it read like the most on-topic check in the file is exactly why it
+    # was worth deleting rather than keeping for reassurance. The property it
+    # aimed at is real and is enforced where it can be: `tests/test_presentation.py`
+    # asserts no two rows of the table read alike.
 
     return tuple(findings)

@@ -174,6 +174,20 @@ def test_a_badge_that_lies_about_its_own_text_is_caught():
     assert any(f.code == "PREFIX_ABSENT" for f in found), found
 
 
+def test_a_badge_naming_a_rung_on_no_ladder_is_a_finding_not_a_crash():
+    """A view can carry a rung this table has never heard of — a `T5`, an `L0`,
+    a scale somebody added upstream. The checker reports it rather than raising,
+    because a checker that raised would be indistinguishable from one that
+    crashed, and an unknown rung is not a rung that passed (rule 13)."""
+    from presentation.scales import Level, Scale
+
+    fake = ir.Badge(Level(Scale.SENSITIVITY, "L9", "Invented", "caution_0", 0))
+    view = ir.view("t", [ir.Row("r", (ir.Cell(
+        label="x", shown=ir.Shown.SERVED, value="v", badges=(fake,)),))])
+    found = parity(view, {"text": "L9 Invented"})
+    assert any(f.code == "UNKNOWN_RUNG" for f in found), found
+
+
 def test_a_parity_check_with_nothing_to_compare_is_not_a_pass():
     """`tools/sockets.py`'s vacuous case, in the presentation layer."""
     found = parity(_every_badge_view(), {})
