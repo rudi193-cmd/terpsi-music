@@ -11,7 +11,8 @@ the shortness is the finding: a judge does few things, all of them at one event,
 and almost all of them are *writing* rather than reading.
 
 The decisions reconciled against are not restated: §4 (ephemeral scoped grants),
-§7.2 (the knock), §8.2 (sealing), §13 (SA-3), and `voice.py`.
+§7.2 (the knock), §8.2 (sealing), §13 (SA-3), §18 item 7 (score-position
+anchoring, closed — `records/marking.py`), and `voice.py`.
 
 **This is the persona §7.2 is written for** — *"a declared purpose on entry,
 reconciled on exit, announced loudly because the trust level is low. A grant
@@ -23,7 +24,7 @@ says what a guest may do; the reconciliation says what they did."*
 
 | § | Capability | Verdict |
 |---|---|---|
-| J1 | Timecoded commentary capture | **Survives** — flagship, and a `draft` always |
+| J1 | Timecoded commentary capture | **Survives** — flagship; `records/marking.py` is built, and a `draft` always |
 | J2 | Caption score entry | **Survives** — the system records a claim, never computes one |
 | J3 | Sheet and rubric recall | **Survives** |
 | J4 | Recall of their own commentary, this event | **Survives** |
@@ -93,6 +94,30 @@ especially."* An ASR pass over a judge's dictation is a machine answer about a
 student's performance, and §8.2 supplies the rest: **a role is not a signature**,
 and a rejection is as durable as an approval. The assistant may transcribe; the
 judge seals, by name.
+
+**And the anchor already exists.** §18 item 7 closed 2026-07-30 —
+`records/marking.py` — so J1's *"timecoded"* is not a thing to be designed. A
+`Mark` carries a **required** `at_ms` and `seat`, an **optional derived**
+`ScorePosition`, and `drift()` reconciles the two. Three properties of it bear
+directly on what an assistant may do here:
+
+- **The tap is `P1 measured`; an alignment is `P3 fitted`,** and `align()`
+  refuses a position whose provenance outranks the observation it came from. An
+  assistant that "corrects" where a remark was anchored is overwriting the `P1`
+  half with an inference, which the module already forbids at the call.
+- **A mark naming a student is lane-scoped and there is no participant list**
+  (W-1). A judge's remark about a moment involving three students is three lane
+  entries with one `referent`, and an assistant composing a single note about
+  "the trumpets" must not be what writes it.
+- **`seat` is required**, which §13 wants for the `field-acoustics` pairing —
+  *the acoustic model predicts what arrived at that seat.* An assistant capturing
+  commentary without it silently costs a capability nobody will notice missing.
+
+**J5 is the sharp one against this.** *Tightening a judge's own commentary
+prose* operates on the `P1` half — the words a human actually said about a
+performance. Editing them is not the same act as deriving a score position from
+them, and the seal in §8.2 is what makes the difference legible: the judge seals
+the tightened text, or it stays a `draft` and the original stands.
 
 **J2 records a claim and never computes one.** A judge ordering ensembles is
 their job. The system computing an order is refusal 6, and the distinction is
