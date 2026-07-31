@@ -456,6 +456,14 @@ MUTATIONS = [
      "an open high finding fails the build", "tests/test_conform.py"),
     ("tools/conform.py", "    if age > STALE_AFTER_DAYS:", "    if False:",
      "a stale audit is not a pass", "tests/test_conform.py"),
+    # Restores the observer effect exactly: render inside the open, so the
+    # record file git is being asked about already exists when it is asked.
+    # The probe suite builds its own clean repository for this, because this
+    # one is dirty whenever this harness is running and would agree with the
+    # defect.
+    ("tools/conform.py", "            fh.write(text)",
+     "            fh.write(render(checks, at))",
+     "a record does not report the tree it made", "tests/test_conform.py"),
     # The artifact, not the guard. Both of these mutate the document and ask a
     # different file to notice -- the shape the §14 header-figure mutation
     # established, after the first attempt at it disabled an assertion and asked

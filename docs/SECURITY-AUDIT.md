@@ -41,8 +41,8 @@ beside each one (rule 17).
 | Checkers | 5 in `tools/` | `git ls-files 'tools/*.py' \| wc -l` |
 | Prose tooling | 5 in `craft/`, plus `voice.py` and `personas.py` | `git ls-files 'craft/*.py' \| wc -l` |
 | Suites | 33 files under `tests/` | `git ls-files 'tests/test_*.py' \| wc -l` (32) plus `tests/ablate.py` |
-| Test functions | 535 collected | `python3 -m pytest -q --collect-only`, run today |
-| Ablation mutations | 135 rows | derived today: `tools/audit.py` parses `MUTATIONS` by AST and reports the length, and `tests/ablate.py` prints the same figure at the end of a run |
+| Test functions | 538 collected | `python3 -m pytest -q --collect-only`, run today at the commit that carries this file |
+| Ablation mutations | 136 rows | derived today: `tools/audit.py` parses `MUTATIONS` by AST and reports the length, and `tests/ablate.py` prints the same figure at the end of a run |
 | Distinct top-level imports | 41, of which 0 are third-party | derived today by an AST walk over all 95 files, compared against `sys.stdlib_module_names` |
 
 **There is no server, no database connection, no HTTP surface, no template
@@ -94,7 +94,7 @@ the five are not a pass.
 | `R14` | Dependency pinning | **FINDING** | `S3` | `TM-DEPS-01`. There is no `requirements.txt`, no `pyproject.toml`, and no lock file — and no third-party import either: derived today, of 41 distinct top-level imports across 95 files, 0 resolve outside `sys.stdlib_module_names` and this repository's own packages. So the supply-chain risk `R14` targets is absent by construction, and the finding is the other half: nothing enforces the stdlib-only posture, which is asserted in 57 files as counted from the tree today. Open. |
 | `R15` | Hardcoded developer home paths | **PASS** | — | Zero matches for `/home/`, `/Users/`, `C:\Users` or a `~/`-prefixed path in any tracked file. Derived: `grep -rnE "/home/\|/Users/\|C:\\\\Users\|~/[a-zA-Z]" --include=*.py`. Every root is `Path(__file__).resolve().parent.parent`. No environment variable is read for a path. |
 | `R16` | Encryption at rest and key escrow — `records/` scanned by AST for a sealing seam; `docs/ESCROW.md`; `tools/purity.py` for anything that writes | **ABSENT** | — | No at-rest sealing entry point exists and nothing is at rest to seal: `purity.writes()` over `records/` reports 0 write sites. No escrow disposition exists; §5 already records that as this design's largest gap. **Applies when** the first module writes a record to a disk — R16 becomes an open `S1` at that commit unless sealing and an escrow disposition land with it. See below. |
-| `R17` | A structural no-egress test that fails when neutralised — `tools/purity.py`, `tools/conform.py::check_no_egress`, the ablation registry, and the newest conformance record | **PASS** | — | 4 mutations covering 4 required egress-detection sites, read out of `tests/ablate.py` by AST and derived today (135 rows in the registry), and the newest conformance record reports `no-egress=PASS` and `ablation=PASS`. See below. |
+| `R17` | A structural no-egress test that fails when neutralised — `tools/purity.py`, `tools/conform.py::check_no_egress`, the ablation registry, and the newest conformance record | **PASS** | — | 4 mutations covering 4 required egress-detection sites, read out of `tests/ablate.py` by AST and derived today (136 rows in the registry), and the newest conformance record reports `no-egress=PASS` and `ablation=PASS`. See below. |
 
 **Tally: 7 pass, 3 findings, 6 not-applicable, 1 absent, 0 unknown, of 17 checks** — counted from the verdict column above.
 
@@ -176,6 +176,27 @@ stop conforming*, and a record that can be overwritten answers only *does it*.
 **Fixed** with `path.open("x")`, one atomic `O_EXCL` create raising the same
 `FileExistsError`, so `tests/test_conform.py::test_a_record_is_never_overwritten`
 now guards a mechanism rather than a convention.
+
+> **And the fix introduced a defect of its own, caught by running it — recorded
+> rather than quietly amended.** Rendering moved *inside* the `open("x")` block,
+> and `render()` asks git whether the working tree is dirty. The empty record
+> file, freshly created and untracked, **is** a dirty tree — so the first record
+> written after the fix reported dirty from a clean checkout. It was discarded
+> and is not in the series.
+>
+> The interesting part is why nothing caught it.
+> `test_the_record_says_when_the_tree_was_dirty` calls `render()` directly, so
+> the ordering it exists to depend on was invisible to it. And the obvious
+> replacement — write a record, compare its flag against git — **passes under
+> the defect**, because this repository is dirty whenever `tests/ablate.py` is
+> mutating it and the two answers agree for the wrong reason. So
+> `test_write_reports_the_tree_it_found_not_the_one_it_made` builds a clean git
+> repository of its own to write into, which is the only place the two orderings
+> disagree. That test is ablated.
+>
+> This is §10's family arriving one more time inside the same commit: a defect
+> in the verification apparatus, not in the thing verified, and a first attempt
+> at the test that could not fail.
 
 ### `TM-ROOT-01` — nothing kept the trust root out of the tree (`S2`, closed)
 
@@ -300,7 +321,7 @@ first was ever mutated:
 | `tools/purity.py` | `_SPAWN_MODULES` | `subprocess.run(["curl", …])` is a network call with no socket import in the file |
 | `tools/conform.py` | `no-egress` | a scan of zero files must report `UNKNOWN`, not `PASS` (rule 13) |
 
-All 4 are covered by exactly one mutation each — derived by AST from the 135-row
+All 4 are covered by exactly one mutation each — derived by AST from the 136-row
 registry, not read off a label — and the newest record reports both rows `PASS`.
 `tests/test_audit.py::test_a_registry_missing_an_egress_mutation_is_a_finding`
 removes a required row and asserts the check turns `FINDING`, so the coverage

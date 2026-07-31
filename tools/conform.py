@@ -431,6 +431,15 @@ def write(checks: List[Check], at: datetime) -> Path:
     RECORDS.mkdir(parents=True, exist_ok=True)
     stamp = at.strftime("%Y-%m-%dT%H%M%SZ")
     path = RECORDS / f"{stamp}.md"
+    # **Rendered before the file is created, and the order is load-bearing.**
+    # `render()` asks git whether the tree is dirty, and an empty record file
+    # sitting untracked in `docs/conformance/` *is* a dirty tree — so calling
+    # `render()` inside the `open("x")` block makes every record report dirty,
+    # including the ones written from a clean checkout. That regression shipped
+    # for exactly one run while TM-RACE-02 was being fixed; the discarded record
+    # is not in the series and `test_write_reports_the_tree_it_found_not_the_one_it_made`
+    # is why it cannot happen again.
+    text = render(checks, at)
     # `if path.exists(): raise` then write was check-then-act, and the window
     # between them is exactly one second wide because the stamp has second
     # resolution — TM-RACE-02 in docs/SECURITY-AUDIT.md. `open("x")` is one
@@ -438,7 +447,7 @@ def write(checks: List[Check], at: datetime) -> Path:
     # stops being a convention two callers could step over.
     try:
         with path.open("x", encoding="utf-8") as fh:
-            fh.write(render(checks, at))
+            fh.write(text)
     except FileExistsError:
         raise FileExistsError(
             f"{path.name} exists; conformance records are append-only and a run "

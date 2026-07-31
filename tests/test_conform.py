@@ -206,6 +206,53 @@ def test_a_record_is_never_overwritten():
         raise AssertionError("a second run overwrote the first record")
 
 
+def test_write_reports_the_tree_it_found_not_the_one_it_made():
+    """**The observer effect, and it shipped for one run.**
+
+    `render()` asks git whether the working tree is dirty. An empty record file
+    already created in `docs/conformance/` is itself an untracked change, so
+    rendering *inside* the `open("x")` block makes every record report dirty —
+    including one written from a clean checkout, which is the case the warning
+    exists to distinguish. `test_the_record_says_when_the_tree_was_dirty` calls
+    `render()` directly and could not see it.
+
+    So the probe is a **clean git repository of its own**, which is the only
+    place the two orderings give different answers — this repository is dirty
+    whenever `tests/ablate.py` is mutating it, and a probe against this tree
+    would agree with the defect and pass.
+    """
+    import subprocess
+
+    def git(where, *args):
+        return subprocess.run(["git", "-c", "user.email=probe@example.invalid",
+                               "-c", "user.name=probe", *args],
+                              capture_output=True, text=True, cwd=where)
+
+    with tempfile.TemporaryDirectory() as d:
+        probe = Path(d)
+        git(probe, "init", "-q")
+        (probe / "seed.txt").write_text("clean\n", encoding="utf-8")
+        git(probe, "add", "-A")
+        git(probe, "commit", "-q", "-m", "seed")
+        assert not git(probe, "status", "--porcelain").stdout.strip(), (
+            "the probe repository did not start clean; the test proves nothing"
+        )
+
+        real_root, real_records = conform.ROOT, conform.RECORDS
+        try:
+            conform.ROOT = probe
+            conform.RECORDS = probe / "docs" / "conformance"
+            text = write([Check("a", "b", State.PASS, "e")], AT).read_text(
+                encoding="utf-8")
+        finally:
+            conform.ROOT, conform.RECORDS = real_root, real_records
+
+    assert "working tree dirty" not in text, (
+        "a record written from a clean checkout reported the tree dirty — the "
+        "act of creating the file is what git saw"
+    )
+
+
 def test_the_record_carries_the_date_the_commit_and_the_states():
     text = render([Check("a", "guarantee one", State.PASS, "looked at x"),
                    Check("b", "guarantee two", State.UNKNOWN, "cannot decide")], AT)
