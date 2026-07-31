@@ -60,6 +60,51 @@ LOCK = ROOT / ".ablate-lock"
 
 #: (target file, pattern, replacement, label, suite that must catch it)
 MUTATIONS = [
+    # records/rungs.py — the base every other module imports, and it carried no
+    # mutation until 2026-07-31. Rule 14 is enforced by the *type*, so the
+    # mutations are on the type.
+    # Two mutations for rule 14, because the first version of this row was
+    # itself the defect it was written to prevent. `class Rung(Enum)` ->
+    # `IntEnum` alone does NOT restore the marching-arts defect: IntEnum
+    # members must be int, the values here are names, and the class body
+    # raises `ValueError: invalid literal for int()` at import. The suite then
+    # went red with ZERO failing tests -- it died on line 25, the import --
+    # and this harness reported `caught` because the return code was nonzero.
+    # The exhaustive 25-pair sweep had never run under its own mutation.
+    #
+    # (a) restores the defect that actually happened: int base AND int values.
+    ("records/rungs.py",
+     'class Rung(Enum):\n    """A sensitivity rung. Values are names, deliberately not numbers."""\n\n'
+     '    L1 = "open"\n    L2 = "internal"\n    L3 = "attributed"\n'
+     '    L4 = "restricted"\n    L5 = "enforcement_only"',
+     'class Rung(__import__("enum").IntEnum):\n    """A sensitivity rung."""\n\n'
+     '    L1 = 1\n    L2 = 2\n    L3 = 3\n    L4 = 4\n    L5 = 5',
+     "rule 14: rungs do not compare", "tests/test_rungs.py"),
+    # (b) adds one operator and nothing else, so the module still imports and
+    # the ONLY thing that changes is whether a comparison works. This is the
+    # one that proves the sweep is doing the work rather than the import.
+    ("records/rungs.py",
+     '    def __str__(self) -> str:  # "L3", never "3"',
+     '    def __lt__(self, other):\n        return _ASCENDING.index(self) < _ASCENDING.index(other)\n\n'
+     '    def __str__(self) -> str:  # "L3", never "3"',
+     "rule 14: one operator is enough", "tests/test_rungs.py"),
+    ("records/rungs.py", 'raise ValueError("compose() of no rungs — an empty record is not L1")',
+     "return Rung.L1", "compose() of nothing is not L1", "tests/test_rungs.py"),
+    ("records/rungs.py", 'raise ValueError(f"not a rung: {value!r}") from None',
+     "return Rung.L1", "parse refuses rather than defaulting", "tests/test_rungs.py"),
+    ("records/rungs.py", "return _ASCENDING.index(a) > _ASCENDING.index(b)",
+     "return _ASCENDING.index(a) >= _ASCENDING.index(b)",
+     "outranks is strict", "tests/test_rungs.py"),
+    ("records/rungs.py", "return _ASCENDING.index(a) >= _ASCENDING.index(floor)",
+     "return _ASCENDING.index(a) > _ASCENDING.index(floor)",
+     "at_least includes the floor", "tests/test_rungs.py"),
+    ("records/rungs.py", "return max(rungs, key=_ASCENDING.index)",
+     "return min(rungs, key=_ASCENDING.index)",
+     "composition is max", "tests/test_rungs.py"),
+    ("records/rungs.py", "DERIVE_AT = Rung.L3", "DERIVE_AT = Rung.L4",
+     "the derive floor is L3", "tests/test_rungs.py"),
+    ("records/rungs.py", "        return self.name", "        return self.value",
+     "a rung prints as its name", "tests/test_rungs.py"),
     ("records/serving.py", "if fld.rung is NEVER_SERVED:", "if False:",
      "L5 never-served", "tests/test_serving.py"),
     ("records/serving.py", "if lane_id is not None and lane_id != fld.lane_id:", "if False:",
@@ -160,14 +205,21 @@ MUTATIONS = [
      "a statistic reads one lane", "tests/test_practice.py"),
     ("records/practice.py", "if (as_of - days[-1]).days <= 1:", "if True:",
      "a broken streak is not current", "tests/test_practice.py"),
-    ("records/conflict.py", "raise NotComputable(\n            \"W-7: the system presents",
-     "return None  # (\n            \"W-7: the system presents",
-     "an escalation yields no recommendation", "tests/test_practice.py"),
+    # `return None  # (` commented out the opening paren and left the rest of
+    # the string dangling, so the mutated file raised IndentationError and did
+    # not parse. Red, therefore reported `caught`, therefore W-7's sharpest
+    # mechanism -- `recommendation` raising rather than returning None -- had
+    # never been shown to fail. Replace the whole call so the file compiles.
+    ("records/conflict.py",
+     '        raise NotComputable(\n            "W-7: the system presents and a human decides. There is no "\n'
+     '            "recommendation here and adding one would be the violation."\n        )',
+     "        return None",
+     "an escalation yields no recommendation", "tests/test_conflict.py"),
     ("records/conflict.py", "if not who or who.lower() in _NOT_A_PERSON:", "if False:",
-     "escalation names a person", "tests/test_practice.py"),
+     "escalation names a person", "tests/test_conflict.py"),
     ("records/conflict.py",
      "if self.stake is Stake.BETWEEN_WARDS and len(set(self.affects)) < 2:",
-     "if False:", "a collision names two", "tests/test_practice.py"),
+     "if False:", "a collision names two", "tests/test_conflict.py"),
     # Staleness is checked *before* drift. Swapping the order lets a position
     # derived against a superseded score report AGREES, which is the more
     # dangerous answer — it is internally consistent and points at a bar that

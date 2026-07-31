@@ -11,9 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from records.conflict import (  # noqa: E402
-    Escalation, NotComputable, Stake, halt, refuse_to_rank,
-)
+from records.conflict import NotComputable  # noqa: E402
 from records.practice import (  # noqa: E402
     THRESHOLDS, Milestone, Session, milestones, own, standings,
 )
@@ -134,87 +132,11 @@ def test_a_zero_length_session_is_not_a_session():
         raise AssertionError(f"{bad} minutes was accepted")
 
 
-# --- W-7 itself, which had no implementation ------------------------------
-
-
-def test_an_escalation_cannot_carry_a_recommendation():
-    """The refusal is structural: there is no field for an order and reaching
-    for a recommendation gets the clause, not an AttributeError somebody papers
-    over with getattr(..., None)."""
-    e = halt(Stake.BETWEEN_WARDS, decision="last chair, trumpet",
-             affects=[BEN, ANA], to_whom="dir-dana", at=NOW,
-             considerations=["Ben has the earlier audition date",
-                             "Ana covered the part in October"])
-    import dataclasses
-    assert "recommendation" not in {f.name for f in dataclasses.fields(Escalation)}
-    try:
-        e.recommendation
-    except NotComputable as exc:
-        assert "W-7" in str(exc)
-        return
-    raise AssertionError("an escalation produced a recommendation")
-
-
-def test_considerations_are_unordered_so_they_cannot_be_handed_over_ranked():
-    e = halt(Stake.BETWEEN_WARDS, decision="d", affects=[BEN, ANA],
-             to_whom="dir-dana", at=NOW, considerations=["a", "b", "c"])
-    assert isinstance(e.considerations, frozenset)
-
-
-def test_the_staff_convenience_half_is_representable():
-    """CLAUDE.md refusal 6 carries both halves and the second is the one that
-    gets dropped: a rehearsal time or a route that is easier to run and worse
-    for one student."""
-    e = halt(Stake.WARD_VS_CONVENIENCE,
-             decision="moving Tuesday sectionals to 6am to free the gym",
-             affects=[BEN], to_whom="dir-dana", at=NOW)
-    assert e.stake is Stake.WARD_VS_CONVENIENCE and e.affects == (BEN,)
-
-
-def test_an_escalation_goes_to_a_named_person_never_a_role():
-    for bad in ("staff", "the director", "an adult", "system", "  "):
-        try:
-            halt(Stake.WARD_VS_CONVENIENCE, decision="d", affects=[BEN],
-                 to_whom=bad, at=NOW)
-        except ValueError:
-            continue
-        raise AssertionError(f"{bad!r} received an escalation")
-
-
-def test_a_collision_between_wards_names_two():
-    try:
-        halt(Stake.BETWEEN_WARDS, decision="d", affects=[BEN], to_whom="dir-dana",
-             at=NOW)
-    except ValueError:
-        return
-    raise AssertionError("one name was accepted as a collision between wards")
-
-
-def test_an_escalation_must_say_what_was_being_decided():
-    for bad in ("", "   "):
-        try:
-            halt(Stake.WARD_VS_CONVENIENCE, decision=bad, affects=[BEN],
-                 to_whom="dir-dana", at=NOW)
-        except ValueError:
-            continue
-        raise AssertionError("an escalation with no decision was accepted")
-
-
-def test_refuse_to_rank_has_one_spelling():
-    """Repeating an inline raise at each call site is how one of them ends up
-    returning a sorted list during a busy afternoon."""
-    try:
-        refuse_to_rank("anything", [BEN, ANA])
-    except NotComputable:
-        return
-    raise AssertionError("refuse_to_rank returned")
-
-
 def test_the_module_is_not_broken_shut():
     p = own(days(LB, BEN, date(2026, 3, 1), 3), as_of=date(2026, 3, 3))
     assert p.minutes == 180 and p.streak_days == 3
-    assert halt(Stake.WARD_VS_CONVENIENCE, decision="d", affects=[BEN],
-                to_whom="dir-dana", at=NOW).affects == (BEN,)
+    assert [m.threshold_hours for m in
+            milestones(days(LB, BEN, date(2026, 3, 1), 6))] == [5]
 
 
 if __name__ == "__main__":
