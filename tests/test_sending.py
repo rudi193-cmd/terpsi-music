@@ -200,6 +200,36 @@ def test_G10_who_could_see_answers_with_a_reason_including_the_suppressed():
     )
 
 
+def test_G10_reads_the_restriction_dates_and_not_only_its_existence():
+    """**The send path's dated check had a twin here that nothing ablated.**
+
+    `and r.live_at(at)` appears twice in `records/sending.py` — once in
+    `recipients()` and once here — and the mutation table carried the bare
+    string, so `str.replace(pattern, repl, 1)` removed the first and left this
+    one untouched. It survived once pointed at: G10 would have reported a
+    guardian suppressed by an order that had not started, or by one already
+    lifted, and a guardian checking whether a restriction is working is exactly
+    who reads this answer.
+
+    Two directions, because a date has two ends and a guard that only refuses
+    the past is half a guard.
+    """
+    before = who_could_see(BEN, [mother(), father()], [order(valid_at=JUN, created_at=JUN)],
+                           MAR + timedelta(days=1))
+    assert {r[0]: r[1] for r in before}["g-father"] is True, (
+        "a restriction that has not started yet suppressed the answer"
+    )
+    lifted = order(invalid_at=JUN)
+    after = who_could_see(BEN, [mother(), father()], [lifted], OCT)
+    assert {r[0]: r[1] for r in after}["g-father"] is True, (
+        "a lifted restriction still suppressed the answer"
+    )
+    during = who_could_see(BEN, [mother(), father()], [lifted], MAR + timedelta(days=1))
+    assert {r[0]: r[1] for r in during}["g-father"] is False, (
+        "the restriction did not apply inside its own window"
+    )
+
+
 # --- the send path ---------------------------------------------------------
 
 
@@ -288,7 +318,7 @@ if __name__ == "__main__":
             try:
                 fn()
                 print(f"ok   {name}")
-            except AssertionError as exc:
+            except Exception as exc:
                 failures += 1
-                print(f"FAIL {name}\n{exc}\n")
+                print(f"FAIL {name}\n{type(exc).__name__}: {exc}\n")
     raise SystemExit(1 if failures else 0)
