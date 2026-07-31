@@ -56,7 +56,19 @@ def rows() -> list[str]:
 
 
 def exists_rows() -> list[str]:
-    """Rows asserting a component exists — the ones item 0 is about."""
+    """Rows asserting a component exists — the ones item 0 is about.
+
+    **A substring match, and its limits are worth naming.** It cannot tell *a
+    fleet component exists* from *we built this here*, and it will match a row
+    saying *"no such thing exists."* Both were hit on 2026-07-30: a row whose
+    prose read *"the scan exists here"* was pulled into the denominator and
+    correctly failed the header-figure check, which is the guard working rather
+    than the parser being right.
+
+    Left crude on purpose. A cleverer parser would decide for itself which rows
+    make a claim, and the whole point of item 0 is that a human says so — an
+    over-broad match asks the question, a narrow one silently drops rows.
+    """
     return [l for l in rows() if "Exists" in l or "exists" in l]
 
 
