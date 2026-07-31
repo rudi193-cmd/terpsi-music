@@ -123,7 +123,7 @@ those.
 | ~~C1c~~ | ~~The classifier~~ | **Built 2026-07-30** — `records/classify.py`, `SENSITIVITY.md`'s five steps. Found §18 item 14 within minutes |
 | C1 | Extend `craft/` | nothing — text-only, no student data, no network, no model |
 | C2 | Sweep `docs/survey/*.md` for `§N` | needs the routing decision in `scout-25` part 5 first |
-| C3 | A rule-13 acceptance test | nothing. `willow-grove`'s constraint 1 supplies the shape — point a reader at an unreachable source in CI and assert no surface reports health. Rule 13 has **no test here** |
+| ~~C3~~ | ~~A rule-13 acceptance test~~ | **Built 2026-07-31** — `tests/test_rule13_acceptance.py`. Every seam broken rather than skipped, and the breakage found three places where a source that could not be reached read as one that answered *nothing*: `voice.check()` with no rules loaded, `sockets.declared_from` on a manifest with no `listeners` key, and `purity.egress` dropping the unparseable file that `purity.writes` reports. All three fixed and ablated. Seven more seams fail **closed** and cannot say *why* — listed in that file's `CANNOT_DISTINGUISH`, each with a test that goes red when it is fixed. The sharpest is `Ledger.log_for`, which answers for a lane it has never heard of, so `own_log` tells a student nobody has read them |
 | ~~C4~~ | ~~The crossing-envelope table~~ | **Built 2026-07-30** — `records/crossing.py`, wired into `serve()`. W-3's permission is representable at last |
 | ~~C5~~ | ~~The disclosure log, seal cascade, dispositions, W-6 exit~~ | **Built 2026-07-30** |
 | ~~C6~~ | ~~Route `voice.guard()`~~ | **Built 2026-07-30** — `records/dispatch.py`. `voice.py` is a gate rather than a ledger, and routing it found `no_rung` checking the wrong scale |
