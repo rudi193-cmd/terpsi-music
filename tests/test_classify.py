@@ -198,7 +198,7 @@ if __name__ == "__main__":
             try:
                 fn()
                 print(f"ok   {name}")
-            except AssertionError as exc:
+            except Exception as exc:
                 failures += 1
-                print(f"FAIL {name}\n{exc}\n")
+                print(f"FAIL {name}\n{type(exc).__name__}: {exc}\n")
     raise SystemExit(1 if failures else 0)

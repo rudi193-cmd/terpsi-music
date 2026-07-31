@@ -119,8 +119,18 @@ MUTATIONS = [
      "edge knowledge horizon", "tests/test_serving.py"),
     ("records/serving.py", "e.subject_id == subject_id and ", "",
      "edge subject check", "tests/test_serving.py"),
-    ("records/sending.py", "and r.live_at(at)", "",
-     "restriction dates", "tests/test_sending.py"),
+    # `"and r.live_at(at)"` alone appears twice in records/sending.py — once in
+    # recipients() and once in who_could_see() — so it mutated the first site
+    # and left the second unablated for as long as this row existed. Split, so
+    # both dated checks are pointed at. Found by the uniqueness check below.
+    ("records/sending.py",
+     "             and r.live_at(at)\n             and r.known_at(horizon)),",
+     "             and r.known_at(horizon)),",
+     "restriction dates, on the send path", "tests/test_sending.py"),
+    ("records/sending.py",
+     "             and r.live_at(at) and r.known_at(at)),",
+     "             and r.known_at(at)),",
+     "restriction dates, on the who-could-see path", "tests/test_sending.py"),
     ("records/sending.py", "and r.known_at(horizon)", "",
      "restriction created_at clock", "tests/test_sending.py"),
     ("records/sending.py", "if self.state is not Standing.DERIVED:", "if False:",
@@ -335,6 +345,26 @@ MUTATIONS = [
     ("tools/sockets.py",
      "            if not any(d.covers(e) for e in listeners):", "            if False:",
      "a stale declaration is a finding", "tests/test_sockets.py"),
+    # The harness's own verdict, watched by tests/test_ablate.py. Not the
+    # circular case below: the mutation is on the artifact and a *different*
+    # file notices. Both replacements keep tests/ablate.py parsing on purpose —
+    # a mutation that broke this file could not be recovered by it, because
+    # _recover() runs from the file the mutation just broke.
+    # Both patterns carry the line *under* the one being changed, so they
+    # contain a real newline and cannot match their own single-line entries in
+    # this table. That is not decoration: the first version of these two matched
+    # here instead of in verdict(), mutated the table, and read SURVIVES.
+    ("tests/ablate.py",
+     '    if not any(line.startswith("FAIL ") for line in output.splitlines()):\n'
+     '        return "NO NAMED FAILURE"',
+     '    if False:\n        return "NO NAMED FAILURE"',
+     "a nonzero exit is not a named failure", "tests/test_ablate.py"),
+    ("tests/ablate.py",
+     '    if not any(line.startswith("FAIL ") for line in output.splitlines()):\n'
+     '        return "NO NAMED FAILURE"',
+     '    if not any("FAIL " in line for line in output.splitlines()):\n'
+     '        return "NO NAMED FAILURE"',
+     "FAIL must begin the line", "tests/test_ablate.py"),
     # Mutate the *document*, not the test. The first attempt here disabled the
     # assertion in test_component_map.py and asked test_component_map.py to
     # notice — circular, and the harness reported SURVIVES for it, correctly.
@@ -449,8 +479,8 @@ def _restore_on_signal() -> None:
             pass          # not on the main thread, or unsupported
 
 
-def run(suite: str) -> bool:
-    """True when the suite passes.
+def run(suite: str) -> tuple:
+    """`(passed, output)` for one suite.
 
     **Bytecode caching is disabled, and it is not a tidiness measure.** This
     harness mutates a file, runs a suite, and restores the file — the whole
@@ -471,8 +501,43 @@ def run(suite: str) -> bool:
     """
     env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
     r = subprocess.run([sys.executable, "-B", str(ROOT / suite)],
-                       capture_output=True, cwd=ROOT, env=env)
-    return r.returncode == 0
+                       capture_output=True, cwd=ROOT, env=env, text=True)
+    return r.returncode == 0, (r.stdout or "") + (r.stderr or "")
+
+
+def verdict(passed: bool, output: str) -> str:
+    """What a suite's exit status and output say about a mutation.
+
+    **A nonzero exit is not by itself evidence that a guard fired.** Until
+    2026-07-31 this harness read `returncode == 0` and nothing else, so a
+    mutation that broke the module's import, or produced a file that did not
+    parse, was indistinguishable from one a test caught. Two shipped mutations
+    were in that state and the report called both `caught`:
+
+    * `class Rung(Enum)` -> `IntEnum` raised `ValueError` at import, because
+      `IntEnum` members must be `int` and the rungs carry names. The 25-pair
+      comparison sweep — the reason `tests/test_rungs.py` exists — had never
+      executed under its own mutation.
+    * `return None  # (` commented out an opening paren and left the rest of a
+      string dangling, so `records/conflict.py` did not parse at all.
+
+    So `caught` now requires a **named** failure: a line beginning `FAIL `,
+    which every standalone runner in `tests/` prints and nothing else does.
+    That is scout-13 row B once more — *"a mutation which kills no gate is a
+    failed mutation, not a passing one"* — arriving through the import system
+    rather than through a `sed` that stopped matching.
+
+    The companion half of this change is in the runners themselves: they now
+    catch `Exception` rather than only `AssertionError`, so a test that reaches
+    an un-guarded path and raises `IndexError` is *reported* as a failure and
+    the file keeps going. Before that, the first such test aborted the run and
+    every later test in the file silently did not execute.
+    """
+    if passed:
+        return "SURVIVES"
+    if not any(line.startswith("FAIL ") for line in output.splitlines()):
+        return "NO NAMED FAILURE"     # an error, not a pass — see above
+    return "caught"
 
 
 def _purge_bytecode() -> int:
@@ -492,20 +557,38 @@ def _purge_bytecode() -> int:
     return n
 
 
-def ablate(target: str, pattern: str, repl: str, label: str, suite: str) -> str:
+def ablate(target: str, pattern: str, repl: str, label: str, suite: str,
+           inflight=None) -> str:
+    """Mutate one file, run one suite, restore, and say what happened.
+
+    `inflight` names the breadcrumb file. It is a parameter rather than a
+    constant because `tests/test_ablate.py` calls this against the decoys while
+    a real run may be holding `INFLIGHT`, and two writers to one sidecar is the
+    concurrency defect this sidecar was added to fix.
+    """
+    sidecar = INFLIGHT if inflight is None else Path(inflight)
     path = ROOT / target
     original = path.read_text(encoding="utf-8")
-    mutated = original.replace(pattern, repl, 1)
-    if mutated == original:
+    seen = original.count(pattern)
+    if seen == 0:
         return "NOT APPLIED"          # an error, not a pass — see the docstring
-    INFLIGHT.write_text(json.dumps({"target": target, "original": original}),
-                        encoding="utf-8")
+    if seen > 1:
+        # `str.replace(..., 1)` takes the FIRST occurrence and "the file
+        # changed" was the only check, so a pattern in two places mutated one
+        # site and reported on the other. `records/sending.py` carried
+        # `and r.live_at(at)` in both recipients() and who_could_see(), and the
+        # second half had never been ablated; it survived the moment it was.
+        # An error, not a pass, for the same reason NOT APPLIED is one.
+        return f"AMBIGUOUS x{seen}"
+    mutated = original.replace(pattern, repl, 1)
+    sidecar.write_text(json.dumps({"target": target, "original": original}),
+                       encoding="utf-8")
     try:
         path.write_text(mutated, encoding="utf-8")
-        return "SURVIVES" if run(suite) else "caught"
+        return verdict(*run(suite))
     finally:
         path.write_text(original, encoding="utf-8")
-        INFLIGHT.unlink(missing_ok=True)
+        sidecar.unlink(missing_ok=True)
 
 
 def main() -> int:
@@ -518,7 +601,7 @@ def main() -> int:
     if dropped:
         print(f"  purged {dropped} stale .pyc before mutating")
     print("  control".ljust(38), end="")
-    healthy = all(run(s) for s in (
+    healthy = all(run(s)[0] for s in (
         "tests/test_serving.py", "tests/test_sending.py", "tests/test_classify.py",
         "tests/test_disclosure.py", "tests/test_sealing.py", "tests/test_dispositions.py",
         "tests/test_exit.py", "tests/test_crossing.py", "tests/test_dispatch.py",
