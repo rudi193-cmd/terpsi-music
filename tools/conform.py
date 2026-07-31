@@ -645,6 +645,24 @@ def _unknown(cid: str, what: str, why: str) -> Callable[[], Check]:
     return lambda: Check(cid, what, State.UNKNOWN, why)
 
 
+#: Every middle rule 12 requires that this repository has actually named and
+#: tested. **A list, so the figure beside it is derived** — it read *"Seventeen
+#: middles"* as a word beside a list of seventeen, which is a count in prose one
+#: commit away from the code moving past it (rule 17). Whether the list is
+#: *complete* is still a reading and the check still says so.
+NAMED_MIDDLES: Tuple[str, ...] = (
+    "crossing", "standing.is_self_edge", "standing.may_supersede",
+    "serving._acting_ward", "serving._ceiling", "marking.drift",
+    "practice._one_lane", "publication.reconcile",
+    "inference.CLASSES<->SENSITIVITY.md",
+    "inference.COVERED_CLASSES<->CLAUDE.md refusal 1",
+    "providers.GUARD_ENTRIES<->records.inference", "scales.drift",
+    "render.check", "manifest.reconcile",
+    "registry.reconcile<->migrations/001_lanes.sql+records/classify.py",
+    "atrest.reconcile", "atrest.composes",
+    "venue.sourcing.divergence<->records.marking P1-P5",
+)
+
 UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
     _unknown("sidecar-only", "canonical store read-only; agent writes are sidecar (§5)",
              "there is no store, so the rule cannot be violated or demonstrated"),
@@ -654,16 +672,8 @@ UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
              "no destination allowlist exists; §14 records the fleet-wide version "
              "as unique to UTETY"),
     _unknown("named-middles", "a named middle for every pair the app creates (§16)",
-             "not mechanically decidable. Seventeen middles are named and tested "
-             "(crossing, standing.is_self_edge, standing.may_supersede, "
-             "serving._acting_ward, serving._ceiling, marking.drift, "
-             "practice._one_lane, publication.reconcile, "
-             "inference.CLASSES<->SENSITIVITY.md, "
-             "inference.COVERED_CLASSES<->CLAUDE.md refusal 1, "
-             "providers.GUARD_ENTRIES<->records.inference, scales.drift, "
-             "render.check, manifest.reconcile, "
-             "registry.reconcile<->migrations/001_lanes.sql+records/classify.py, "
-             "atrest.reconcile, atrest.composes); "
+             f"not mechanically decidable. {len(NAMED_MIDDLES)} middles are named "
+             "and tested (" + ", ".join(NAMED_MIDDLES) + "); "
              "whether that is *every* pair is a reading, not a check"),
 )
 

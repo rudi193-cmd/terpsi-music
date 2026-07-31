@@ -637,7 +637,7 @@ MUTATIONS = [
     # assertion in test_component_map.py and asked test_component_map.py to
     # notice — circular, and the harness reported SURVIVES for it, correctly.
     # A guard's mutation belongs on the artifact the guard watches.
-    ("docs/ARCHITECTURE.md", "VERIFIED-COUNT: 11 of 41", "VERIFIED-COUNT: 41 of 41",
+    ("docs/ARCHITECTURE.md", "VERIFIED-COUNT: 12 of 42", "VERIFIED-COUNT: 42 of 42",
      "§14's header figure is enforced", "tests/test_component_map.py"),
     # The join forwards every argument `serve()` takes. Each of the next two
     # reverts one to the value it effectively had when `dispatch()` did not
@@ -1088,6 +1088,74 @@ MUTATIONS = [
     ("docs/SECURITY-AUDIT.md", "| `TM-DEPS-01` | R14 | `S3` | open |",
      "| `TM-DEPS-01` | R14 | `S1` | open |",
      "an open S1 in the document fails conformance", "tests/test_conform.py"),
+    # venue/ — §9 foundation 6. The package has no lane and no person in it, so
+    # every guard here is either rule 13 (absence is not a value), rule 14 (a
+    # rung travels with its prefix), or the one boundary that keeps it that way.
+    #
+    # The first mutation is the one worth reading. It does not disable a check;
+    # it supplies a *default*, which is how this failure actually arrives —
+    # nobody writes `if False:` over rule 13, they write a sensible-looking
+    # fallback for the case where there is nothing to show.
+    ("venue/readings.py",
+     "        return self.reading.text if self.reading is not None else UNKNOWN_TEXT",
+     '        return self.reading.text if self.reading is not None else "0 dBA"',
+     "rule 13: an unmeasured seat is not quiet", "tests/test_venue.py"),
+    ("venue/readings.py", "        if self.reading is not None and self.why:",
+     "        if False:",
+     "an answer is not both known and unknown", "tests/test_venue.py"),
+    ("venue/readings.py", "        if self.reading is None and not self.why:",
+     "        if False:",
+     "an unknown answer says why", "tests/test_venue.py"),
+    # Composition, and the two ways it goes wrong. Inverting the comparison
+    # makes a profile report its *strongest* reading, which is the number a
+    # reader most wants to be told and the one they are least entitled to.
+    ("venue/readings.py",
+     "        if outranks(worst, rung):    # `worst` is the stronger, so `rung` is worse",
+     "        if outranks(rung, worst):",
+     "§15: provenance composes by the weakest input", "tests/test_venue.py"),
+    ("venue/readings.py",
+     '        raise ValueError(\n'
+     '            "the provenance of no readings — an unmeasured venue has no rung, "\n'
+     '            "and the strongest one is the worst possible default (rule 13)")',
+     "        return P_MEASURED",
+     "the provenance of nothing is not P1", "tests/test_venue.py"),
+    ("venue/readings.py", "        if self.provenance not in _LADDER:", "        if False:",
+     "rule 14: a rung is on the ladder or it is not a rung", "tests/test_venue.py"),
+    ("venue/readings.py",
+     "        if self.provenance in NEEDS_A_SOURCE and not self.source.strip():",
+     "        if False:",
+     "§15: a cited rung names something checkable", "tests/test_venue.py"),
+    # The boundary. Without it a `Mark` is a duck-typed seat: it has `.seat`,
+    # it stringifies, and nothing else in the package would notice.
+    ("venue/readings.py", "        if hasattr(seat, attr):", "        if False:",
+     "a seat is a place and never a person", "tests/test_venue.py"),
+    ("venue/readings.py",
+     "        if not isinstance(self.value, (int, float)) or not math.isfinite(self.value):",
+     "        if False:",
+     "a reading of nothing is not a reading", "tests/test_venue.py"),
+    ("venue/readings.py", "            if key in seen:", "            if False:",
+     "one seat, one quantity, one claim", "tests/test_venue.py"),
+    ("venue/readings.py", "    if not text:", "    if False:",
+     "a reading with no place is refused", "tests/test_venue.py"),
+    # The named middle. This is the mutation the whole of `venue/sourcing.py`
+    # exists for: matching `measured` to `P1` on the strength of the shared word
+    # is not a typo, it is the reading a careful person arrives at.
+    ("venue/sourcing.py", '    "measured": P_CITED,', '    "measured": P_MEASURED,',
+     "rule 12: `measured` there is P2 Cited here", "tests/test_venue.py"),
+    ("venue/sourcing.py", "    if rung in _UNREACHABLE:", "    if False:",
+     "an unreachable rung is refused, not rounded", "tests/test_venue.py"),
+    ("venue/sourcing.py",
+     '        raise ValueError(\n'
+     '            f"{state!r} is not one of the three states {THREE_STATE}; a rung "\n'
+     '            "cannot be derived from a vocabulary nothing here knows")',
+     "        return P_ASSUMED",
+     "an unknown vocabulary is unknown, not assumed", "tests/test_venue.py"),
+    ("venue/card.py", "    if not seats:", "    if False:",
+     "a card over no seats is not a clean venue", "tests/test_venue.py"),
+    ("venue/card.py", "    if not wanted:", "    if False:",
+     "a card over no quantities reports nothing", "tests/test_venue.py"),
+    ("venue/card.py", "    if not answer.known:", "    if False:",
+     "an unmeasured quantity renders as unknown", "tests/test_venue.py"),
 ]
 
 
@@ -1322,12 +1390,15 @@ def main() -> int:
     # read `caught` while proving nothing. The control list had been a hand-kept
     # subset; it is now derived from MUTATIONS, so a new mutation cannot arrive
     # pointing at a suite nobody checked first.
+    # **And the derived list has to be the one that decides.** Until 2026-07-31
+    # the line below was followed by a second assignment to `healthy` over a
+    # hand-kept twelve, so the derived run's verdict was computed, discarded,
+    # and the hand-kept subset decided — twelve of the thirty-four suites a
+    # mutation points at. Every suite outside that twelve could be red while the
+    # control printed `green`, which is the exact state this paragraph says was
+    # fixed. A leftover line, and the comment above it read as enforcement while
+    # the code was a ledger (rule 18).
     healthy = all(run(s)[0] for s in control_suites())
-    healthy = all(run(s)[0] for s in (
-        "tests/test_serving.py", "tests/test_sending.py", "tests/test_classify.py",
-        "tests/test_disclosure.py", "tests/test_sealing.py", "tests/test_dispositions.py",
-        "tests/test_exit.py", "tests/test_crossing.py", "tests/test_dispatch.py",
-        "tests/test_witness.py", "tests/test_receipts.py", "tests/test_atrest.py"))
     print("green" if healthy else "RED — every result below is meaningless")
     if not healthy:
         return 1
