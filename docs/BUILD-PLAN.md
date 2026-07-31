@@ -35,8 +35,9 @@ and it is ordered below.**
   continuously — because they fail differently and a dispute two years out
   uses whichever survived. The shapes exist (`records/witness.py`,
   `records/receipts.py`); **the wiring landed 2026-07-31**
-  (`records/publication.py`, `docs/WITNESS-DEPOSIT.md`) and what remains of
-  order item 3 is a dependency decision, not a task — see below.
+  (`records/publication.py`, `docs/WITNESS-DEPOSIT.md`), and the dependency
+  decision was taken 2026-07-31: Ed25519 accepted, the repository's first
+  dependency. Nothing about item 15 is open.
 - **Item 4 is decided: `scout-21` §3, adopted.** Four rendering backends over
   one presentation-IR middle, three trust paths, and the `presentation/` +
   `surfaces/` layout that section names. Layout is unblocked, and with it item
@@ -82,12 +83,13 @@ tools/         conform, sockets, purity, providers, discipline — checkers
 3. ~~**Wire the witness composite.**~~ **Built 2026-07-31** —
    `records/publication.py` and `docs/WITNESS-DEPOSIT.md`. The weekly payload,
    its register and the states around a proof that never came back; the annual
-   deposit as a procedure with a dated disposition when it is missed. **One
-   thing is left and it is a decision, not effort: Ed25519 issuance.** The seam
-   takes either backend, the absence is `ABSENT` in the conformance record
-   rather than inferred, and adding an asymmetric primitive means adding this
-   repository's first dependency — a maintainer's call. Until it is made, no
-   deployment claim rests on a third party attributing a receipt.
+   deposit as a procedure with a dated disposition when it is missed. ~~One
+   thing is left and it is a decision, not effort: Ed25519 issuance.~~
+   **Decided 2026-07-31 — the dependency is accepted.** `cryptography` is
+   pinned in `requirements.txt` with its reason, `Ed25519Signer` issues
+   attributable receipts the holder's object cannot mint, and the
+   `receipt-attribution` conformance row moved `ABSENT` → `PASS` on the
+   merits. §18 item 15 carries the closure.
 4. ~~**Refusal-1 by assertion**~~ — **Built 2026-07-31, audited and merged** —
    `records/inference.py` asserts on what actually answered, with five refusal
    states and no field a caller could use to allowlist a provider;
@@ -106,8 +108,10 @@ tools/         conform, sockets, purity, providers, discipline — checkers
    that `purity.writes` reports. All three fixed and ablated. Seven more seams
    fail **closed** and cannot say *why* — listed in that file's
    `CANNOT_DISTINGUISH`, each with a test that goes red when it is fixed. The
-   sharpest, `Ledger.log_for` answering for a lane it has never heard of,
-   needs a decision rather than a test and belongs in §18.
+   sharpest — `Ledger.log_for` answering for a lane it has never heard of —
+   **was decided strict 2026-07-31 and is §18 item 16**: an unknown lane
+   raises, the write path alone still opens one (W-1), and the finding's
+   tests flipped to hold the fix.
 6. **Then §9's list in its existing order** — noting foundations 1 and 2 are
    **to build**, not built; the spike retired and nothing was inherited.
 

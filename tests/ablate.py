@@ -625,6 +625,21 @@ MUTATIONS = [
     ("migrations/001_lanes.sql",
      "    ('self_widening','max_rung','INTERNAL','L2'),\n", "",
      "a new column arrives unclassified", "tests/test_lane_model.py"),
+    # The two maintainer decisions of 2026-07-31, each held by a mutation on
+    # the code that implements it rather than on the test that watches it.
+    ("records/disclosure.py",
+     "        index = self._index()\n        if lane_id not in index:",
+     "        index = self._index()\n        if False:",
+     "an unknown lane is refused, not answered empty (item 16)",
+     "tests/test_rule13_acceptance.py"),
+    ("records/receipts.py",
+     "        except InvalidSignature:\n            return False\n        return True",
+     "        except InvalidSignature:\n            return True\n        return True",
+     "a bad signature does not attribute (item 15)", "tests/test_receipts.py"),
+    ("records/receipts.py",
+     "        if self.private_seed is None:\n            raise NoSigner(",
+     "        if self.private_seed is None and False:\n            raise NoSigner(",
+     "a public-key-only signer cannot mint (item 15)", "tests/test_receipts.py"),
     # presentation/ — the middle §18 item 4 landed. Rule 14 is enforced by the
     # type in records/rungs.py; here it is enforced by the *badge*, which is
     # the last place a rung can lose its prefix before a human reads it.

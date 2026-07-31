@@ -153,13 +153,106 @@ class AsymmetricUnavailable:
             "available; this is unknown, not a mismatch")
 
 
+def _ed25519_primitives():
+    """The one import of this repository's one dependency (§18 item 15,
+    decided 2026-07-31). Lazy, so a box missing it still imports `records` —
+    and then *refuses* attributable issuance rather than downgrading, which is
+    `AsymmetricUnavailable`'s whole job."""
+    try:
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import (
+            Ed25519PrivateKey, Ed25519PublicKey)
+    except BaseException as exc:  # noqa: BLE001 — deliberate, and narrow in effect:
+        # an *absent* install raises ImportError, but a *broken* one (a wheel
+        # built for another interpreter) raises whatever its bindings panic
+        # with — observed 2026-07-31 as a pyo3 PanicException, which is neither
+        # ImportError nor even Exception. Both are the same fact at this seam:
+        # the primitive is not available, and the refusal must say so with the
+        # cause attached rather than let an unnamed crash speak for it.
+        raise NoSigner(
+            "ed25519 issuance is decided and its primitive is not usable on "
+            "this box; the dependency is declared in requirements.txt, so this "
+            "is a broken or absent install, not a reason to fall back"
+        ) from exc
+    return Ed25519PrivateKey, Ed25519PublicKey, InvalidSignature
+
+
+@dataclass(frozen=True)
+class Ed25519Signer:
+    """The attributable path — wired 2026-07-31, when the maintainer accepted
+    the repository's first dependency for it (§18 item 15).
+
+    Carries the raw public key always and the private seed only on the issuing
+    side, so the object a third party holds *cannot* mint: `tag()` without the
+    seed raises `NoSigner` rather than quietly signing with nothing. What
+    attribution buys over `HmacTagger` is exactly that asymmetry — anyone can
+    check a receipt came from the programme; only the programme can produce one.
+    """
+
+    public_key: bytes                       # 32 raw bytes; every holder has this
+    private_seed: Optional[bytes] = None    # 32 raw bytes; the issuer alone
+    scheme: str = "ed25519"
+    issuance: Issuance = Issuance.ATTRIBUTABLE
+
+    def tag(self, material: str) -> str:
+        Priv, _, _ = _ed25519_primitives()
+        if self.private_seed is None:
+            raise NoSigner(
+                "this signer holds the public key only; it can verify and "
+                "cannot issue — which is the property that makes the receipt "
+                "worth holding")
+        sig = Priv.from_private_bytes(self.private_seed).sign(
+            material.encode("utf-8"))
+        return f"{self.scheme}:{sig.hex()}"
+
+    def verify(self, material: str, tag: str) -> bool:
+        _, Pub, InvalidSignature = _ed25519_primitives()
+        prefix = f"{self.scheme}:"
+        if not tag.startswith(prefix):
+            raise Uncheckable(
+                f"this verifier reads {self.scheme} tags and was handed one it "
+                "cannot parse; that is unknown, not a mismatch")
+        try:
+            raw = bytes.fromhex(tag[len(prefix):])
+        except ValueError:
+            raise Uncheckable(
+                f"a {self.scheme} tag that does not decode is unreadable, "
+                "not forged") from None
+        try:
+            Pub.from_public_bytes(self.public_key).verify(
+                raw, material.encode("utf-8"))
+        except InvalidSignature:
+            return False
+        return True
+
+
+def generate_signer() -> Ed25519Signer:
+    """A fresh issuing signer. The seed's custody is the deployment's problem
+    (§5's vault); nothing here persists anything."""
+    Priv, _, _ = _ed25519_primitives()
+    from cryptography.hazmat.primitives import serialization
+    key = Priv.generate()
+    seed = key.private_bytes(
+        serialization.Encoding.Raw, serialization.PrivateFormat.Raw,
+        serialization.NoEncryption())
+    pub = key.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    return Ed25519Signer(public_key=pub, private_seed=seed)
+
+
 def schemes() -> Tuple[str, ...]:
     """Issuance schemes this tree can actually perform, derived from itself.
 
-    Read by `tools/conform.py`. The asymmetric path is absent here and the
-    absence is reported as its own state rather than inferred from silence.
+    Read by `tools/conform.py`. Derived by *attempting the import*, never by
+    assuming the requirements file was honoured — a box where the install
+    broke reports hmac-only, and `receipt-attribution` stops passing there,
+    which is the point of deriving it.
     """
-    return (HmacTagger(b"").scheme,)
+    try:
+        _ed25519_primitives()
+    except NoSigner:
+        return (HmacTagger(b"").scheme,)
+    return (Ed25519Signer(b"\x00" * 32).scheme, HmacTagger(b"").scheme)
 
 
 def _as_signer(verifier: Union[bytes, "Signer"]) -> "Signer":

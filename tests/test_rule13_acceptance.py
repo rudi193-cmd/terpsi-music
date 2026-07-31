@@ -107,7 +107,8 @@ SEAMS = (
     ("own_log", "records/standing.py",
      "the log handed over is not this lane's", "LogAccess.UNKNOWN, iteration raises"),
     ("ledger_lane", "records/disclosure.py",
-     "the ledger has never heard of the lane", "an empty log — see CANNOT_DISTINGUISH"),
+     "the ledger has never heard of the lane",
+     "UnknownLane raised — strict since 2026-07-31, §18 item 16"),
     ("witness_receipt", "records/witness.py",
      "the receipt store yields nothing", "Standing.UNWITNESSED"),
     ("witness_chain", "records/witness.py",
@@ -179,13 +180,6 @@ CANNOT_DISTINGUISH = (
      "a receipt store that errored and a log nobody ever witnessed are both "
      "UNWITNESSED with 'no receipts at all'. Not evidence either way, so the "
      "standing is right and the sentence beneath it is a guess."),
-    ("ledger_lane",
-     "**the sharp one.** `Ledger.log_for` returns `Log()` for a lane it has "
-     "never heard of, which is the same object a lane with no entries yet "
-     "returns. Downstream that is not a refusal: `own_log` serves it GRANTED "
-     "and `complete`, so a lane missing from the ledger renders as *nobody has "
-     "ever read you*, and `receipts.issue` hands out nothing without saying so. "
-     "This is absence rendering as a result, one call short of a surface."),
     ("score_position",
      "`drift()` on a mark with no position is UNALIGNED and `usable`, whether "
      "the alignment was never derived or the score store could not be reached. "
@@ -495,22 +489,33 @@ def test_anchor_cadence_with_missing_receipts_is_gapped_not_witnessed():
 # --- records/disclosure.py: the ledger -------------------------------------
 
 
-def test_ledger_lane_unknown_to_the_ledger_reads_as_a_log_with_no_reads():
-    """**Finding, not a passing test.** This asserts the gap so it cannot be
-    lost: `Ledger.log_for` answers for a lane it has never heard of, `own_log`
-    serves that answer GRANTED and complete, and a student is told nobody has
-    read them by a ledger that was never asked. See CANNOT_DISTINGUISH."""
+def test_ledger_lane_unknown_to_the_ledger_refuses_rather_than_answering():
+    """**Was a finding; decided strict 2026-07-31 (§18 item 16).** An unknown
+    lane raises `UnknownLane` rather than answering with an empty log, so
+    `own_log` can no longer tell a student nobody has read them on the word of
+    a ledger that was never asked — the GRANTED-and-complete path is
+    unreachable through this seam."""
     ledger = disclosure.Ledger()
-    view = standing_mod.own_log(ledger.log_for("lane-nobody-loaded"), BEN, BEN, AT,
-                                [himself()])
-    assert view.state is standing_mod.LogAccess.GRANTED
-    assert view.complete and list(view) == []
+    try:
+        ledger.log_for("lane-nobody-loaded")
+    except disclosure.UnknownLane as exc:
+        assert "never heard of" in str(exc) or "no chain" in str(exc)
+    else:
+        raise AssertionError("an unknown lane was answered rather than refused")
+    assert not ledger.knows("lane-nobody-loaded")
 
 
-def test_receipts_over_an_unknown_lane_issue_nothing_without_saying_so():
-    """The same seam from the guardian's side."""
-    assert receipts.issue(disclosure.Ledger(), "lane-nobody-loaded", BEN,
-                          [mother()], AT, b"k") == ()
+def test_receipts_over_an_unknown_lane_refuse_rather_than_issuing_nothing():
+    """The same seam from the guardian's side: silence was the old behavior,
+    and silence is what the strict ledger removed."""
+    try:
+        receipts.issue(disclosure.Ledger(), "lane-nobody-loaded", BEN,
+                       [mother()], AT, b"k")
+    except disclosure.UnknownLane:
+        pass
+    else:
+        raise AssertionError("receipts were (not) issued over a lane the "
+                             "ledger never heard of, without saying so")
 
 
 def test_a_truncated_log_fails_against_its_anchor():
@@ -625,6 +630,10 @@ def test_conform_artifacts_that_are_absent_report_absent_not_pass():
 BEHAVIORAL_CHECKS = {
     "anchor-payload": "builds an anchor carrying a subject_id in memory and "
                       "asserts the gate refuses it; no file is consulted",
+    "receipt-attribution": "derives the issuance schemes by attempting the "
+                           "ed25519 import against the running interpreter; "
+                           "no file is consulted, and a box with a broken "
+                           "install stops passing wherever it is",
 }
 
 
@@ -841,13 +850,27 @@ def test_finding_witness_cannot_tell_an_errored_receipt_store_from_no_receipts()
     assert "no receipts at all" in ev.reason
 
 
-def test_finding_the_ledger_answers_for_a_lane_it_has_never_heard_of():
-    """The sharpest of the seven, because the empty answer is served rather than
-    refused. Red the day `log_for` distinguishes them, and that is the fix."""
+def test_fixed_the_ledger_no_longer_answers_for_a_lane_it_has_never_heard_of():
+    """Was `test_finding_...`, the sharpest of the seven — the empty answer was
+    served rather than refused. It went red the day `log_for` distinguished
+    them, exactly as its docstring promised, and now holds the fix in place:
+    known-but-empty answers, never-heard-of refuses, and the write path still
+    opens a lane at the first write (W-1)."""
     ledger = disclosure.Ledger((("lane-ben", disclosure.Log()),))
-    known_but_empty = ledger.log_for("lane-ben")
-    never_heard_of = ledger.log_for("lane-nobody-loaded")
-    assert known_but_empty == never_heard_of == disclosure.Log()
+    assert ledger.log_for("lane-ben") == disclosure.Log()
+    try:
+        ledger.log_for("lane-nobody-loaded")
+    except disclosure.UnknownLane:
+        pass
+    else:
+        raise AssertionError("the unknown lane was answered")
+    grown = ledger.record(
+        serving.serve(health_field(),
+                      serving.Principal("g-mother", frozenset({"health"})),
+                      [mother()], AT),
+        lane_id="lane-new", principal_id="g-mother", subject_id=BEN,
+        field_name="allergy", at=AT)
+    assert grown.knows("lane-new")
 
 
 def test_finding_an_unaligned_mark_is_usable_whether_or_not_a_store_answered():

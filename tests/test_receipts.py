@@ -354,21 +354,15 @@ def test_a_signer_and_a_bare_key_agree():
     assert by_key == by_signer and by_key
 
 
-def test_the_attributable_path_is_ABSENT_here_documented_not_hidden():
-    """**A limitation, not a bug**, and it is the open half of §18 item 15.
-
-    This tree performs one issuance scheme and it is symmetric. Ed25519 is a
-    dependency decision — the stdlib has no asymmetric primitive, vendoring
-    curve arithmetic into a records module would be the worst version of §16's
-    copied pair, and CI installs nothing. So the socket exists (`Signer`,
-    `Issuance.ATTRIBUTABLE`) and the plug does not, and `tools/conform.py`
-    reports that as its own row rather than leaving it to be inferred.
+def test_the_attributable_path_landed_and_the_fallback_still_says_what_it_is():
+    """**Rewritten 2026-07-31, as this test's own message instructed** when it
+    guarded the absence: the asymmetric scheme has landed (`Ed25519Signer`,
+    the repository's first dependency, maintainer decision — §18 item 15
+    struck). What survives the rewrite: the fallback names itself, and asking
+    for a primitive a box lacks still refuses rather than substituting.
     """
-    assert schemes() == ("hmac-sha256",), (
-        "if an asymmetric scheme has landed, this test should be rewritten "
-        "rather than deleted, and §18 item 15's dependency struck"
-    )
-    assert Issuance.ATTRIBUTABLE.limit          # the words are ready for it
+    assert "ed25519" in schemes()
+    assert Issuance.ATTRIBUTABLE.limit          # the words carry on the artifact
     assert AsymmetricUnavailable().issuance is Issuance.UNAVAILABLE
 
 
@@ -377,6 +371,91 @@ def test_the_module_is_not_broken_shut():
     assert len(rs) == 4 and all(authentic(r, KEY) for r in rs)
 
 
+# --- the attributable path (§18 item 15, decided 2026-07-31) ---------------
+
+
+def _issuer():
+    from records.receipts import generate_signer
+    return generate_signer()
+
+
+def test_a_third_party_attributes_a_receipt_with_the_public_key_alone():
+    """The property the dependency was accepted for: verification needs no
+    secret and no cooperation, and the verifying object cannot mint."""
+    from records.receipts import Ed25519Signer
+    signer = _issuer()
+    led, _ = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    receipts_out = tuple(
+        issue(led, LB, BEN, guardians(), T0, signer=signer))
+    assert receipts_out, "no receipts issued to a live guardian"
+    third_party = Ed25519Signer(public_key=signer.public_key)
+    assert all(authentic(r, third_party) for r in receipts_out)
+
+
+def test_the_verifying_object_cannot_issue():
+    from records.receipts import Ed25519Signer, NoSigner
+    holder = Ed25519Signer(public_key=_issuer().public_key)
+    try:
+        holder.tag("anything")
+    except NoSigner:
+        pass
+    else:
+        raise AssertionError("a public-key-only signer minted a tag")
+
+
+def test_a_tampered_receipt_is_not_authentic():
+    from dataclasses import replace
+    from records.receipts import Ed25519Signer
+    signer = _issuer()
+    led, _ = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    r = issue(led, LB, BEN, guardians(), T0, signer=signer)[0]
+    third_party = Ed25519Signer(public_key=signer.public_key)
+    forged = replace(r, position=r.position + 1)
+    assert authentic(r, third_party)
+    assert not authentic(forged, third_party)
+
+
+def test_a_different_programmes_key_does_not_attribute():
+    from records.receipts import Ed25519Signer
+    ours, theirs = _issuer(), _issuer()
+    led, _ = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    r = issue(led, LB, BEN, guardians(), T0, signer=ours)[0]
+    assert not authentic(r, Ed25519Signer(public_key=theirs.public_key))
+
+
+def test_an_unreadable_tag_is_uncheckable_not_forged():
+    from records.receipts import Ed25519Signer, Uncheckable
+    v = Ed25519Signer(public_key=_issuer().public_key)
+    for bad in ("hmac-sha256:deadbeef", "ed25519:not-hex"):
+        try:
+            v.verify("m", bad)
+        except Uncheckable:
+            continue
+        raise AssertionError(f"{bad!r} was answered rather than refused")
+
+
+def test_schemes_are_derived_by_attempting_the_import():
+    """`ed25519` appears because the primitive imports on this box — the
+    requirements file is a declaration, and `schemes()` never trusts it."""
+    from records.receipts import schemes
+    have = schemes()
+    assert "ed25519" in have and "hmac-sha256" in have
+    assert have.index("ed25519") < have.index("hmac-sha256")
+
+
+def test_the_attributable_receipt_names_its_own_issuance():
+    signer = _issuer()
+    led, _ = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    r = issue(led, LB, BEN, guardians(), T0, signer=signer)[0]
+    assert r.issuance is Issuance.ATTRIBUTABLE
+    assert "without the programme's help" in r.issuance.limit
+
+
+# The __main__ runner stays LAST in this file: it iterates globals() at the
+# point it executes, so a test defined below it exists for pytest and not
+# for the standalone runner CI uses. The ablation harness caught exactly
+# that on 2026-07-31 — a mutation SURVIVED because the tests holding it
+# were appended after this block and never ran standalone.
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

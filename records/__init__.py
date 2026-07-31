@@ -20,9 +20,10 @@ from .disclosure import Entry, Ledger, Log, verify_against
 from .inference import (Answer, InferenceRefused, LocalModelUnavailable,
                         NonLocalInference, OffBoxLocalModel, Refusal, Unclassified,
                         UnknownProvider, accept, covered, through)
-from .receipts import (AsymmetricUnavailable, GuardianReceipt, HmacTagger, Issuance,
-                       NoSigner, Uncheckable, authentic, contradictions, gaps,
-                       held_by, issue, receipt_text, schemes)
+from .receipts import (AsymmetricUnavailable, Ed25519Signer, GuardianReceipt,
+                       HmacTagger, Issuance, NoSigner, Uncheckable, authentic,
+                       contradictions, gaps, generate_signer, held_by, issue,
+                       receipt_text, schemes)
 from .dispositions import Disposition, Request, answer, ask, extend, state_at
 from .conflict import Escalation, NotComputable, Stake, halt, refuse_to_rank
 from .consent import Governance, Model, governs
