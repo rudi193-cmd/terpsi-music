@@ -14,7 +14,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 
 import conform  # noqa: E402
-from conform import Check, State, check_no_egress, main, render, run, write  # noqa: E402
+from conform import (  # noqa: E402
+    Check, State, check_no_egress, check_security_audit, main, render, run, write,
+)
 
 AT = datetime(2026, 7, 30, 12, 0, tzinfo=timezone.utc)
 
@@ -83,6 +85,106 @@ def test_the_real_core_passes_it():
     assert got.state is State.PASS, f"records/ reaches the network: {got.evidence}"
 
 
+# --- the security audit, as a gate rather than a document ------------------
+
+#: A minimal audit document. `PIN` is filled in per test, because the check
+#: asks git whether the pinned commit is in this history — a pin naming a tree
+#: nobody has is not evidence about this one.
+_AUDIT = """\
+# Security audit — probe
+
+- **date** `{when}`
+- **commit** `{pin}`
+
+| check | what | verdict | severity | evidence |
+|---|---|---|---|---|
+| `R1` | sql | **NOT-APPLICABLE** | — | applies when a driver arrives |
+
+| id | check | severity | status | one line |
+|---|---|---|---|---|
+{rows}
+"""
+
+
+def _audit(d, *, when="2026-07-31", pin=None, rows=""):
+    if pin is None:
+        import subprocess
+        pin = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
+                             text=True, cwd=conform.ROOT).stdout.strip()
+    path = Path(d) / "SECURITY-AUDIT.md"
+    path.write_text(_AUDIT.format(when=when, pin=pin, rows=rows), encoding="utf-8")
+    return path
+
+
+def test_a_missing_audit_is_absent_and_absent_is_not_a_pass():
+    """Rule 13, and the state §10 cares about most: an install gate that does
+    not exist is a different fact from one that ran and found nothing."""
+    with tempfile.TemporaryDirectory() as d:
+        got = check_security_audit(Path(d) / "nothing-here.md")
+    assert got.state is State.ABSENT and not got.conforms
+
+
+def test_an_open_high_finding_fails_the_build():
+    """The reason this row is a gate. §10 treats the rubric as install
+    acceptance, and an acceptance check that reports a high finding without
+    stopping anything is a ledger."""
+    with tempfile.TemporaryDirectory() as d:
+        got = check_security_audit(_audit(
+            d, rows="| `TM-PROBE-01` | R9 | `S1` | open | it is bad |"))
+    assert got.state is State.FAIL and "TM-PROBE-01" in got.evidence
+
+
+def test_a_closed_high_finding_does_not_fail_the_build():
+    """The other direction. A check that fails on every finding ever recorded
+    is one somebody deletes the findings from."""
+    with tempfile.TemporaryDirectory() as d:
+        got = check_security_audit(_audit(
+            d, rows="| `TM-PROBE-02` | R9 | `S1` | closed 2026-07-31 | it was bad |"))
+    assert got.state is State.PASS, got.evidence
+
+
+def test_an_open_low_finding_does_not_fail_the_build():
+    with tempfile.TemporaryDirectory() as d:
+        got = check_security_audit(_audit(
+            d, rows="| `TM-PROBE-03` | R14 | `S3` | open | unenforced |"))
+    assert got.state is State.PASS and "1 open" in got.evidence
+
+
+def test_a_stale_audit_is_unknown_rather_than_a_pass():
+    """An audit is a statement about a tree at a date. Past the limit it stops
+    being evidence about this one, and `UNKNOWN` is what that state is called."""
+    with tempfile.TemporaryDirectory() as d:
+        got = check_security_audit(_audit(d, when="2020-01-01"))
+    assert got.state is State.UNKNOWN and str(conform.STALE_AFTER_DAYS) in got.evidence
+
+
+def test_an_audit_with_no_date_or_no_pin_is_unknown():
+    with tempfile.TemporaryDirectory() as d:
+        undated = Path(d) / "undated.md"
+        undated.write_text("# audit\n\n- **commit** `d2817f2`\n", encoding="utf-8")
+        assert check_security_audit(undated).state is State.UNKNOWN
+
+        unpinned = Path(d) / "unpinned.md"
+        unpinned.write_text("# audit\n\n- **date** `2026-07-31`\n", encoding="utf-8")
+        assert check_security_audit(unpinned).state is State.UNKNOWN
+
+
+def test_a_pin_this_history_does_not_contain_is_unknown():
+    """The one thing the pin actually decides. *How far behind* is a judgement
+    about diffs and is not decidable here — which is why staleness is a date."""
+    with tempfile.TemporaryDirectory() as d:
+        got = check_security_audit(_audit(d, pin="0" * 40))
+    assert got.state is State.UNKNOWN and "not an ancestor" in got.evidence
+
+
+def test_the_real_audit_document_is_read_and_passes():
+    """Separate from the probes above: they prove the branches, this proves the
+    thing being branched on is the document in the tree."""
+    got = check_security_audit()
+    assert got.state is State.PASS, got.evidence
+    assert "SECURITY-AUDIT.md" in got.evidence
+
+
 # --- the record -----------------------------------------------------------
 
 
@@ -102,6 +204,53 @@ def test_a_record_is_never_overwritten():
         finally:
             conform.RECORDS = conform.ROOT / "docs" / "conformance"
         raise AssertionError("a second run overwrote the first record")
+
+
+def test_write_reports_the_tree_it_found_not_the_one_it_made():
+    """**The observer effect, and it shipped for one run.**
+
+    `render()` asks git whether the working tree is dirty. An empty record file
+    already created in `docs/conformance/` is itself an untracked change, so
+    rendering *inside* the `open("x")` block makes every record report dirty —
+    including one written from a clean checkout, which is the case the warning
+    exists to distinguish. `test_the_record_says_when_the_tree_was_dirty` calls
+    `render()` directly and could not see it.
+
+    So the probe is a **clean git repository of its own**, which is the only
+    place the two orderings give different answers — this repository is dirty
+    whenever `tests/ablate.py` is mutating it, and a probe against this tree
+    would agree with the defect and pass.
+    """
+    import subprocess
+
+    def git(where, *args):
+        return subprocess.run(["git", "-c", "user.email=probe@example.invalid",
+                               "-c", "user.name=probe", *args],
+                              capture_output=True, text=True, cwd=where)
+
+    with tempfile.TemporaryDirectory() as d:
+        probe = Path(d)
+        git(probe, "init", "-q")
+        (probe / "seed.txt").write_text("clean\n", encoding="utf-8")
+        git(probe, "add", "-A")
+        git(probe, "commit", "-q", "-m", "seed")
+        assert not git(probe, "status", "--porcelain").stdout.strip(), (
+            "the probe repository did not start clean; the test proves nothing"
+        )
+
+        real_root, real_records = conform.ROOT, conform.RECORDS
+        try:
+            conform.ROOT = probe
+            conform.RECORDS = probe / "docs" / "conformance"
+            text = write([Check("a", "b", State.PASS, "e")], AT).read_text(
+                encoding="utf-8")
+        finally:
+            conform.ROOT, conform.RECORDS = real_root, real_records
+
+    assert "working tree dirty" not in text, (
+        "a record written from a clean checkout reported the tree dirty — the "
+        "act of creating the file is what git saw"
+    )
 
 
 def test_the_record_carries_the_date_the_commit_and_the_states():

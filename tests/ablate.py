@@ -1026,6 +1026,68 @@ MUTATIONS = [
     ("tools/conform.py", '\n    return Check("key-escrow", what, State.ABSENT,',
      '\n    return Check("key-escrow", what, State.PASS,',
      "escrow reports absent, not pass", "tests/test_atrest.py"),
+    # tools/audit.py — R16 and R17, the two checks §10 says the fleet rubric is
+    # missing. Every branch of both, because a check whose comfortable answer is
+    # the only one it has ever produced is the thing R17 itself is about.
+    ("tools/audit.py", "        return self.verdict is Verdict.PASS",
+     "        return self.verdict is not Verdict.FINDING",
+     "ABSENT and UNKNOWN are not a pass", "tests/test_audit.py"),
+    # The one mutation here that ADDS rather than removes. `seal` is the verb
+    # records/sealing.py exposes, and it is rule 10's human seal over a machine
+    # draft -- hashlib, no cipher. Putting it in the required set is the tidy-up
+    # a later reader would make, and it turns R16 into a PASS over a repository
+    # that encrypts nothing.
+    ("tools/audit.py",
+     '    "seal_at_rest", "unseal_at_rest", "encrypt_at_rest", "decrypt_at_rest",',
+     '    "seal", "seal_at_rest", "unseal_at_rest", "encrypt_at_rest", "decrypt_at_rest",',
+     "R16 matches a verb, not a filename", "tests/test_audit.py"),
+    ("tools/audit.py", "    if not seam and not at_rest:", "    if not seam:",
+     "R16: stored unsealed is not the same as unstored", "tests/test_audit.py"),
+    ("tools/audit.py", "    if not disposed:", "    if False:",
+     "R16: sealed without escrow is a finding", "tests/test_audit.py"),
+    ("tools/audit.py", "    if not rehearsed:", "    if False:",
+     "R16: an unrehearsed plan is not escrow", "tests/test_audit.py"),
+    ("tools/audit.py", "    if uncovered:", "    if False:",
+     "R17: an unablated detection site", "tests/test_audit.py"),
+    ("tools/audit.py",
+     "            if target == site[0] and (site[1] in pattern or site[1] in repl):",
+     "            if True:",
+     "R17: a mutation covers the site it names", "tests/test_audit.py"),
+    ("tools/audit.py", "    if missing:", "    if False:",
+     "R17: the record must report them caught", "tests/test_audit.py"),
+    ("tools/audit.py", "    newest = records[-1]", "    newest = records[0]",
+     "R17 reads the newest record", "tests/test_audit.py"),
+    ("tools/audit.py",
+     '        return not self.status.lower().startswith(("closed", "fixed", "withdrawn"))',
+     '        return self.status.lower().startswith("open")',
+     "a status nobody updated reads as open", "tests/test_audit.py"),
+    # tools/conform.py — the security-audit row, which moved from UNKNOWN to a
+    # gate on 2026-07-31.
+    ("tools/conform.py", "    if not path.exists():", "    if False:",
+     "a missing audit is ABSENT", "tests/test_conform.py"),
+    ("tools/conform.py", "    if hot:", "    if False:",
+     "an open high finding fails the build", "tests/test_conform.py"),
+    ("tools/conform.py", "    if age > STALE_AFTER_DAYS:", "    if False:",
+     "a stale audit is not a pass", "tests/test_conform.py"),
+    # Restores the observer effect exactly: render inside the open, so the
+    # record file git is being asked about already exists when it is asked.
+    # The probe suite builds its own clean repository for this, because this
+    # one is dirty whenever this harness is running and would agree with the
+    # defect.
+    ("tools/conform.py", "            fh.write(text)",
+     "            fh.write(render(checks, at))",
+     "a record does not report the tree it made", "tests/test_conform.py"),
+    # The artifact, not the guard. Both of these mutate the document and ask a
+    # different file to notice -- the shape the §14 header-figure mutation
+    # established, after the first attempt at it disabled an assertion and asked
+    # the assertion to catch itself.
+    ("docs/SECURITY-AUDIT.md",
+     "| **FINDING** | `S2` | ~~No at-rest sealing entry point exists~~",
+     "| **PASS** | `S2` | ~~No at-rest sealing entry point exists~~",
+     "the recorded R16 verdict is reconciled", "tests/test_audit.py"),
+    ("docs/SECURITY-AUDIT.md", "| `TM-DEPS-01` | R14 | `S3` | open |",
+     "| `TM-DEPS-01` | R14 | `S1` | open |",
+     "an open S1 in the document fails conformance", "tests/test_conform.py"),
 ]
 
 
@@ -1064,21 +1126,40 @@ def _acquire_lock() -> None:
     baseline and "restores" the mutation permanently. Found by running the suite
     in the background while ablating in the foreground — the suite's own
     `check_ablation` shells out to this script.
+
+    **The first version of this lock was itself a race** — `docs/SECURITY-AUDIT.md`
+    TM-RACE-01, found 2026-07-31. It read `LOCK.exists()` and then wrote, which
+    is check-then-act: two runs starting together both saw no lock, both wrote
+    their pid, and both proceeded into the tree the lock exists to protect. A
+    lock that can be held twice is a ledger of intent, not a lock. Acquisition
+    is now a single `O_CREAT|O_EXCL` open, which the kernel makes atomic; the
+    liveness check only runs once that open has already failed.
     """
-    if LOCK.exists():
+    for attempt in (1, 2):
         try:
-            pid = int(LOCK.read_text(encoding="utf-8").strip())
-            os.kill(pid, 0)
-        except (ValueError, OSError):
-            LOCK.unlink(missing_ok=True)   # stale; the holder is gone
-        else:
+            fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        except FileExistsError:
+            if attempt == 2:
+                raise SystemExit(
+                    f"  {LOCK.name} keeps reappearing between the liveness check "
+                    f"and the acquire. Something is creating it; remove it by hand."
+                )
+            try:
+                pid = int(LOCK.read_text(encoding="utf-8").strip())
+                os.kill(pid, 0)
+            except (ValueError, OSError):
+                LOCK.unlink(missing_ok=True)   # stale; the holder is gone
+                continue
             raise SystemExit(
                 f"  another ablation is running (pid {pid}). Two runs mutating one "
                 f"tree corrupt it — the second restores the first's mutation. "
                 f"Wait, or remove {LOCK.name} if that process is gone."
             )
-    LOCK.write_text(str(os.getpid()), encoding="utf-8")
-    atexit.register(lambda: LOCK.unlink(missing_ok=True))
+        else:
+            with os.fdopen(fd, "w") as fh:
+                fh.write(str(os.getpid()))
+            atexit.register(lambda: LOCK.unlink(missing_ok=True))
+            return
 
 
 def _restore_on_signal() -> None:

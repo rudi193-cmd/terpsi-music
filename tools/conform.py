@@ -538,6 +538,84 @@ def check_key_escrow() -> Check:
                  f"any master with none, and that guard is ablated")
 
 
+#: How old an audit may be before this check stops believing it.
+#:
+#: **The honest limit, stated rather than implied.** What you actually want is
+#: *"the audit is no more than N commits behind this tree"*, and that is not
+#: decidable from a tree: the audit pins the commit it was written at, and
+#: whether the eleven commits since touched anything it examined is a judgement
+#: about diffs, not a fact a checker can read. So staleness here is measured in
+#: days, which is a weaker property honestly reported rather than a stronger one
+#: asserted. The pin is still checked, for the one thing it does decide — that
+#: the audit describes a commit this history contains.
+STALE_AFTER_DAYS = 90
+
+
+def check_security_audit(doc: Optional[Path] = None) -> Check:
+    """§10: the fifteen-check rubric, run here and treated as an install gate.
+
+    **This row said `UNKNOWN` until 2026-07-31**, on the honest grounds that the
+    rubric was *"named in §14 as reusable and has not been run here"*. It has
+    now been run — `docs/SECURITY-AUDIT.md` — and this check is what makes the
+    result a gate rather than a document, which is the distinction §10 asks for
+    and rule 18 asks to be said out loud.
+
+    It grades the *document*, not the tree. That is deliberate and it is the
+    limit: R1–R15 are judgements about source that a human made by reading, and
+    a check that re-derived them would be a second implementation of the audit
+    with nothing reconciling the two (§16). What is mechanical is whether an
+    audit exists, whether it is stale, and whether anything in it at `S1` or
+    above is still open — and an open high finding fails the build.
+
+    R16 and R17 inside that document are themselves runnable (`tools/audit.py`),
+    and `tests/test_audit.py` is the middle that keeps the recorded verdicts and
+    the live ones from drifting apart.
+    """
+    from audit import FAILING, audit_commit, audit_date, findings  # noqa: E402
+
+    path = doc if doc is not None else ROOT / "docs" / "SECURITY-AUDIT.md"
+    what = "the fifteen-check rubric run here, as a gate (§10)"
+    if not path.exists():
+        return Check("security-audit", what, State.ABSENT,
+                     f"{path.name} does not exist; §10 treats the rubric as an "
+                     "install gate and there is nothing to gate on")
+
+    text = path.read_text(encoding="utf-8")
+    when, pin = audit_date(text), audit_commit(text)
+    if when is None or pin is None:
+        return Check("security-audit", what, State.UNKNOWN,
+                     f"{path.name} carries no {'date' if when is None else 'commit pin'}; "
+                     "an audit that does not say what it examined cannot be gated on")
+
+    found = findings(text)
+    hot = [f for f in found if f.open and f.severity in FAILING]
+    if hot:
+        return Check("security-audit", what, State.FAIL,
+                     "open " + ", ".join(f"{f.severity.value} {f.id}" for f in hot[:4])
+                     + f" in {path.name}")
+
+    age = (datetime.now(timezone.utc).date()
+           - datetime.strptime(when, "%Y-%m-%d").date()).days
+    if age > STALE_AFTER_DAYS:
+        return Check("security-audit", what, State.UNKNOWN,
+                     f"{path.name} is dated {when}, {age} days old against a "
+                     f"{STALE_AFTER_DAYS}-day limit. Commits-behind is not decidable "
+                     "from a tree, so the limit is a date and this is a weaker "
+                     "property than it reads")
+
+    r = subprocess.run(["git", "merge-base", "--is-ancestor", pin, "HEAD"],
+                       capture_output=True, text=True, cwd=ROOT)
+    if r.returncode != 0:
+        return Check("security-audit", what, State.UNKNOWN,
+                     f"{path.name} pins `{pin}`, which is not an ancestor of HEAD; "
+                     "the audit describes a tree this one does not contain")
+
+    return Check("security-audit", what, State.PASS,
+                 f"{path.name} dated {when} at `{pin}`, {age} day(s) old; "
+                 f"{len(found)} finding(s) recorded, "
+                 f"{sum(1 for f in found if f.open)} open, none at S1 or above")
+
+
 def check_component_map() -> Check:
     """Item 0: an unverified table and a verified one must not look identical."""
     r = subprocess.run([sys.executable, str(ROOT / "tests" / "test_component_map.py")],
@@ -556,9 +634,6 @@ def _unknown(cid: str, what: str, why: str) -> Callable[[], Check]:
 
 
 UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
-    _unknown("security-audit", "SECURITY_AUDIT.md against the shared rubric (§10)",
-             "willow-2.0's 15-check rubric is named in §14 as reusable and has "
-             "not been run here; UNVERIFIED at source"),
     _unknown("sidecar-only", "canonical store read-only; agent writes are sidecar (§5)",
              "there is no store, so the rule cannot be violated or demonstrated"),
     _unknown("knock-enforcing", "the knock wired in enforcement mode (§7.2)",
@@ -586,8 +661,8 @@ CHECKS: Tuple[Callable[[], Check], ...] = (
     check_suite_runs_standalone, check_ablation, check_exit_line,
     check_component_map, check_classification_registry,
     check_declared_sockets, check_manifest, check_key_escrow,
-    check_local_inference, check_anchor_payload, check_anchor_published,
-    check_receipt_attribution, check_deposit_procedure,
+    check_security_audit, check_local_inference, check_anchor_payload,
+    check_anchor_published, check_receipt_attribution, check_deposit_procedure,
 ) + UNDECIDABLE
 
 
@@ -655,12 +730,28 @@ def write(checks: List[Check], at: datetime) -> Path:
     RECORDS.mkdir(parents=True, exist_ok=True)
     stamp = at.strftime("%Y-%m-%dT%H%M%SZ")
     path = RECORDS / f"{stamp}.md"
-    if path.exists():
+    # **Rendered before the file is created, and the order is load-bearing.**
+    # `render()` asks git whether the tree is dirty, and an empty record file
+    # sitting untracked in `docs/conformance/` *is* a dirty tree — so calling
+    # `render()` inside the `open("x")` block makes every record report dirty,
+    # including the ones written from a clean checkout. That regression shipped
+    # for exactly one run while TM-RACE-02 was being fixed; the discarded record
+    # is not in the series and `test_write_reports_the_tree_it_found_not_the_one_it_made`
+    # is why it cannot happen again.
+    text = render(checks, at)
+    # `if path.exists(): raise` then write was check-then-act, and the window
+    # between them is exactly one second wide because the stamp has second
+    # resolution — TM-RACE-02 in docs/SECURITY-AUDIT.md. `open("x")` is one
+    # atomic O_EXCL create and raises the same FileExistsError, so append-only
+    # stops being a convention two callers could step over.
+    try:
+        with path.open("x", encoding="utf-8") as fh:
+            fh.write(text)
+    except FileExistsError:
         raise FileExistsError(
             f"{path.name} exists; conformance records are append-only and a run "
             "does not overwrite an earlier one"
-        )
-    path.write_text(render(checks, at), encoding="utf-8")
+        ) from None
     return path
 
 
