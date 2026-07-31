@@ -77,8 +77,13 @@ def test_the_registry_and_the_procedure_agree_on_every_field_but_the_named_ones(
     assert r.verdict is R.Verdict.CLEAN, [str(f) for f in r.findings]
     assert not r.findings, [str(f) for f in r.findings]
 
-    seeded = R.classified(R.SCHEMA.read_text(encoding="utf-8"))
-    declared = R.declared_columns(R.SCHEMA.read_text(encoding="utf-8"))
+    # `schema_text()`, not `SCHEMA`: the schema is every migration in filename
+    # order and stopped being one file at 004. Reading 001 alone here compared a
+    # reconciliation over 120 columns against a seed of 116 and failed for the
+    # right reason on the wrong subject.
+    sql = R.schema_text()
+    seeded = R.classified(sql)
+    declared = R.declared_columns(sql)
     assert len(r.judgements) == len(declared) == len(seeded), (
         len(r.judgements), len(declared), len(seeded))
     assert r.agreed + len(r.of(R.Agreement.UNDECIDED)) == len(r.judgements)
@@ -285,7 +290,13 @@ def test_the_conform_row_passes_on_the_merits_since_the_composition_call():
     previous version was written to distinguish."""
     got = check_classification_registry()
     assert got.state is State.PASS, got
-    assert "0 undecided" in got.evidence or "116" in got.evidence, got.evidence
+    # Derived, not quoted (rule 17). This assertion read `"116" in evidence`
+    # until migration 004 seeded four columns and the number moved; a literal
+    # here is a count in prose the code walks past, which is the defect rule 17
+    # names and this file is otherwise careful about.
+    seeded = len(R.classified(R.schema_text()))
+    assert "0 undecided" in got.evidence or f"{seeded} field(s)" in got.evidence, \
+        got.evidence
 
 
 def test_the_conform_row_fails_on_the_decoy():

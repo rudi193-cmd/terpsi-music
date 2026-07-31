@@ -35,7 +35,10 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tests"))
 
-from cluster import ClusterUnknown, Database, installed, refused_by  # noqa: E402
+from cluster import (ClusterUnknown, Custody, Database,  # noqa: E402
+                     installed, refused_by)
+
+from records.atrest import seal_bytes  # noqa: E402
 
 from store.roles import APP_HOLDS, APP_LACKS, META_SCHEMA, held_by_app  # noqa: E402
 from store.session import acting  # noqa: E402
@@ -49,6 +52,29 @@ ENTRY = uuid.UUID("33333333-1111-1111-1111-111111111111")
 SEALED = uuid.UUID("33333333-2222-2222-2222-222222222222")
 
 
+#: The column the rewrite attacks below aim at, since S-3.
+#:
+#: It was `payload` and could not stay: migration 004 tombstoned that column and
+#: constrained it to `NULL`, so an `UPDATE` naming it is refused by
+#: `lane_entry_payload_is_tombstoned` — a *different* guard from the privilege
+#: and the trigger these tests are about, which is the exact substitution this
+#: file's docstring says must not be allowed. `payload_sealed` is the column
+#: that now holds what `payload` held, so the attacks moved with the data.
+REWRITABLE = "payload_sealed"
+
+
+def an_envelope(lane=LBEN):
+    """A real sealed payload, from a key minted for this test database only.
+
+    Key material never leaves this function's frame and is never written
+    anywhere (refusal 2; `tests/test_key_custody.py` is the tripwire). The
+    ciphertext has to be real because `lane_entry_payload_sealed_is_ciphertext`
+    reads its shape.
+    """
+    custody = Custody(str(lane), at=AT)
+    return seal_bytes(b'{"body":"a note"}', lane_key=custody.key(lane), at=AT)
+
+
 def seed(owner):
     """Two people, a lane, Ann's guardianship, one draft entry and one sealed one.
 
@@ -57,8 +83,10 @@ def seed(owner):
     and reading it back is a question about standing. Every *refusal* in this
     module is a privilege or a trigger and is unaffected by the seal — which is
     the point of asserting on the guard named in each error rather than on the
-    fact of a refusal.
+    fact of a refusal. The payloads are S-3's: `migrations/004_sealed_payloads.sql`
+    tombstones the clear column, so a seed row carries the sealed envelope.
     """
+    got = an_envelope()
     with owner.cursor() as cur:
         for who, born in ((BEN, "2010-05-01"), (ANN, "1979-02-02")):
             cur.execute("INSERT INTO person VALUES (%s,%s,now(),now(),NULL)",
@@ -69,12 +97,15 @@ def seed(owner):
             "INSERT INTO edge VALUES (%s,'guardian_of',%s,%s,NULL,'enrolment "
             "form',now(),now() - interval '1 year',NULL)",
             (uuid.UUID("dddddddd-1111-1111-1111-111111111111"), ANN, LBEN))
-        cur.execute(
-            "INSERT INTO lane_entry VALUES (%s,%s,NULL,'attendance','{}'::jsonb,"
-            "%s,'draft',NULL,now(),now(),NULL)", (ENTRY, LBEN, ANN))
-        cur.execute(
-            "INSERT INTO lane_entry VALUES (%s,%s,NULL,'commentary','{}'::jsonb,"
-            "%s,'sealed',%s,now(),now(),NULL)", (SEALED, LBEN, ANN, ANN))
+        for entry, kind, state, sealer in ((ENTRY, "attendance", "draft", None),
+                                           (SEALED, "commentary", "sealed", ANN)):
+            cur.execute(
+                "INSERT INTO lane_entry (entry_id, lane_id, kind, payload_sealed, "
+                " payload_key_id, payload_scheme, payload_sealed_at, author_id, "
+                " seal_state, sealed_by, created_at, valid_at) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,now(),now())",
+                (entry, LBEN, kind, got.ciphertext, got.key_id, got.scheme,
+                 got.sealed_at, ANN, state, sealer))
     owner.commit()
 
 
@@ -129,11 +160,11 @@ def test_the_app_role_cannot_update_a_sealed_row():
         seed(owner)
         try:
             refused_by(lambda: app.execute(
-                "UPDATE lane_entry SET payload = '{\"x\":1}'::jsonb "
+                f"UPDATE lane_entry SET {REWRITABLE} = NULL "
                 "WHERE entry_id = %s", (SEALED,)), "42501")
             app.rollback()
             text = refused_by(lambda: app.execute(
-                "UPDATE lane_entry SET payload = '{\"x\":1}'::jsonb "
+                f"UPDATE lane_entry SET {REWRITABLE} = NULL "
                 "WHERE entry_id = %s", (SEALED,)), "lane_entry")
             assert "permission denied" in text
         finally:
@@ -224,14 +255,18 @@ def test_the_app_role_can_still_insert_a_draft_and_select():
         try:
             new = uuid.uuid4()
             with acting(app, ANN):
+                sealed = an_envelope()
                 app.execute(
-                    "INSERT INTO lane_entry VALUES (%s,%s,NULL,'attendance',"
-                    "'{}'::jsonb,%s,'draft',NULL,now(),now(),NULL)",
-                    (new, LBEN, ANN))
-                got = app.execute(
+                    "INSERT INTO lane_entry (entry_id, lane_id, kind, payload_sealed,"
+                    " payload_key_id, payload_scheme, payload_sealed_at, author_id,"
+                    " created_at, valid_at) "
+                    "VALUES (%s,%s,'attendance',%s,%s,%s,%s,%s,now(),now())",
+                    (new, LBEN, sealed.ciphertext, sealed.key_id, sealed.scheme,
+                     sealed.sealed_at, ANN))
+                row = app.execute(
                     "SELECT seal_state FROM lane_entry WHERE entry_id = %s",
                     (new,)).fetchone()
-                assert got == ("draft",)
+                assert row == ("draft",)
                 n = app.execute("SELECT count(*) FROM lane_entry").fetchone()[0]
                 assert n == 3, f"the app role reads {n} rows, expected 3"
             app.commit()
@@ -256,7 +291,7 @@ def test_a_sealed_row_cannot_be_rewritten_even_by_the_owner():
         seed(owner)
         try:
             refused_by(lambda: owner.execute(
-                "UPDATE lane_entry SET payload = '{\"x\":1}'::jsonb "
+                f"UPDATE lane_entry SET {REWRITABLE} = NULL "
                 "WHERE entry_id = %s", (SEALED,)), "insert-only history")
             owner.rollback()
             refused_by(lambda: owner.execute(
@@ -282,7 +317,7 @@ def test_a_sealed_row_may_still_be_ended_by_a_date():
         try:
             owner.execute("UPDATE lane_entry SET invalid_at = now() "
                           "WHERE entry_id = %s", (SEALED,))
-            owner.execute("UPDATE lane_entry SET payload = '{\"y\":2}'::jsonb "
+            owner.execute("UPDATE lane_entry SET kind = 'rehearsal' "
                           "WHERE entry_id = %s", (ENTRY,))
             owner.commit()
             ended = owner.execute(

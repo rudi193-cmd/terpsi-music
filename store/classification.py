@@ -18,8 +18,16 @@ build artefact and starts being a place a fact about a child is kept.
 and the choice is deliberate. The table is the seed's *effect*; the migration is
 its cause. A row deleted from `field_classification` in a live cluster would
 silently widen what the store accepts, whereas the migration is in the tree, is
-checksummed by `store/migrate.py`, and is the thing CI already reconciles. The
-cluster's copy is checked against this one by
+checksummed by `store/migrate.py`, and is the thing CI already reconciles.
+
+**Every migration, not the first one.** Until 004 the schema was one file and
+nothing distinguished *the first migration* from *the schema*; 004 adds columns
+and seeds their classification, so a reader stopping at 001 would refuse writes
+to columns that exist and are classified. `tools/registry.py::schema_text` is the
+one place the files are composed — three concatenations of `migrations/*.sql`
+would be three chances to believe in three different schemas.
+
+The cluster's copy is checked against this one by
 `tests/test_store_writing.py::test_the_registry_the_adapter_reads_is_the_one_in_the_cluster`,
 so the two cannot drift without something going red.
 
@@ -38,7 +46,7 @@ sys.path.insert(0, str(ROOT / "tools"))
 
 import registry as _registry  # noqa: E402 — the source of truth, called not copied
 
-SCHEMA = ROOT / "migrations" / "001_lanes.sql"
+MIGRATIONS = ROOT / "migrations"
 
 
 class UnclassifiedColumn(ValueError):
@@ -55,7 +63,7 @@ class UnclassifiedColumn(ValueError):
 @lru_cache(maxsize=1)
 def _seed() -> Dict[Tuple[str, str], Tuple[str, str]]:
     """`{(table, column): (data_class, rung)}`, parsed by `tools/registry.py`."""
-    return _registry.classified(SCHEMA.read_text(encoding="utf-8"))
+    return _registry.classified(_registry.schema_text(MIGRATIONS))
 
 
 def registry_columns() -> Tuple[Tuple[str, str], ...]:
@@ -75,7 +83,8 @@ def classification_of(table: str, column: str) -> Tuple[str, str]:
     except KeyError:
         raise UnclassifiedColumn(
             f"{table}.{column} is not in the classification registry "
-            f"({SCHEMA.relative_to(ROOT)}'s seed, parsed by tools/registry.py). "
+            f"({MIGRATIONS.relative_to(ROOT)}/'s seeds, parsed by "
+            "tools/registry.py). "
             "docs/SENSITIVITY.md: an unclassified field is a build failure, not "
             "a default — there is no rung to serve it by and no class to govern "
             "its egress") from None

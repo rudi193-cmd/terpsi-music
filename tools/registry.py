@@ -69,7 +69,8 @@ sys.path.insert(0, str(ROOT))
 from records.classify import Classification, Decision, Descriptor, classify  # noqa: E402
 from records.rungs import Rung, outranks  # noqa: E402
 
-SCHEMA = ROOT / "migrations" / "001_lanes.sql"
+MIGRATIONS = ROOT / "migrations"
+SCHEMA = MIGRATIONS / "001_lanes.sql"
 SENSITIVITY = ROOT / "docs" / "SENSITIVITY.md"
 
 
@@ -81,6 +82,17 @@ SENSITIVITY = ROOT / "docs" / "SENSITIVITY.md"
 
 _TABLE = re.compile(r"CREATE TABLE (\w+)\s*\((.*?)\n\);", re.DOTALL)
 _NOT_A_COLUMN = ("constraint", "primary", "unique", "check", "foreign", "exclude")
+
+#: `ALTER TABLE t ADD COLUMN …;` / `ALTER TABLE t ADD CONSTRAINT … CHECK (…);`
+#:
+#: **The schema is every migration, not the first one.** Until migration 004 the
+#: two were the same file and nothing distinguished them; 004 adds columns by
+#: `ALTER`, and a parser that reads only `CREATE TABLE` would report a schema
+#: this tree stopped having — silently, and in the direction that widens what a
+#: checker believes is classified. Folded into the table body rather than kept
+#: beside it, so `columns()` and every `CHECK`-reading caller see one text.
+_ALTER = re.compile(
+    r"ALTER TABLE (\w+)\s+ADD\s+(COLUMN\s+.*?|CONSTRAINT\s+.*?);", re.DOTALL | re.I)
 
 # "    ('lane_entry','payload','HEALTH','L4'),"
 _CLASSIFIED = re.compile(
@@ -96,8 +108,37 @@ def strip_comments(sql: str) -> str:
     return "\n".join(line.split("--")[0].rstrip() for line in sql.splitlines())
 
 
+def schema_text(where: Optional[Path] = None) -> str:
+    """Every migration, in filename order, as one text.
+
+    **One place composes it.** The registry, `store/classification.py` and
+    `store/sealing_plan.py` all need *the schema this tree defines*, and three
+    concatenations of `migrations/*.sql` would be three chances to read a
+    different schema — the pair §16 is about, three times over. `store/migrate.py`
+    applies the same files in the same order, which is what makes this text and
+    a migrated cluster the same schema.
+    """
+    base = MIGRATIONS if where is None else Path(where)
+    return "\n".join(p.read_text(encoding="utf-8")
+                     for p in sorted(base.glob("*.sql"), key=lambda p: p.name))
+
+
 def tables(sql: str) -> Dict[str, str]:
-    return {m.group(1): m.group(2) for m in _TABLE.finditer(strip_comments(sql))}
+    """`{table: body}`, with every `ALTER TABLE … ADD` folded into the body.
+
+    A column added by a later migration is a column of the table, and a reader
+    that only saw `CREATE TABLE` would classify a schema that no longer exists.
+    """
+    stripped = strip_comments(sql)
+    out = {m.group(1): m.group(2) for m in _TABLE.finditer(stripped)}
+    for m in _ALTER.finditer(stripped):
+        table, clause = m.group(1), " ".join(m.group(2).split())
+        if table not in out:
+            continue
+        if clause.lower().startswith("column "):
+            clause = clause[len("column "):]
+        out[table] = out[table] + f"\n    {clause},"
+    return out
 
 
 def columns(body: str) -> Dict[str, str]:
@@ -501,16 +542,31 @@ def reconcile(sql: str, doc: str) -> Reconciliation:
 
 
 def check(schema: Optional[Path] = None, doc: Optional[Path] = None) -> Reconciliation:
-    """Read both sources and reconcile. A source that is not there is vacuous."""
-    schema = SCHEMA if schema is None else schema
+    """Read both sources and reconcile. A source that is not there is vacuous.
+
+    **`schema` may be a directory**, and with none given it is
+    `migrations/`: a seed row landing in a later migration is still a seed row,
+    and a reconciliation that stopped at 001 would report agreement about a
+    registry it had not read. A single file is still honoured, which is what the
+    decoy fixtures need.
+    """
     doc = SENSITIVITY if doc is None else doc
-    missing = [str(p) for p in (schema, doc) if not p.is_file()]
-    if missing:
+    if not doc.is_file():
         return Reconciliation(
-            Verdict.VACUOUS,
-            (Finding("unreadable", f"missing: {', '.join(missing)}"),), ())
-    return reconcile(schema.read_text(encoding="utf-8"),
-                     doc.read_text(encoding="utf-8"))
+            Verdict.VACUOUS, (Finding("unreadable", f"missing: {doc}"),), ())
+    where = MIGRATIONS if schema is None else Path(schema)
+    if where.is_dir():
+        sql = schema_text(where)
+        if not sql.strip():
+            return Reconciliation(
+                Verdict.VACUOUS,
+                (Finding("unreadable", f"no migrations under {where}"),), ())
+    elif where.is_file():
+        sql = where.read_text(encoding="utf-8")
+    else:
+        return Reconciliation(
+            Verdict.VACUOUS, (Finding("unreadable", f"missing: {where}"),), ())
+    return reconcile(sql, doc.read_text(encoding="utf-8"))
 
 
 def main(argv: List[str]) -> int:

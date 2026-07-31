@@ -623,6 +623,68 @@ MUTATIONS = [
      "        if False:\n            raise StoreUnavailable(",
      "an errored read is not an empty result",
      "tests/test_rule13_acceptance.py"),
+    # store/sealing_plan.py and store/writing.py — S-3's seam. Every mutation
+    # here is caught by tests/test_sealing_plan.py, which needs no database:
+    # the derivation is over migration text and the seam's refusals happen
+    # before a statement is built. The acts that need a cluster are ablated in
+    # the workflow's "Ablate the sealing guards" step, for the reason stated
+    # above — a mutation whose suite cannot run reports SURVIVES for the wrong
+    # reason.
+    #
+    # The exclusions, one at a time. Each is a separate guard and a pattern
+    # covering two would leave one unablated -- the lesson `and r.live_at(at)`
+    # taught in records/sending.py.
+    ("store/sealing_plan.py", "        if sql_type != CONTAINER_TYPE:",
+     "        if False:",
+     "a predicate column is not a payload", "tests/test_sealing_plan.py"),
+    ("store/sealing_plan.py", "        if _is_key(column, rest, body):",
+     "        if False:",
+     "a key the store joins on is never sealed", "tests/test_sealing_plan.py"),
+    ("store/sealing_plan.py", "        if len(_lane_columns(body, table)) != 1:",
+     "        if False:",
+     "a row with no single lane has no key to seal under",
+     "tests/test_sealing_plan.py"),
+    ("store/sealing_plan.py", "        if _CHAIN_COLUMNS & set(cols):",
+     "        if False:",
+     "chain material is not sealed under the key an erasure destroys",
+     "tests/test_sealing_plan.py"),
+    # The circularity, restored. Without this branch the sealing migration's own
+    # tombstone reads as evidence that the column should not have been sealed,
+    # and the derivation reports the opposite of what it did.
+    ("store/sealing_plan.py",
+     "def _is_sealing_constraint(expression: str) -> bool:\n    if _TOMBSTONE.match(expression):",
+     "def _is_sealing_constraint(expression: str) -> bool:\n    if False:",
+     "the derivation does not read its own output",
+     "tests/test_sealing_plan.py"),
+    # The seam itself. This is the one that matters: with it gone the caller's
+    # clear payload goes straight into the INSERT and the store holds L4 health
+    # facts in the clear.
+    ("store/writing.py",
+     "    body = {k: v for k, v in values.items() if k not in sealed_here}",
+     "    body = dict(values)",
+     "the clear column does not survive the seam", "tests/test_sealing_plan.py"),
+    # `if not sealed_here:` -> `if True:`, not a `return` moved above it: the
+    # moved return leaves the next line indented under an empty `if` and the
+    # module stops importing, which is a crash rather than a guard firing. The
+    # harness reported NO NAMED FAILURE and was right to.
+    ("store/writing.py", "    if not sealed_here:\n        return dict(values)",
+     "    if True:\n        return dict(values)",
+     "a sealed-class table routes through the seam at all",
+     "tests/test_sealing_plan.py"),
+    ("store/writing.py", "        if lane_key is None:", "        if False:",
+     "a payload is not sealed under no key", "tests/test_sealing_plan.py"),
+    ("store/writing.py",
+     "        if lane_at is not None and str(lane_at) != lane_key.lane_id:",
+     "        if False:",
+     "one lane, one key, at the seam", "tests/test_sealing_plan.py"),
+    ("store/writing.py",
+     "            if spelled in values:\n                raise EnvelopeColumnRefused(",
+     "            if False:\n                raise EnvelopeColumnRefused(",
+     "an envelope column is not a caller's to write",
+     "tests/test_sealing_plan.py"),
+    ("store/writing.py", "        if payload is None:\n            raise PayloadMissing(",
+     "        if False:\n            raise PayloadMissing(",
+     "a lane_entry with no payload is refused", "tests/test_sealing_plan.py"),
     ("records/serving.py",
      '        return None, f"the {what} source failed: {exc!r}"',
      "        return (), None",
@@ -1075,15 +1137,21 @@ MUTATIONS = [
      "    return max(((when, i, obj) for i, (when, obj) in enumerate(dated)))[2]",
      "    return max(dated, key=lambda p: p[0])[1]",
      "a same-day rehearsal is the later record", "tests/test_atrest.py"),
-    # The conformance row. §5's escrow gap must read ABSENT, and a row that
-    # quietly said PASS would be the formality §17 warns about.
-    # Anchored to the line start: the ABSENT branch for a missing module is
-    # indented further and contains this text as a substring, which the
-    # uniqueness check caught as `AMBIGUOUS x2` rather than mutating the wrong
-    # one silently.
-    ("tools/conform.py", '\n    return Check("key-escrow", what, State.ABSENT,',
-     '\n    return Check("key-escrow", what, State.PASS,',
-     "escrow reports absent, not pass", "tests/test_atrest.py"),
+    # The conformance row. Since S-3 the honest answer is UNKNOWN — a policy is
+    # recorded (3-of-5, docs/ESCROW.md) and has never been rehearsed — and BOTH
+    # walls are mutated, because the row's whole value is that it is neither of
+    # the two comfortable answers. It read ABSENT until 2026-07-31 and the
+    # mutation above it moved with the row rather than being deleted.
+    ("tools/conform.py",
+     '        return Check(\n            "key-escrow", what, State.UNKNOWN,',
+     '        return Check(\n            "key-escrow", what, State.PASS,',
+     "an unrehearsed escrow row is not a pass", "tests/test_atrest.py"),
+    ("tools/conform.py",
+     '    if not facts.exists or not facts.recorded:\n        return Check("key-escrow", what, State.ABSENT,',
+     '    if False:\n        return Check("key-escrow", what, State.ABSENT,',
+     "a policy nobody recorded is absent, not unknown", "tests/test_conform.py"),
+    ("tools/conform.py", "    if not facts.rehearsed:", "    if True:",
+     "a rehearsed escrow row is a pass", "tests/test_conform.py"),
     # tools/audit.py — R16 and R17, the two checks §10 says the fleet rubric is
     # missing. Every branch of both, because a check whose comfortable answer is
     # the only one it has ever produced is the thing R17 itself is about.
@@ -1099,12 +1167,38 @@ MUTATIONS = [
      '    "seal_at_rest", "unseal_at_rest", "encrypt_at_rest", "decrypt_at_rest",',
      '    "seal", "seal_at_rest", "unseal_at_rest", "encrypt_at_rest", "decrypt_at_rest",',
      "R16 matches a verb, not a filename", "tests/test_audit.py"),
-    ("tools/audit.py", "    if not seam and not at_rest:", "    if not seam:",
+    ("tools/audit.py", "    if not seam and not durable:", "    if not seam:",
      "R16: stored unsealed is not the same as unstored", "tests/test_audit.py"),
     ("tools/audit.py", "    if not disposed:", "    if False:",
      "R16: sealed without escrow is a finding", "tests/test_audit.py"),
-    ("tools/audit.py", "    if not rehearsed:", "    if False:",
+    ("tools/audit.py", "    if not facts.rehearsed:\n        return False,",
+     "    if False:\n        return False,",
      "R16: an unrehearsed plan is not escrow", "tests/test_audit.py"),
+    # R16's at-rest boundary (S-3), mutated in **both** directions, because the
+    # two failures point opposite ways and one mutation would only show one.
+    #
+    # (a) Counting the store's writes as durable regardless of who drives them
+    #     makes the real tree read S1: an install-blocking finding no commit can
+    #     clear, because what clears it is a key ceremony in a room. A gate
+    #     nobody can turn green is a gate everybody learns to ignore.
+    ("tools/audit.py",
+     "    durable = ring_writes + (staged if callers else 0)",
+     "    durable = ring_writes + staged",
+     "an ephemeral test database is not a record at rest", "tests/test_audit.py"),
+    # (b) Not counting them at all makes R16 blind to the store forever, which
+    #     is the failure that matters: S-4 wires a surface to it and nothing
+    #     notices.
+    ("tools/audit.py",
+     "    durable = ring_writes + (staged if callers else 0)",
+     "    durable = ring_writes",
+     "the store's writes count once something drives them",
+     "tests/test_audit.py"),
+    # And the detector under both: a caller scan that finds nothing makes (a)
+    # and (b) indistinguishable.
+    ("tools/audit.py",
+     "                if name in _WRITE_PATH_VERBS:\n                    out.append((rel, f\"calls {name}()\"))",
+     "                if False:\n                    out.append((rel, f\"calls {name}()\"))",
+     "a call into the store's write path is a caller", "tests/test_audit.py"),
     ("tools/audit.py", "    if uncovered:", "    if False:",
      "R17: an unablated detection site", "tests/test_audit.py"),
     ("tools/audit.py",

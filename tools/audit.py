@@ -163,17 +163,75 @@ def escrow_disposition(doc: Optional[Path] = None) -> Tuple[bool, str]:
     threshold and no dated rehearsal is the ask, not the disposition.
     """
     path = doc if doc is not None else ESCROW_DOC
-    if not path.exists():
+    facts = escrow_facts(path)
+    if not facts.exists:
         return False, f"{path.name} does not exist; §5 records escrow as the largest gap"
+    if not facts.threshold:
+        return False, f"{path.name} states no k-of-n threshold"
+    if not facts.rehearsed:
+        return False, (f"{path.name} states {facts.threshold} and no dated rehearsal; "
+                       "§5: an untested key recovery is not escrow")
+    return True, (f"{path.name}: {facts.threshold}, {facts.holders} holder(s), "
+                  f"rehearsed {facts.rehearsals[-1]}")
+
+
+#: Where the store's write path lives. R16 has to see it — `records/` is pure by
+#: construction (`tools/purity.py` holds it to zero writes), so a check looking
+#: only there would report *nothing is stored* forever, no matter how much this
+#: application stored.
+STORE = ROOT / "store"
+
+#: Directories whose callers are not a deployment. A write path exercised only
+#: from here reaches a database that is created and dropped inside one test
+#: module — see `AT_REST_BOUNDARY`.
+_NOT_A_DEPLOYMENT = ("tests/", "docs/")
+
+
+@dataclass(frozen=True)
+class EscrowFacts:
+    """What `docs/ESCROW.md` actually says, parsed. **No judgement in here.**
+
+    Read by `tools/audit.py`'s R16 and by `tools/conform.py`'s `key-escrow` row,
+    and read by both from **one** parser: the document and the conformance row
+    are a pair, and two regexes over one file is the shape §16 is about. The
+    judgement — which of `records/atrest.py`'s `EscrowState` this amounts to —
+    is made once, in `conform.py`, from these facts.
+    """
+
+    exists: bool
+    threshold: str          # "3-of-5", or "" when none is stated
+    holders: int            # custodians the document enumerates
+    rehearsals: Tuple[str, ...] = ()   # ISO dates, in the order they appear
+
+    @property
+    def recorded(self) -> bool:
+        """A policy is recorded when a threshold is stated. Names and dates are
+        install-acceptance acts (§11.1) and their absence is not its absence."""
+        return self.exists and bool(self.threshold)
+
+    @property
+    def rehearsed(self) -> bool:
+        return bool(self.rehearsals)
+
+
+#: A custodian row in the share table: `| 1 | Program director | … |`.
+_SHARE_ROW = re.compile(r"^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|", re.M)
+
+
+def escrow_facts(doc: Optional[Path] = None) -> EscrowFacts:
+    """`docs/ESCROW.md`, as facts. Derived from the file, never restated."""
+    path = doc if doc is not None else ESCROW_DOC
+    if not path.exists():
+        return EscrowFacts(False, "", 0, ())
     text = path.read_text(encoding="utf-8")
     split = _SPLIT.search(text)
-    rehearsed = _REHEARSED.search(text)
-    if not split:
-        return False, f"{path.name} states no k-of-n threshold"
-    if not rehearsed:
-        return False, (f"{path.name} states {split.group(0)} and no dated rehearsal; "
-                       "§5: an untested key recovery is not escrow")
-    return True, f"{path.name}: {split.group(0)}, rehearsed {rehearsed.group(1)}"
+    holders = {int(m.group(1)) for m in _SHARE_ROW.finditer(text)}
+    return EscrowFacts(
+        exists=True,
+        threshold=split.group(0) if split else "",
+        holders=len(holders),
+        rehearsals=tuple(m.group(1) for m in _REHEARSED.finditer(text)),
+    )
 
 
 def anything_at_rest(where: Optional[Path] = None) -> int:
@@ -188,60 +246,187 @@ def anything_at_rest(where: Optional[Path] = None) -> int:
     return len(writes([where if where is not None else ROOT / "records"]))
 
 
+# --- the at-rest boundary, stated ------------------------------------------
+
+#: **What R16 counts as "at rest", in this check's own terms.**
+#:
+#: *At rest* is a byte that outlives the process that wrote it. `store/` is a
+#: write path — `purity.writes()` finds statements handed to a database in it —
+#: but **a write path is not a store at rest until something durable is on the
+#: other end of it.** In this tree every caller of that path is under `tests/`,
+#: and `tests/cluster.py` creates a database per test module and drops it in
+#: `__exit__`; the bytes are gone before the run that wrote them ends. Counting
+#: those as records at rest would make CI go red waiting for a key ceremony that
+#: happens in a room with five people in it (`docs/ESCROW.md`), which is a gate
+#: nobody can turn green and therefore a gate everybody learns to ignore.
+#:
+#: So R16 reports the store's write sites and holds its *durable* count at the
+#: number of non-test callers of that path, which is derived below and is zero.
+#:
+#: **The commit that flips it is named rather than left to be noticed**: the
+#: first module outside `tests/` that calls the store's write path — S-4's TUI
+#: vertical, on `docs/PLAN-STORE.md`'s decomposition. At that commit `durable`
+#: becomes nonzero, R16 becomes an open `S1` unless `docs/ESCROW.md` carries a
+#: dated rehearsal by then, and §11.1's install acceptance is where that
+#: rehearsal is asserted for a real deployment. `tests/test_audit.py` exercises
+#: both sides of that transition against a synthetic tree, so it is a branch that
+#: has been shown to fire rather than one that is waiting to.
+#:
+#: Stated as a **definition plus a rule**, and deliberately not as a claim about
+#: this tree: the tree-specific half is measured in each result's evidence and
+#: moves, while this sentence is what the measurement means and must not.
+AT_REST_BOUNDARY = (
+    "at rest = a byte that outlives the process that wrote it. A write path is "
+    "not a store at rest until a non-test caller drives it: tests/cluster.py "
+    "creates a database per module and drops it. The first non-test caller "
+    "(PLAN-STORE's S-4) makes the store's writes durable and R16 S1 without a "
+    "dated rehearsal; §11.1's install acceptance is where the rehearsal is "
+    "asserted for a deployment"
+)
+
+#: How a module is recognised as reaching the store's write path: it imports the
+#: writing module, or calls one of its verbs. Read by AST, never by import —
+#: same rule as `at_rest_seam`.
+_WRITE_PATH_MODULE = "store.writing"
+_WRITE_PATH_VERBS = frozenset({"insert_draft", "seal_payloads", "narrate",
+                               "serve_field", "apply_all"})
+
+
+def durable_callers(where: Optional[Path] = None,
+                    store: Optional[Path] = None) -> Tuple[Tuple[str, str], ...]:
+    """`(module, how)` for every non-test module that reaches the store's writes.
+
+    Zero of these means the write path exists and nothing in a deployment drives
+    it, which is the whole of `AT_REST_BOUNDARY`. Derived from the tree by AST so
+    that the day somebody wires the TUI to the store, this check notices without
+    anybody remembering to come back and edit it.
+
+    **One entry per module**, with its reasons joined. A file that both imports
+    the module and calls its verb is one caller; counting it twice made the
+    evidence read *"2 non-test caller(s) (app/main.py, app/main.py)"*, which is a
+    number a reader would go looking for a second file behind.
+    """
+    base = where if where is not None else ROOT
+    skip = {(store if store is not None else STORE).resolve()}
+    out: List[Tuple[str, str]] = []
+    for py in sorted(base.rglob("*.py")):
+        rel = str(py.relative_to(base))
+        if rel.startswith(_NOT_A_DEPLOYMENT) or py.parent.resolve() in skip:
+            continue
+        try:
+            tree = ast.parse(py.read_text(encoding="utf-8"))
+        except (SyntaxError, OSError):
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module and \
+                    node.module.replace("store.", "store.") == _WRITE_PATH_MODULE:
+                out.append((rel, f"imports {_WRITE_PATH_MODULE}"))
+            elif isinstance(node, ast.Import):
+                for a in node.names:
+                    if a.name == _WRITE_PATH_MODULE:
+                        out.append((rel, f"imports {_WRITE_PATH_MODULE}"))
+            elif isinstance(node, ast.Call):
+                name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+                if name in _WRITE_PATH_VERBS:
+                    out.append((rel, f"calls {name}()"))
+    by_module: Dict[str, List[str]] = {}
+    for module, how in sorted(set(out)):
+        by_module.setdefault(module, []).append(how)
+    return tuple((m, ", ".join(hows)) for m, hows in sorted(by_module.items()))
+
+
+def store_writes(where: Optional[Path] = None) -> int:
+    """Write sites in the store's package. A path, not yet a store at rest."""
+    from purity import writes  # noqa: E402
+
+    base = where if where is not None else STORE
+    return len(writes([base])) if base.exists() else 0
+
+
 def r16_at_rest(records: Optional[Path] = None,
-                escrow: Optional[Path] = None) -> Result:
-    """R16 — data at rest is encrypted, with the key escrowed (§5)."""
+                escrow: Optional[Path] = None,
+                store: Optional[Path] = None,
+                tree: Optional[Path] = None) -> Result:
+    """R16 — data at rest is encrypted, with the key escrowed (§5).
+
+    **The at-rest count is the durable one, and `AT_REST_BOUNDARY` is where that
+    word is defined.** Until S-1 there was no store and the question did not
+    arise; `store/` now carries write sites, and whether they count as records at
+    rest is the judgement this check has to make out loud rather than by picking
+    a number. It is made by asking the tree who calls that path: nobody outside
+    `tests/`, so nothing durable is written, so the count is zero and the
+    condition names the commit that changes it.
+    """
     title = "data at rest is encrypted, with the key escrowed"
     seam = at_rest_seam(records)
     disposed, why = escrow_disposition(escrow)
-    at_rest = anything_at_rest(records)
+    ring_writes = anything_at_rest(records)
+    staged = store_writes(store)
+    callers = durable_callers(tree, store)
+    durable = ring_writes + (staged if callers else 0)
 
-    if not seam and not at_rest:
+    # Said the same way in every branch, so a reader comparing two runs is
+    # comparing the same measurement.
+    measured = (
+        f"purity.writes(): {ring_writes} site(s) in records/, {staged} in store/; "
+        f"{len(callers)} non-test caller(s) of the store's write path"
+        + (f" ({', '.join(m for m, _ in callers[:3])})" if callers
+           else ", so those {} write(s) reach a database created and dropped "
+                "inside one test module".format(staged))
+        + f". Boundary: {AT_REST_BOUNDARY}")
+
+    if not seam and not durable:
         return Result(
             "R16", title, Verdict.ABSENT, Severity.NONE,
             f"no at-rest sealing entry point in records/ (looked for "
-            f"{len(AT_REST_VERBS)} verb(s) by AST, found 0) and nothing at rest to "
-            f"seal: purity.writes() over records/ reports 0 write site(s). "
-            f"records/sealing.py is rule 10's human seal, not a cipher, and is "
-            f"deliberately not counted. Escrow: {why}",
-            condition="the first module that writes a record to a disk. R16 "
+            f"{len(AT_REST_VERBS)} verb(s) by AST, found 0) and nothing durable "
+            f"at rest to seal. records/sealing.py is rule 10's human seal, not a "
+            f"cipher, and is deliberately not counted. {measured}. Escrow: {why}",
+            condition="the first module that writes a record durably. R16 "
                       "becomes an open S1 at that commit unless sealing lands with it",
         )
     if not seam:
         return Result(
             "R16", title, Verdict.FINDING, Severity.S1,
-            f"{at_rest} write site(s) in records/ and no at-rest sealing entry "
-            f"point: records hit the disk in the clear. Escrow: {why}",
+            f"{durable} durable write site(s) and no at-rest sealing entry "
+            f"point: records hit the disk in the clear. {measured}. Escrow: {why}",
         )
-    if not disposed and not at_rest:
+    if not disposed and not durable:
         # The seam landed ahead of the store, which is this repository's
         # deliberate ordering (item 4 note iii): the mechanism exists and no
-        # master has been minted, no record is at rest, so a lost key file
-        # cannot yet destroy anything. This check's own stated condition —
+        # master has been minted, no record is durably at rest, so a lost key
+        # file cannot yet destroy anything. This check's own stated condition —
         # "R16 becomes an open S1 the day anything writes a record to disk" —
         # was written before the seam existed and the first implementation
         # flipped on seam presence instead. Caught when F3 merged: the doc's
         # reconciler went red on a severity the condition never promised.
+        #
+        # S-3 is the second time it needed saying more precisely. `store/` now
+        # writes, so "anything writes a record to disk" reads as satisfied on a
+        # careless count — and it is not, because the only writes are into
+        # databases that are dropped at the end of the module that made them.
         return Result(
             "R16", title, Verdict.FINDING, Severity.S2,
-            f"sealing at {', '.join(m for m, _ in seam)}, nothing at rest yet "
-            f"(purity.writes() over records/: 0 site(s)), and no escrow "
-            f"disposition — {why}",
-            condition="the first module that writes a record to a disk. This "
-                      "finding becomes S1 at that commit unless a recorded, "
-                      "rehearsed escrow disposition exists by then",
+            f"sealing at {', '.join(m for m, _ in seam)}, nothing durably at "
+            f"rest yet, and no rehearsed escrow disposition — {why}. {measured}",
+            condition="the first non-test caller of the store's write path "
+                      "(docs/PLAN-STORE.md's S-4). This finding becomes S1 at "
+                      "that commit unless a recorded, rehearsed escrow "
+                      "disposition exists by then; §11.1's install acceptance is "
+                      "where the rehearsal is asserted for a deployment",
         )
     if not disposed:
         return Result(
             "R16", title, Verdict.FINDING, Severity.S1,
-            f"sealing at {', '.join(m for m, _ in seam)}, {at_rest} write "
-            f"site(s), and no escrow disposition — {why}. §5: a single file "
-            f"loss destroys every record, irrecoverably, by design",
+            f"sealing at {', '.join(m for m, _ in seam)}, {durable} durable "
+            f"write site(s), and no rehearsed escrow disposition — {why}. §5: a "
+            f"single file loss destroys every record, irrecoverably, by design. "
+            f"{measured}",
         )
     return Result(
         "R16", title, Verdict.PASS, Severity.NONE,
         f"{len(seam)} sealing entry point(s): "
-        f"{', '.join(f'{m}:{v}' for m, v in seam)}. Escrow: {why}",
+        f"{', '.join(f'{m}:{v}' for m, v in seam)}. Escrow: {why}. {measured}",
     )
 
 

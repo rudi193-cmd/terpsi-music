@@ -42,6 +42,14 @@ silence.
 the honest state of this plan is unrehearsed — recorded here so nobody reads
 a table of policy as a table of practice.*
 
+**This section is read by machine.** `tools/audit.py::escrow_facts` parses the
+threshold above, the custodian rows, and any `rehearsed <date>` here; R16 and
+`tools/conform.py`'s `key-escrow` row both read that one parse rather than the
+file twice. With no dated rehearsal the row is `UNKNOWN` — `records/atrest.py`'s
+own state for *recorded and never rehearsed* — and adding a dated line below
+turns it `PASS` on the next run. So the format matters: a rehearsal is recorded
+as a line containing the word *rehearsed* and an ISO date.
+
 ## What this document does not decide
 
 Where the box lives, where the master key file sits on it, and who performs

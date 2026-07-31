@@ -59,12 +59,17 @@ def seed(owner):
                         (who, born))
         cur.execute("INSERT INTO lane VALUES (%s,%s,%s,now(),now(),now(),NULL)",
                     (LBEN, BEN, "everything, as CSV, on request"))
+        # The entry is read by `entry_id`, never by its payload — which is the
+        # point being made one file over: above the derive floor the store
+        # serves an instruction and never opens anything. Since migration 004
+        # the clear column is constrained to NULL, so there is nothing to put a
+        # value in and nothing here needs one.
         cur.execute(
             "INSERT INTO edge VALUES (%s,'guardian_of',%s,%s,NULL,'enrolment "
             "form',now(),now() - interval '1 year',NULL)", (GANN, ANN, LBEN))
         cur.execute(
-            "INSERT INTO lane_entry VALUES (%s,%s,NULL,'allergy',"
-            "'{\"value\": \"peanut\"}'::jsonb,%s,'draft',NULL,now(),now(),NULL)",
+            "INSERT INTO lane_entry (entry_id, lane_id, kind, author_id, "
+            " created_at, valid_at) VALUES (%s,%s,'allergy',%s,now(),now())",
             (ENTRY, LBEN, ANN))
     owner.commit()
 

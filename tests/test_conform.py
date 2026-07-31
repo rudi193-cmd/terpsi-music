@@ -369,6 +369,93 @@ def test_the_real_ablation_check_is_wired_and_passes():
     assert "ablate red" in got.evidence
 
 
+# --- the key-escrow row's three states, driven (S-3) -----------------------
+#
+# The row reads UNKNOWN on this tree and `tests/test_atrest.py` holds that.
+# What is driven here is the two transitions either side of it, against
+# synthetic documents — because the transition to PASS happens when five people
+# meet in a room (docs/ESCROW.md, §11.1) and a branch nobody has run is a branch
+# nobody has checked.
+
+
+def _escrow_row(text):
+    """`check_key_escrow` over a synthetic `ESCROW.md`."""
+    import audit  # noqa: E402
+
+    with tempfile.TemporaryDirectory() as d:
+        doc = Path(d) / "ESCROW.md"
+        doc.write_text(text, encoding="utf-8")
+        real = audit.ESCROW_DOC
+        try:
+            audit.ESCROW_DOC = doc
+            return conform.check_key_escrow()
+        finally:
+            audit.ESCROW_DOC = real
+
+
+A_POLICY = """\
+# Escrow
+
+## The shape: 3-of-5
+
+| share | custodian | why |
+|---|---|---|
+| 1 | Program director | operates the box |
+| 2 | District administrator | survives a change of director |
+| 3 | Guardian-council seat | the adverse interest |
+| 4 | District counsel | legally legible custody |
+| 5 | Sealed deposit | survives everyone |
+
+## Rehearsals recorded
+
+*None yet.*
+"""
+
+A_REHEARSED_POLICY = A_POLICY.replace(
+    "*None yet.*", "Rehearsed 2026-09-14 by the five custodians; next drill "
+                   "2027-09-14.")
+
+
+def test_a_recorded_and_unrehearsed_policy_is_unknown_and_cites_the_file():
+    """Neither wall: not ABSENT because a policy exists, not PASS because §5
+    says an untested key recovery is not escrow."""
+    got = _escrow_row(A_POLICY)
+    assert got.state is State.UNKNOWN, got.evidence
+    assert "3-of-5" in got.evidence and "5 custodian" in got.evidence
+    assert "0 rehearsal(s)" in got.evidence
+    assert "ESCROW.md" in got.evidence
+    assert "§11.1" in got.evidence, (
+        "the row says the drill has not happened and not where it happens")
+
+
+def test_a_dated_rehearsal_turns_the_row_green():
+    """**The transition, driven rather than waited for.** Nothing about the code
+    changes; one line of a document does."""
+    got = _escrow_row(A_REHEARSED_POLICY)
+    assert got.state is State.PASS, got.evidence
+    assert "2026-09-14" in got.evidence
+    assert got.conforms
+
+
+def test_a_document_with_no_threshold_is_absent_not_unknown():
+    """The other wall. *Nothing decided* and *decided and never drilled* are
+    different facts and the row must not merge them (rule 13)."""
+    got = _escrow_row("# Escrow\n\nWe will sort this out later.\n")
+    assert got.state is State.ABSENT, got.evidence
+    assert "no k-of-n threshold" in got.evidence
+
+
+def test_the_row_never_reports_pass_without_a_sealed_store_to_report_on():
+    """The evidence has to say what would be lost. A `PASS` over a tree that
+    seals nothing is a rehearsal of a recovery of a key that opens nothing."""
+    from store.sealing_plan import sealed_columns  # noqa: E402
+
+    got = _escrow_row(A_REHEARSED_POLICY)
+    assert sealed_columns(), "nothing seals, so this row is about nothing"
+    for table, column in sealed_columns():
+        assert f"{table}.{column}" in got.evidence, got.evidence
+
+
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

@@ -325,8 +325,8 @@ def _seed(owner) -> Dict[uuid.UUID, uuid.UUID]:
         for who, lane in LANE.items():
             entries[who] = _id(f"entry-{who}")
             cur.execute(
-                "INSERT INTO lane_entry VALUES (%s,%s,NULL,'allergy',"
-                "'{\"value\": \"peanut\"}'::jsonb,%s,'draft',NULL,now(),now(),NULL)",
+                "INSERT INTO lane_entry (entry_id, lane_id, kind, author_id, "
+                " created_at, valid_at) VALUES (%s,%s,'allergy',%s,now(),now())",
                 (entries[who], lane, ANN))
     owner.commit()
     return entries
