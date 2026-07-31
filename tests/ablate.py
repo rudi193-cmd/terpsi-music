@@ -14,17 +14,49 @@ and reported a false survivor that was nearly written up as a finding.
 So every mutation is verified to have changed the file before its result counts,
 and a mutation that does not apply is an **error**, not a pass.
 
+**This harness edits the working tree, and until 2026-07-31 it could leave it
+edited.** Two ways, both hit for real on the same day:
+
+- **A signal.** `ablate()` restores in a `finally`, which `SIGTERM` does not
+  run — a CI timeout or a killed shell left the mutation on disk. The failure is
+  silent and the wrong way round: a mutated `tools/conform.py` with
+  `Check.conforms` forced to `True` reports **14/14 pass** and will write that
+  into a dated conformance record.
+- **A second run.** Running the suite while ablating starts a second ablation,
+  because `tests/test_conform.py` shells out to this script. The second run reads
+  an already-mutated file as its *original* and restores the mutation
+  permanently.
+
+Three mechanisms now, each proven by doing the thing to it: the original is
+written to `.ablate-inflight.json` **before** the edit and recovered at startup
+(survives `SIGKILL`), `SIGTERM`/`SIGINT`/`SIGHUP` raise so the `finally` runs,
+and `.ablate-lock` refuses a concurrent run while its holder is alive.
+
+**Bytecode caching is off** for the same family of reason — see `run()`.
+
     python3 tests/ablate.py
 """
 
 from __future__ import annotations
 
+import atexit
+import json
 import os
+import signal
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+
+#: What is mutated right now, and what it was. Written **before** the edit and
+#: removed after the restore, so a run that is killed leaves a breadcrumb rather
+#: than a corrupted file.
+INFLIGHT = ROOT / ".ablate-inflight.json"
+
+#: Held for the duration of a run. Two concurrent runs corrupt the tree: the
+#: second reads an already-mutated file as its "original" and restores to that.
+LOCK = ROOT / ".ablate-lock"
 
 #: (target file, pattern, replacement, label, suite that must catch it)
 MUTATIONS = [
@@ -302,6 +334,69 @@ MUTATIONS = [
 ]
 
 
+def _recover() -> str:
+    """Restore anything a previous run left mutated.
+
+    **The `finally` in `ablate()` is not enough and today proved it twice.** A
+    `SIGTERM` — a CI timeout, a killed shell — terminates the interpreter without
+    running `finally`, so the mutated file stays on disk. And a mutated
+    `tools/conform.py` does not look broken: with `Check.conforms` forced to
+    `True` it reports **14/14 pass** and writes that into a conformance record.
+
+    So the original is written to a sidecar *before* the edit, and recovered
+    here. This runs at startup, before anything is mutated.
+    """
+    if not INFLIGHT.exists():
+        return ""
+    try:
+        state = json.loads(INFLIGHT.read_text(encoding="utf-8"))
+        (ROOT / state["target"]).write_text(state["original"], encoding="utf-8")
+        INFLIGHT.unlink()
+        return state["target"]
+    except (OSError, ValueError, KeyError) as exc:
+        raise SystemExit(
+            f"  {INFLIGHT.name} is unreadable ({exc}). A previous run was killed "
+            f"mid-mutation and this file is the only record of the original. "
+            f"Restore by hand (git checkout) before running again."
+        )
+
+
+def _acquire_lock() -> None:
+    """Refuse to run beside another ablation.
+
+    Two runs mutating the same tree is not a race that produces a wrong answer;
+    it produces a **wrong file**. The second run reads a mutated file as its
+    baseline and "restores" the mutation permanently. Found by running the suite
+    in the background while ablating in the foreground — the suite's own
+    `check_ablation` shells out to this script.
+    """
+    if LOCK.exists():
+        try:
+            pid = int(LOCK.read_text(encoding="utf-8").strip())
+            os.kill(pid, 0)
+        except (ValueError, OSError):
+            LOCK.unlink(missing_ok=True)   # stale; the holder is gone
+        else:
+            raise SystemExit(
+                f"  another ablation is running (pid {pid}). Two runs mutating one "
+                f"tree corrupt it — the second restores the first's mutation. "
+                f"Wait, or remove {LOCK.name} if that process is gone."
+            )
+    LOCK.write_text(str(os.getpid()), encoding="utf-8")
+    atexit.register(lambda: LOCK.unlink(missing_ok=True))
+
+
+def _restore_on_signal() -> None:
+    """Make `finally` run when the process is asked to stop."""
+    def handler(signum, frame):
+        raise SystemExit(f"  interrupted by signal {signum}; restoring")
+    for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        try:
+            signal.signal(sig, handler)
+        except (ValueError, OSError):
+            pass          # not on the main thread, or unsupported
+
+
 def run(suite: str) -> bool:
     """True when the suite passes.
 
@@ -351,14 +446,22 @@ def ablate(target: str, pattern: str, repl: str, label: str, suite: str) -> str:
     mutated = original.replace(pattern, repl, 1)
     if mutated == original:
         return "NOT APPLIED"          # an error, not a pass — see the docstring
+    INFLIGHT.write_text(json.dumps({"target": target, "original": original}),
+                        encoding="utf-8")
     try:
         path.write_text(mutated, encoding="utf-8")
         return "SURVIVES" if run(suite) else "caught"
     finally:
         path.write_text(original, encoding="utf-8")
+        INFLIGHT.unlink(missing_ok=True)
 
 
 def main() -> int:
+    _restore_on_signal()
+    _acquire_lock()
+    recovered = _recover()
+    if recovered:
+        print(f"  recovered {recovered} — a previous run was killed mid-mutation")
     dropped = _purge_bytecode()
     if dropped:
         print(f"  purged {dropped} stale .pyc before mutating")
