@@ -15,11 +15,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import inspect  # noqa: E402
+
 from records.classify import (  # noqa: E402
     COMMON, LEGAL_RECORD, NOT_ELEVATED, PROTECTED_STATUS,
-    Decision, Descriptor, classify, unclassified,
+    Decision, Descriptor, aggregate, classify, unclassified,
 )
-from records.rungs import Rung  # noqa: E402
+from records.rungs import NEVER_SERVED, Rung  # noqa: E402
 
 
 def d(name, **kw) -> Descriptor:
@@ -182,6 +184,53 @@ def test_a_non_derived_field_is_unaffected_by_the_new_gate():
     """The gate must not make every anonymous field inherit something. A field
     derived from nothing is still `L2` by step 2."""
     assert classify(Descriptor("bus_capacity")).rung is Rung.L2
+
+
+# --- step 2a over a computed aggregate ------------------------------------
+
+
+def test_an_aggregate_under_the_declared_floor_inherits_its_inputs():
+    """The worked harm, in the shape both `records/attendance.py` and
+    `records/fees.py` call it in: a per-section figure over three students."""
+    got = aggregate("section_total", over=(Rung.L4,), cohort=3, floor=5)
+    assert got.rung is Rung.L4 and "cohort of 3" in got.reason
+
+
+def test_an_aggregate_over_a_large_enough_cohort_reaches_L2():
+    got = aggregate("program_total", over=(Rung.L4,), cohort=60, floor=5)
+    assert got.rung is Rung.L2 and got.decision is Decision.DECIDED
+
+
+def test_counting_never_declassifies_an_enforcement_only_input():
+    """**The fee-waiver leak, closed.** *"Three students in this section are on a
+    waiver"* is the declination table wearing a count, and a large cohort must
+    not launder it — `L5` has no purpose that unlocks it and no signature that
+    widens it."""
+    for cohort in (3, 60, 100000):
+        got = aggregate("waiver_count", over=(NEVER_SERVED, Rung.L3),
+                        cohort=cohort, floor=5)
+        assert got.rung is NEVER_SERVED, f"an L5 input was declassified at {cohort}"
+
+
+def test_an_aggregate_has_no_default_floor_and_refuses_a_useless_one():
+    """P-2's argument applied to `k`: a default would let callers stop
+    declaring, and no verified figure for it exists in this tree."""
+    assert inspect.signature(aggregate).parameters["floor"].default \
+        is inspect.Parameter.empty
+    for bad in (0, 1, -3):
+        try:
+            aggregate("x", over=(Rung.L3,), cohort=100, floor=bad)
+        except ValueError:
+            continue
+        raise AssertionError(f"a floor of {bad} was accepted")
+
+
+def test_an_aggregate_of_nothing_is_not_L1():
+    try:
+        aggregate("x", over=(), cohort=10, floor=5)
+    except ValueError:
+        return
+    raise AssertionError("an aggregate over no inputs was classified")
 
 
 def test_the_classifier_is_not_broken_shut():

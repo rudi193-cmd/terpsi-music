@@ -118,6 +118,38 @@ def halt(stake: Stake, *, decision: str, affects: Sequence[str], to_whom: str,
                       frozenset(c for c in considerations if (c or "").strip()))
 
 
+def one_lane(rows: Sequence, what: str) -> str:
+    """The single lane these rows belong to, or a refusal.
+
+    **The structural half of W-7, and it was `records/practice.py`'s private
+    `_one_lane` until a second module needed it.** That module's finding
+    generalizes: every own-work statistic is a function of *one* lane's rows and
+    every comparison needs two, so a ranking is unreachable through a function
+    that refuses a mixed row set. It holds for practice minutes, for attendance
+    counts, and for a balance — *"who owes the most"* is a ranking of students by
+    money, and it is one `GROUP BY` away from an ordinary total.
+
+    Promoted here rather than copied, in the commit that needed the second
+    caller (rule 12). `refuse_to_rank` already lives in this module, this rule is
+    enforced *by* it, and a second spelling of "read one lane" is the pair §16
+    records four failures of.
+
+    **Raises rather than filtering.** Silently dropping the other lanes' rows
+    returns a number that looks like an own-lane statistic and is not — the same
+    reason `receipts.gaps()` refuses a mixed sequence instead of picking one.
+
+    `what` is required and is the caller's own words, because the refusal a
+    reader sees should name the statistic that was attempted rather than the
+    helper that stopped it.
+    """
+    lanes = {r.lane_id for r in rows}
+    if len(lanes) > 1:
+        refuse_to_rank(what, [getattr(r, "subject_id", "") for r in rows])
+    if not lanes:
+        raise ValueError(f"no rows; {what} needs a lane to be about")
+    return next(iter(lanes))
+
+
 def refuse_to_rank(what: str, affects: Sequence[str]) -> None:
     """Call this where a ranking was requested. It always raises.
 
