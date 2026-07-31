@@ -1156,6 +1156,134 @@ MUTATIONS = [
      "a card over no quantities reports nothing", "tests/test_venue.py"),
     ("venue/card.py", "    if not answer.known:", "    if False:",
      "an unmeasured quantity renders as unknown", "tests/test_venue.py"),
+
+    # ---------------------------------------------------------------- §9 item 9
+    # records/commentary.py — adjudication. Three families: the primitive's
+    # attribution and provenance, refusal 4's unrepresentable score, and the
+    # guest session whose observed half must stay a filter over the chain.
+    #
+    # The primitive.
+    ("records/commentary.py",
+     '        if not (self.body or "").strip():', "        if False:",
+     "an empty remark is absence", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "        if not isinstance(self.capture, Capture):", "        if False:",
+     "a capture mode is a Capture", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "        if self.capture is Capture.MACHINE:\n            if name:",
+     "        if self.capture is Capture.MACHINE:\n            if False:",
+     "rule 10: a transcript is not the judge's", "tests/test_commentary.py"),
+    ("records/commentary.py", "        elif not name:", "        elif False:",
+     "a person's remark names the person", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "        if p_outranks(_PROVENANCE_OF[self.capture], self.anchor.provenance):",
+     "        if False:",
+     "words cannot outrank their tap", "tests/test_commentary.py"),
+    # W-1 / W-3. The fan-out is the only multi-anchor constructor, so its two
+    # guards are what keep it from becoming a roster row with a timestamp.
+    ("records/commentary.py", "    if not marks:", "    if False:",
+     "W-3: a fan-out over nothing", "tests/test_commentary.py"),
+    ("records/commentary.py", "    if len(referents) != 1:", "    if False:",
+     "W-3: one referent, shared", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "    if len(set(lanes)) != len(lanes):", "    if False:",
+     "W-3: one lane entry each", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "    if remark.capture is Capture.MACHINE:\n        return draft(subject, KIND, remark.body)",
+     "    if False:\n        return draft(subject, KIND, remark.body)",
+     "a transcript enters authored by nobody", "tests/test_commentary.py"),
+    # Refusal 4 / SA-3. The properties are the enforcement; a mutation that
+    # makes one return is exactly the `getattr(..., None)` the shape refuses.
+    ("records/commentary.py",
+     '        refuse_standing_score("Remark.rating", self.subject_id or "this performer")',
+     "        return None",
+     "SA-3: a rating cannot be read", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     '    refuse_to_rank("comparing two adjudication remarks", subjects)',
+     "    return None",
+     "refusal 6: two remarks do not order", "tests/test_commentary.py"),
+    # The gate commentary leaves through.
+    ("records/commentary.py", "    if rung is None:", "    if False:",
+     "rule 13: no rung was decided", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "    if remark.addresses is not Addressed.LANE:\n        raise Unlaned(",
+     "    if False:\n        raise Unlaned(",
+     "an unlaned remark has no lane path", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "    if record.body != remark.body:", "    if False:",
+     "a seal names what was sealed", "tests/test_commentary.py"),
+    ("records/commentary.py", "    if not record.servable:", "    if False:",
+     "§8.2: only sealed is servable", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     '    return f"{body} [{serving.provenance or remark.provenance}]"',
+     "    return body",
+     "§15: provenance travels with the value", "tests/test_commentary.py"),
+    # §7.2's knock.
+    ("records/commentary.py",
+     '        if not (self.purpose or "").strip():', "        if False:",
+     "a knock declares a purpose", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     '        if not (self.event_id or "").strip():', "        if False:",
+     "a guest grant is to an event", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     '        bad = [ln for ln in self.lanes\n'
+     '               if not (ln or "").strip() or ln.strip().lower() in _WILDCARDS]',
+     "        bad = []",
+     "W-2: a group is not a scope", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "        if len(set(self.lanes)) != len(self.lanes):", "        if False:",
+     "a lane declared twice", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "        if self.closed_at is not None and self.closed_at < self.declared.opened_at:",
+     "        if False:",
+     "a session closes after it opens", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "        return self.closed_at is None or when <= self.closed_at",
+     "        return True",
+     "§4: the window is time-boxed", "tests/test_commentary.py"),
+    ("records/commentary.py", "    if not session.within(at):", "    if False:",
+     "a capture outside its session", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "    if remark.addresses is not Addressed.LANE:\n        return ledger",
+     "    if False:\n        return ledger",
+     "an ensemble remark writes no lane row", "tests/test_commentary.py"),
+    # J6: the observed half is a filter over the chain. If it stops filtering by
+    # principal, a guest is shown somebody else's reads as their own — which is
+    # the failure a separate summary would have caused, arriving by the other road.
+    ("records/commentary.py",
+     "               if e.principal_id == session.declared.principal_id\n"
+     "               and session.within(e.occurred_at)]",
+     "               if session.within(e.occurred_at)]",
+     "J6: observed is this guest's only", "tests/test_commentary.py"),
+    ("records/commentary.py", "    if session.open:", "    if False:",
+     "rule 13: an open session is unknown", "tests/test_commentary.py"),
+    ("records/commentary.py", "    if undeclared:", "    if False:",
+     "§7.2: undeclared lanes diverge", "tests/test_commentary.py"),
+    # The transcription seam.
+    ("records/commentary.py",
+     "        if self.record.state is not State.DRAFT:", "        if False:",
+     "a transcript arrives as a draft", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "        if self.record.author_id is not None:", "        if False:",
+     "a transcript is the machine's", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     '        if not (self.by_machine or "").strip():', "        if False:",
+     "a transcript names its transcriber", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "        raise NotImplementedError(\n"
+     '            "a transcript is not attributed to the person who spoke; it is a "',
+     "        return NotImplementedError(\n"
+     '            "a transcript is not attributed to the person who spoke; it is a "',
+     "said_by raises rather than answers", "tests/test_commentary.py"),
+    # Refusal 1's tagging is this module's contribution: the guard cannot know
+    # what a call touches, so a seam that mis-tags defeats it while passing.
+    ("records/commentary.py",
+     "    answer: Answer = through(call, classes=TRANSCRIPT_CLASSES,",
+     '    answer: Answer = through(call, classes=("PUBLIC",),',
+     "refusal 1: the seam tags the call", "tests/test_commentary.py"),
+    ("records/commentary.py",
+     "TRANSCRIPT_RUNG = compose(Rung.L3, Rung.L4)", "TRANSCRIPT_RUNG = Rung.L1",
+     "the transcript rung is composed", "tests/test_commentary.py"),
 ]
 
 

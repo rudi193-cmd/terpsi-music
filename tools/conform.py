@@ -661,13 +661,20 @@ NAMED_MIDDLES: Tuple[str, ...] = (
     "registry.reconcile<->migrations/001_lanes.sql+records/classify.py",
     "atrest.reconcile", "atrest.composes",
     "venue.sourcing.divergence<->records.marking P1-P5",
+    "commentary.SA3_CLAUSE<->§13",
+    "commentary.GuestSession<->reconciled_session",
 )
 
 UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
     _unknown("sidecar-only", "canonical store read-only; agent writes are sidecar (§5)",
              "there is no store, so the rule cannot be violated or demonstrated"),
     _unknown("knock-enforcing", "the knock wired in enforcement mode (§7.2)",
-             "session reconciliation lives in willow-gate and is not wired here"),
+             "the gate's own session reconciliation lives in willow-gate and is "
+             "not wired here. records/commentary.py now builds the declared/"
+             "observed/diff reconciliation for an adjudication session, with the "
+             "observed half a filter over records/disclosure.py's chain — but "
+             "nothing routes a session through it, so by rule 18 it is a ledger "
+             "and not enforcement until a surface exists (§18 item 4)"),
     _unknown("allowlist-rot", "allowlist rot tests (§16)",
              "no destination allowlist exists; §14 records the fleet-wide version "
              "as unique to UTETY"),

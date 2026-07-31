@@ -717,6 +717,58 @@ def test_the_tombstone_stands_where_the_ddl_used_to_be():
         "running the tombstone succeeds silently, which reads as a migration"
 
 
+def test_adjudication_commentary_needs_no_table_of_its_own():
+    """§9 item 9 added no DDL, and this is the claim under that decision.
+
+    `records/commentary.py` stores a remark as a `lane_entry`, so the shape has
+    to carry four things, and each is asserted here rather than argued in a
+    commit message:
+
+    * **a lane**, `NOT NULL`, so a remark about a student is lane-scoped from
+      the first write (W-1);
+    * **a referent**, so a moment involving several students is several rows
+      sharing one — W-3's fan-out, which is what makes the absence of a
+      participant column survivable;
+    * **a payload**, for the anchor `records/marking.py` owns (`at_ms`, `seat`,
+      the derived `ScorePosition`) without giving each a column that a second
+      kind of entry would then have to leave null;
+    * **the seal cascade**, `seal_state` plus `sealed_by`, which is §8.2's
+      draft/sealed/pending and the reason a transcript is not a record.
+
+    A `commentary` table beside this one would be a second store for the same
+    fact, which is the pair §16 forbids — and it would need its own copy of
+    every clause above.
+
+    **The gap this does not close, recorded rather than papered over:**
+    `lane_entry.lane_id` is `NOT NULL`, so a remark addressed to the ensemble
+    and naming *nobody* has no home here. That is correct as far as it goes —
+    such a remark is not a fact about a person and does not belong in a lane —
+    but the DDL offers no other table for it either, and §8.1's `addresses`
+    includes `Ensemble`, `Section` and `Part`. `records/commentary.py`
+    represents it (`Addressed.WORK`) and refuses to fabricate a lane for it.
+    Where it is stored is an open question, and inventing a table to answer it
+    was out of scope for this item.
+    """
+    body = tables(_sql())["lane_entry"]
+    cols = columns(body)
+
+    assert "NOT NULL" in cols["lane_id"], "a remark could be stored outside a lane"
+    assert "referent" in cols["referent_id"], "no shared referent for a fan-out"
+    assert "jsonb" in cols["payload"].lower(), "no payload for the anchor"
+    for needed in ("seal_state", "sealed_by", "author_id"):
+        assert needed in cols, f"lane_entry has no {needed}; §8.2 needs it"
+
+    # And no parallel structure crept in beside it.
+    for name in tables(_sql()):
+        assert "commentary" not in name and "remark" not in name, \
+            f"table {name!r} duplicates lane_entry for one kind of entry (§16)"
+
+    # W-1 again, at the column level: nothing here holds a set of students.
+    for cn in cols:
+        assert cn not in ("subject_ids", "lane_ids", "students", "roster",
+                          "participants"), f"lane_entry.{cn} is a roster column"
+
+
 def test_the_check_passes_the_real_schema_only_on_merit():
     """Mirror of the failure tests: a checker that complained about everything
     would pass them and still be useless."""
