@@ -369,7 +369,7 @@ MUTATIONS = [
     # assertion in test_component_map.py and asked test_component_map.py to
     # notice — circular, and the harness reported SURVIVES for it, correctly.
     # A guard's mutation belongs on the artifact the guard watches.
-    ("docs/ARCHITECTURE.md", "VERIFIED-COUNT: 10 of 40", "VERIFIED-COUNT: 40 of 40",
+    ("docs/ARCHITECTURE.md", "VERIFIED-COUNT: 11 of 41", "VERIFIED-COUNT: 41 of 41",
      "§14's header figure is enforced", "tests/test_component_map.py"),
     # The join forwards every argument `serve()` takes. Each of the next two
     # reverts one to the value it effectively had when `dispatch()` did not
