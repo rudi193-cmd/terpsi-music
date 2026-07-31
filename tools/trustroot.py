@@ -25,6 +25,7 @@ Stdlib only (`git ls-files` by subprocess). No writes, no network.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -69,12 +70,16 @@ def is_trust_root(path: str) -> bool:
     `TM-ROOT-01` recorded after the PR #16 review — or if it ends in a grant
     suffix.
     """
-    p = path.replace("\\", "/").strip("/")
-    if not p:
+    # Split on either separator rather than normalising with str.replace: a
+    # `.replace()` on a variable named `path` reads to tools/purity.py as
+    # `Path.replace()` — a filesystem move, i.e. a write — and trips gate G-C
+    # (the check's own docstring names this heuristic and its false positives).
+    if not path.strip():
         return False
-    if any(part in _TRUST_ROOT_DIRS for part in p.split("/")):
+    parts = [c for c in re.split(r"[\\/]", path) if c]
+    if any(part in _TRUST_ROOT_DIRS for part in parts):
         return True
-    return p.endswith(_GRANT_SUFFIXES)
+    return path.endswith(_GRANT_SUFFIXES)
 
 
 def tracked_paths(where: Optional[Path] = None) -> Optional[Tuple[str, ...]]:
