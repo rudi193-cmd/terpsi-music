@@ -299,8 +299,9 @@ MUTATIONS = [
      "elif name in _OWNED_WRITES and (owner in _FS_OWNERS or _on_a_path(node.func)):",
      "elif name in _OWNED_WRITES:",
      "dataclasses.replace is not os.replace", "tests/test_purity.py"),
-    ("tools/purity.py", "return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE)",
-     "return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE, Reach.READ)",
+    ("tools/purity.py",
+     "return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE, Reach.UNPARSEABLE)",
+     "return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE, Reach.UNPARSEABLE, Reach.READ)",
      "a read is not a write", "tests/test_purity.py"),
     ("tools/conform.py", "    if not n:\n        return Check(\"no-egress\", what, State.UNKNOWN,",
      "    if False:\n        return Check(\"no-egress\", what, State.UNKNOWN,",
@@ -413,6 +414,37 @@ MUTATIONS = [
     ("records/standing.py", "return threshold is not None and at >= threshold",
      "return threshold is None or at >= threshold",
      "an unknown threshold is not a reached one", "tests/test_standing.py"),
+    # Rule 13, watched by tests/test_rule13_acceptance.py. Every replacement
+    # below is the *naive* implementation — the one a hurried author writes,
+    # where a source that could not be reached returns the same value as a
+    # source that answered "nothing". None of them breaks an import or a parse,
+    # so a nonzero exit here is a named failure rather than a crash.
+    ("records/sending.py",
+     'return SendList(Standing.UNKNOWN, (), f"restriction source failed: {exc!r}")',
+     'return SendList(Standing.DERIVED, (), f"restriction source failed: {exc!r}")',
+     "a failed restriction source is unknown", "tests/test_rule13_acceptance.py"),
+    ("records/serving.py",
+     'return Serving(Outcome.UNKNOWN, None, None,\n'
+     '                       "field carries no classification; refusing rather than guessing")',
+     'return Serving(Outcome.PAYLOAD, fld.payload, None,\n'
+     '                       "field carries no classification; refusing rather than guessing")',
+     "an unclassified field is not served", "tests/test_rule13_acceptance.py"),
+    ("tools/conform.py",
+     '        return Check("standalone-suites", what, State.UNKNOWN,\n'
+     '                     "no test files found; nothing was checked")',
+     '        return Check("standalone-suites", what, State.PASS,\n'
+     '                     "no test files found; nothing was checked")',
+     "a scan of no suites is not a pass", "tests/test_rule13_acceptance.py"),
+    ("voice.py", "    if not _COMPILED:", "    if False:",
+     "an unloaded rubric is unavailable", "tests/test_rule13_acceptance.py"),
+    ("tools/sockets.py",
+     '    if "listeners" not in data:\n        return None',
+     "    if False:\n        return None",
+     "a manifest declaring nothing declared nothing", "tests/test_rule13_acceptance.py"),
+    ("tools/purity.py",
+     "if t.reach in (Reach.EGRESS, Reach.SPAWN, Reach.UNPARSEABLE))",
+     "if t.reach in (Reach.EGRESS, Reach.SPAWN))",
+     "an unreadable file is not clean", "tests/test_rule13_acceptance.py"),
 ]
 
 
