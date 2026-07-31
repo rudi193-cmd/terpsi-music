@@ -110,8 +110,15 @@ itself. Each must be attempted and refused, and each refusal ablated:
 
 - The app role rewrites a sealed row; deletes anything; reads a payload
   column in the clear.
-- A query crosses a lane without an envelope — through RLS, with the Python
-  predicate disabled, and the reverse.
+- ~~A query crosses a lane without an envelope — through RLS, with the Python
+  predicate disabled, and the reverse.~~ **Attempted and refused, both
+  directions, 2026-07-31 with S-2** (`tests/test_store_rowsecurity.py`;
+  `tests/test_serving.py` and `tests/test_crossing.py` for the reverse). An RLS
+  refusal is a row count and not an error string, so it is asserted three ways
+  together — zero rows for the app role, the row shown to exist to a reader
+  outside the policy, and the policy present in `pg_policies` under its own name
+  on a table with row security enabled and forced — because a refusal that could
+  be an empty table's is not evidence.
 - A sealed payload read from disk without the lane key yields ciphertext,
   and the lane's erasure leaves the chain verifying (`atrest.composes()`
   against the real store).
@@ -143,7 +150,36 @@ itself. Each must be attempted and refused, and each refusal ablated:
   `UPDATE`, `DROP`, `ALTER`, `GRANT` and `REVOKE` match only where the next
   identifier was one character long. Both were found by pointing a new check at
   the tree and noticing something known to be there was missing.
-- **S-2 — RLS and the differential middle** (after S-1).
+- ~~**S-2 — RLS and the differential middle**~~: **built 2026-07-31.**
+  `migrations/003_row_security.sql` — five functions, a policy per lane-scoped
+  table, `FORCE ROW LEVEL SECURITY` with ownership moved to `terpsi_migrator` so
+  the flag binds a role a superuser attribute cannot excuse — plus
+  `store/session.py` (the acting principal, `SET LOCAL`, transaction-scoped and
+  offered in no other shape), `tests/test_store_rowsecurity.py`,
+  `tests/test_store_differential.py` and `tests/ablate_store.py`.
+  **The second item on the acceptance list above is closed in both directions**:
+  a query crossing a lane is refused through RLS with the Python predicate
+  absent from the path (raw SQL as the app role), and refused through the
+  predicate with no store anywhere near it (`tests/test_serving.py`,
+  `tests/test_crossing.py`, which have never had a database — cited rather than
+  restated).
+  **Said precisely rather than rounded up: two of `serve()`'s six decisions are
+  compiled and four are not.** The lane seal and the crossing envelope are in
+  SQL; the grant ceiling, the derive floor, `L5`'s never-served rule, `L4`'s
+  purpose-with-the-self-cap and §7.1's second clock are Python-only, because
+  each turns on something that is not a column of the row being read. The
+  migration's header carries the list and this line does not restate it.
+  **Three findings came out of building it**, recorded here because each was a
+  guard that looked fine and was not: the differential's first case set did not
+  exercise W-3's ward clause at all — the adapter supplied the ward's own lane
+  as the read's origin, so the seal was always entered through the *other*
+  disjunct and ablating the ward clause survived; a forged self edge held by
+  somebody with no other standing cannot tell the ward test from the entitlement
+  test, so the case set gained a principal who holds both; and the workflow's own
+  S-1 ablation step stopped proving anything the moment row security landed,
+  because a `DELETE` with no policy succeeds having matched nothing and the step
+  asserted on the exit code. All three were found by ablating rather than by
+  reading.
 - **S-3 — the sealing seam**: atrest wiring, escrow disposition surfaced in
   conformance, R16's transition exercised deliberately in a test before it
   happens by accident (after S-1, parallel with S-2).

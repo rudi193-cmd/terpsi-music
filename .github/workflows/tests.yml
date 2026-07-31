@@ -352,6 +352,41 @@ jobs:
           done
           exit $status
 
+      # --- S-2: the read predicate compiled, and the middle that keeps the
+      # --- two implementations honest.
+      #
+      # `tests/test_store_rowsecurity.py` attacks the compiled half: a lane
+      # crossing refused with no Python predicate on the path, an unnamed
+      # session reading nothing anywhere, and the owner bypass attempted as the
+      # role that actually owns the tables.
+      #
+      # `tests/test_store_differential.py` is the reconciler named in
+      # `docs/PLAN-STORE.md` decision 4 and in `tools/conform.py`'s
+      # NAMED_MIDDLES. It drives one case set through `records/serving.py` with
+      # real rows AND through the cluster under RLS, and fails on any
+      # disagreement in either direction. It is the reason S-2's pair is legal
+      # under rule 12, so a run in which it did not execute is a run in which
+      # the pair has no middle.
+      - name: The read predicate, both layers (S-2)
+        run: |
+          status=0
+          for f in tests/test_store_rowsecurity.py \
+                   tests/test_store_differential.py; do
+            echo "=== $f"
+            python3 "$f" || status=1
+          done
+          exit $status
+
+      # Rule 19 for both halves of that pair. Twenty mutations across the
+      # migration and the two predicate modules, each required to turn a named
+      # suite red — and one declared survivor, printed with the assertion that
+      # does catch it, because a table reading all `caught` is a table nobody
+      # reads. The harness verifies each pattern actually applied: a mutation
+      # that changed no bytes leaves the suite green and would otherwise report
+      # a survivor that never happened (scout-13 row B).
+      - name: Ablate the read predicate's two layers, and require the attacks to land
+        run: python3 tests/ablate_store.py
+
       # Rule 19 for the guards that need a cluster. tests/ablate.py's table
       # covers the ones that can be mutated with no database; these three are
       # in the schema instead of in Python, so they are ablated the way the
@@ -397,10 +432,23 @@ jobs:
           echo "ablation confirmed: the trigger was the guard"
 
           # (c) The same discipline for the app role's missing privileges.
+          #
+          # **The row security landed with S-2 changed what "the delete lands"
+          # means here, and the step had to change with it.** Under
+          # migration 003 a DELETE with no policy does not raise — it succeeds
+          # having matched nothing, so `psql` exits 0 and the old assertion
+          # ("the statement did not fail") would have read as a confirmed
+          # ablation while the attack deleted no row at all. Two fixes, and
+          # both are the point: the ad-hoc role gets an explicit policy so that
+          # row security is not standing in for the privilege under test (a
+          # refusal that could be a different guard's is not evidence), and the
+          # landing is asserted by counting the row rather than by an exit code.
           $A -c "DO \$\$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='ablate_app') THEN CREATE ROLE ablate_app LOGIN; END IF; END \$\$;"
           $A -c "GRANT USAGE ON SCHEMA public TO ablate_app"
           $A -c "GRANT SELECT, INSERT ON ALL TABLES IN SCHEMA public TO ablate_app"
           $A -c "REVOKE UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public FROM ablate_app"
+          $A -c "CREATE POLICY ablate_app_is_not_what_is_under_test ON lane_entry
+                 FOR ALL TO ablate_app USING (true) WITH CHECK (true)"
           if $A -c "SET ROLE ablate_app; DELETE FROM lane_entry" 2>/dev/null; then
             echo "the app role deleted a row; the revoke did nothing"; exit 1
           fi
@@ -408,6 +456,8 @@ jobs:
           $A -c "GRANT UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO ablate_app"
           $A -c "SET ROLE ablate_app; DELETE FROM lane_entry WHERE entry_id = '$E1'" \
             || { echo "ABLATION KILLED NOTHING: the delete still fails with the grant restored"; exit 1; }
+          test "$($A -At -c "SELECT count(*) FROM lane_entry WHERE entry_id = '$E1'")" = "0" \
+            || { echo "ABLATION KILLED NOTHING: the delete reported success and removed no row"; exit 1; }
           echo "ablation confirmed: the missing privilege was the guard"
 
           $PSQL -q -c "DROP DATABASE $DB"

@@ -39,16 +39,29 @@ BEN = uuid.UUID("11111111-1111-1111-1111-111111111111")
 ANN = uuid.UUID("11111111-3333-3333-3333-333333333333")
 LBEN = uuid.UUID("22222222-1111-1111-1111-111111111111")
 ENTRY = uuid.UUID("33333333-1111-1111-1111-111111111111")
+GANN = uuid.UUID("dddddddd-1111-1111-1111-111111111111")
 NO_SUCH_LANE = uuid.UUID("99999999-9999-9999-9999-999999999999")
 
 
 def seed(owner):
+    """Ben's lane, one entry, and **Ann's guardianship over it**.
+
+    The edge arrived with S-2. Until `migrations/003_row_security.sql` the app
+    role reached every row in the cluster and this seed did not need to say why
+    Ann may read Ben's file; now `serve_field` names her as the acting principal
+    and the policies ask. A seed that did not record the guardianship would make
+    every test below fail for the right reason — which is the wrong reason for
+    these tests, whose subject is the transaction and not the seal.
+    """
     with owner.cursor() as cur:
         for who, born in ((BEN, "2010-05-01"), (ANN, "1979-02-02")):
             cur.execute("INSERT INTO person VALUES (%s,%s,now(),now(),NULL)",
                         (who, born))
         cur.execute("INSERT INTO lane VALUES (%s,%s,%s,now(),now(),now(),NULL)",
                     (LBEN, BEN, "everything, as CSV, on request"))
+        cur.execute(
+            "INSERT INTO edge VALUES (%s,'guardian_of',%s,%s,NULL,'enrolment "
+            "form',now(),now() - interval '1 year',NULL)", (GANN, ANN, LBEN))
         cur.execute(
             "INSERT INTO lane_entry VALUES (%s,%s,NULL,'allergy',"
             "'{\"value\": \"peanut\"}'::jsonb,%s,'draft',NULL,now(),now(),NULL)",
@@ -68,6 +81,16 @@ def refused(rows):
 
 
 def count(conn):
+    """How many entries the log holds.
+
+    **Asked of the owner connection, not the app's** (S-2). What landed in a
+    table is a question about the database, and routing it through the
+    connection whose visibility is the thing under test elsewhere would make
+    *"no entry was written"* and *"this principal reaches no entry"* the same
+    answer — the indistinguishability this whole tree is written against, walked
+    into by a helper. The owner connection is a superuser in the harness and
+    bypasses row security, which is exactly what an instrument should do.
+    """
     return conn.execute("SELECT count(*) FROM disclosure_log").fetchone()[0]
 
 
@@ -88,15 +111,15 @@ def test_a_narrated_read_serves_and_logs_in_one_transaction():
         owner, app = installed(db)
         seed(owner)
         try:
-            before = count(app)
+            before = count(owner)
             got = a_read(app)
             assert got.state is NarratedState.SERVED, got.reason
             assert got.value is not None
-            assert count(app) == before + 1
+            assert count(owner) == before + 1
 
             # The proof, from the database: the transaction that wrote the row
             # is the transaction the read ran in.
-            xmin = app.execute(
+            xmin = owner.execute(
                 "SELECT xmin::text FROM disclosure_log ORDER BY seq DESC LIMIT 1"
             ).fetchone()[0]
             assert int(xmin) == got.xid, (
@@ -118,7 +141,7 @@ def test_every_outcome_is_narrated_including_a_refusal():
             got = a_read(app, decide=refused)
             assert got.state is NarratedState.SERVED
             assert got.serving.outcome is Outcome.REFUSED
-            what = app.execute(
+            what = owner.execute(
                 "SELECT what FROM disclosure_log ORDER BY seq DESC LIMIT 1"
             ).fetchone()[0]
             assert what.endswith("refused"), what
@@ -136,7 +159,7 @@ def test_the_lanes_chain_links_entry_to_entry():
         try:
             a_read(app)
             a_read(app)
-            rows = app.execute(
+            rows = owner.execute(
                 "SELECT prev_hash, hash FROM disclosure_log ORDER BY seq"
             ).fetchall()
             assert len(rows) == 2
@@ -160,7 +183,7 @@ def test_a_read_whose_narration_cannot_be_written_does_not_commit():
         owner, app = installed(db)
         seed(owner)
         try:
-            before = count(app)
+            before = count(owner)
             got = a_read(app, lane_id=str(NO_SUCH_LANE))
             assert got.state is NarratedState.UNAVAILABLE
             assert "did not commit" in got.reason
@@ -171,7 +194,7 @@ def test_a_read_whose_narration_cannot_be_written_does_not_commit():
             else:
                 raise AssertionError(
                     "a value was served out of a transaction that rolled back")
-            assert count(app) == before, "an entry landed from a rolled-back read"
+            assert count(owner) == before, "an entry landed from a rolled-back read"
         finally:
             app.rollback()
             app.close()
@@ -187,11 +210,11 @@ def test_a_predicate_that_raises_between_the_read_and_the_narration_commits_neit
         owner, app = installed(db)
         seed(owner)
         try:
-            before = count(app)
+            before = count(owner)
             got = a_read(app, decide=explodes)
             assert got.state is NarratedState.UNAVAILABLE
             assert "blew up" in got.reason
-            assert count(app) == before
+            assert count(owner) == before
         finally:
             app.rollback()
             app.close()
@@ -209,7 +232,7 @@ def test_a_store_that_went_down_mid_read_narrates_nothing():
                          params=())
             assert got.state is NarratedState.UNAVAILABLE
             app.rollback()
-            assert count(app) == 0
+            assert count(owner) == 0
         finally:
             app.rollback()
             app.close()
@@ -234,7 +257,7 @@ def test_a_narration_without_a_live_passage_is_refused():
             entry = entry_for(served([(1,)]), principal_id=str(ANN),
                               subject_id=str(BEN), field_name="allergy", at=AT,
                               prev=GENESIS, authority="grant-x")
-            before = count(app)
+            before = count(owner)
             try:
                 narrate(app, entry, passage=stale, lane_id=str(LBEN),
                         recipient="guardian_of")
@@ -243,7 +266,7 @@ def test_a_narration_without_a_live_passage_is_refused():
             else:
                 raise AssertionError("an entry was written with no read to narrate")
             app.rollback()
-            assert count(app) == before
+            assert count(owner) == before
         finally:
             app.close()
             owner.close()
@@ -265,7 +288,7 @@ def test_a_passage_invented_out_of_thin_air_is_refused():
                         lane_id=str(LBEN), recipient="guardian_of")
             except NarrationWithoutRead:
                 app.rollback()
-                assert count(app) == 0
+                assert count(owner) == 0
                 return
             raise AssertionError("a fabricated passage wrote a disclosure entry")
         finally:
@@ -328,7 +351,7 @@ def test_the_digest_in_the_table_is_the_one_records_disclosure_computed():
         seed(owner)
         try:
             got = a_read(app)
-            stored = app.execute(
+            stored = owner.execute(
                 "SELECT hash FROM disclosure_log ORDER BY seq DESC LIMIT 1"
             ).fetchone()[0]
             assert bytes(stored).hex() == got.entry.digest

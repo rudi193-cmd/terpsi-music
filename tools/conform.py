@@ -680,6 +680,48 @@ def check_security_audit(doc: Optional[Path] = None) -> Check:
                  f"{sum(1 for f in found if f.open)} open, none at S1 or above")
 
 
+def check_row_security_differential() -> Check:
+    """§16's pair, created by S-2, and the middle that makes it legal (rule 12).
+
+    `migrations/003_row_security.sql` compiles the lane seal and the crossing
+    envelope into row-level security policies; `records/serving.py` and
+    `records/crossing.py` decide the same things in Python. Two implementations
+    of one rule is the pair this repository exists to refuse building without a
+    reconciler, and `tests/test_store_differential.py` is the reconciler: one
+    case set through both layers, failing on any disagreement in either
+    direction.
+
+    **This row is `UNKNOWN` without a cluster and never `PASS`.** The suite exits
+    `2` and says so (`tests/cluster.py`'s discipline), and a conformance record
+    that reported a middle as holding on a machine where it did not run would be
+    the formality §17 warns about. `PASS` here means the suite was executed
+    against a real PostgreSQL and every case agreed.
+    """
+    suite = ROOT / "tests" / "test_store_differential.py"
+    what = "one read predicate, two implementations, one middle (§16, rule 12)"
+    if not suite.exists():
+        return Check("row-security-differential", what, State.ABSENT,
+                     f"{suite.name} does not exist; migrations/003_row_security.sql "
+                     "would be a second implementation with nothing reconciling it")
+    r = subprocess.run([sys.executable, str(suite)], capture_output=True,
+                       text=True, cwd=ROOT)
+    lines = [l.strip() for l in (r.stdout or "").splitlines() if l.strip()]
+    cases = next((l for l in lines if "case(s) driven" in l), "")
+    if r.returncode == 2:
+        return Check("row-security-differential", what, State.UNKNOWN,
+                     "no PostgreSQL to run the differential against, so the two "
+                     "implementations were not compared: "
+                     + (lines[-1] if lines else "the suite reported UNKNOWN"))
+    if r.returncode != 0:
+        failed = [l for l in lines if l.startswith("FAIL")]
+        return Check("row-security-differential", what, State.FAIL,
+                     "; ".join(failed[:3]) or (lines[-1] if lines else "the suite failed"))
+    return Check("row-security-differential", what, State.PASS,
+                 (cases or "the case set") + " through records/serving.py with "
+                 "real rows and through the cluster under RLS; no disagreement "
+                 "in either direction")
+
+
 def check_component_map() -> Check:
     """Item 0: an unverified table and a verified one must not look identical."""
     r = subprocess.run([sys.executable, str(ROOT / "tests" / "test_component_map.py")],
@@ -717,6 +759,13 @@ NAMED_MIDDLES: Tuple[str, ...] = (
     "commentary.GuestSession<->reconciled_session",
     "aggregate._descriptor_for<->classify step 2a",
     "aggregate._legitimate<->rule 9 gate",
+    # S-2's, and the largest pair this repository has deliberately created: the
+    # read predicate exists twice (`docs/PLAN-STORE.md` decision 4), once in
+    # SQL and once in Python, and the differential suite is what keeps the two
+    # from drifting. It carries its own conformance row —
+    # `row-security-differential` — because a middle nobody runs is a middle in
+    # name, which is the distinction rule 18 asks to be said out loud.
+    "test_store_differential<->serving.serve+migrations/003_row_security.sql",
 )
 
 UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
@@ -753,6 +802,7 @@ CHECKS: Tuple[Callable[[], Check], ...] = (
     check_no_egress, check_write_paths, check_revocation_is_dated,
     check_suite_runs_standalone, check_ablation, check_exit_line,
     check_component_map, check_classification_registry,
+    check_row_security_differential,
     check_declared_sockets, check_manifest, check_key_escrow,
     check_security_audit, check_local_inference, check_anchor_payload,
     check_anchor_published, check_receipt_attribution, check_deposit_procedure,

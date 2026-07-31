@@ -68,6 +68,7 @@ from records.rungs import Rung  # noqa: E402
 from records.serving import Outcome, Serving  # noqa: E402
 
 from .reading import ReadState, Reading, StoreUnavailable, read, unavailable
+from .session import name_principal
 
 #: How `what` carries the three facts the table has no columns for. Chosen for
 #: legibility in `psql` over compactness — an audit table people cannot read is
@@ -253,8 +254,26 @@ def serve_field(conn, *, query: str, params: Sequence[Any],
 
     Rolls back on any failure and returns without a value, so a caller cannot
     hold a served field whose narration did not land.
+
+    **`principal_id` is now two things and was one.** It is still what the
+    disclosure entry records; since `migrations/003_row_security.sql` it is also
+    the identity the store's row-security policies evaluate, set `LOCAL` on this
+    transaction before the read is issued. A principal that reaches no row here
+    gets an established empty result from the store *and* a refusal from
+    `decide`, which is defence in depth rather than a duplicate — the two layers
+    are kept honest by `tests/test_store_differential.py`.
     """
     try:
+        # **The acting principal, named before the read rather than beside it.**
+        # This function already knew who was reading — `principal_id` is what
+        # goes into the disclosure entry — and until `migrations/003_row_security.sql`
+        # there was nothing to tell. Now there is, and setting it here is what
+        # makes the store's one narrated read path sealed by construction: the
+        # transaction that reads is the transaction whose principal the policies
+        # evaluate, and it is the same transaction the disclosure entry lands in.
+        # `SET LOCAL`, so it ends at the commit below; a caller cannot leave a
+        # principal behind on a pooled connection.
+        name_principal(conn, principal_id)
         passage = Passage(_xid(conn), lane_id, field_name)
         found = read(conn, query, params)
         if found.state is not ReadState.ROWS:
