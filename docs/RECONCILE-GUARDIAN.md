@@ -68,19 +68,28 @@ Note that this is not a defect in either module. Both do what they were built to
 do, and the gap is between them — which is rule 12's pair, arriving because a
 surface was added that reads through one and not the other.
 
-**The send side has the matching half, found independently.**
-`docs/PLAN-GUARDIANSHIP.md` records an ablation in which two mutants passed all
-of G1–G11: a predicate ignoring edge dates entirely, and a predicate messaging
-*every* edge holder — because **one of the original eleven is about a
-restriction and none is about the standing edge itself.** *"The plan reasoned
-carefully about what suppresses a recipient and never wrote down what makes
-one."*
+**The send side had the matching half, found it by ablation, and closed it.**
+`docs/PLAN-GUARDIANSHIP.md` records two mutants passing all of G1–G11 — one
+ignoring edge dates entirely, one messaging *every* edge holder — because
+**every one of the original eleven is about a *restriction* and none is about
+the standing edge itself.** *"The plan reasoned carefully about what suppresses
+a recipient and never wrote down what makes one."*
 
-So this is not one seam. `serve()` consults edges and not restrictions;
-`recipients()` was gated on restrictions and not on what constitutes standing.
-Each module tested its own half of the same question and neither owned the
-join — which is why the answer to *needs a human 1* should name where the
-agreement lives, not merely that the two should agree.
+**G12 and G13 were added in response**, `records/sending.py` requires
+`e.kind == "guardian_of"` and `e.live_at(at)`, and `tests/ablate.py` carries a
+mutation for each. That half is shut.
+
+**The read side has no equivalent, and the asymmetry is the finding.** Of the
+mutations `tests/ablate.py` points at `records/serving.py`, **none involves a
+restriction at all** — because `serve()` has no restriction to mutate. So the
+send side got a gap found by ablation and closed within the day, and the read
+side cannot get the same treatment: there is nothing there to break.
+
+That is a sharper statement of *needs a human 1* than the one above it. The
+question is not whether the two predicates should agree. It is that **G12 and
+G13 are the worked template** — a gate naming what constitutes standing, and a
+mutation that fails without it — and the read side needs the analogous pair
+before anything reads through `serve()` on a guardian's behalf.
 
 ## GU5, and the capability that is already built
 
