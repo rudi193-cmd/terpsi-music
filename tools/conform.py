@@ -104,35 +104,80 @@ def check_no_egress(where: Optional[Path] = None) -> Check:
 
 
 def check_write_paths(where: Optional[Path] = None) -> Check:
-    """§6's *declared write paths*, against a core that declares none.
+    """§6's *declared write paths*, reconciled against the manifest that declares them.
 
     **The version that lived here took no path argument**, so it could not be
     pointed at a decoy at all, and it matched substrings — a docstring saying
     *"never calls `open(`"* failed the file while `Path.open()`, `os.rename`
     and `tempfile` passed it.
 
-    Reads are reported separately and do not fail. A write check that cries wolf
-    on every `open()` is a write check somebody switches off.
+    **It then spent a month reporting `UNKNOWN` for an honest reason**: it
+    scanned `records/`, found no writes, and said so while noting that *"the
+    manifest declares no write paths to reconcile against, so this is not
+    evidence the mechanism works."* That is rule 18's distinction, correctly
+    stated — a ledger, not a gate. Gate G-C landed the declaration with
+    `store/`, so this row becomes a gate: `tools/manifest.py` reconciles every
+    writer in the scanned tree against `manifest.json`'s `write_paths`, both
+    directions, and a disagreement is `FAIL`.
+
+    `where` still points the *inner-ring* half at a tree, because the two
+    questions are different and only one of them has an answer over an arbitrary
+    directory: **does `records/` write** (a property of a path) and **is every
+    writer declared** (a property of this repository and its manifest). Over a
+    tree that is not there, both are unknown.
     """
+    from manifest import MANIFEST, reconcile, sources  # noqa: E402
     from purity import counted, reads, writes  # noqa: E402
 
     targets = [where] if where is not None else [ROOT / "records"]
     found = writes(targets)
     n = counted(targets)
-    what = "declared write paths (§6)"
+    what = "declared write paths (§6, gate G-C)"
     if found:
         return Check("write-paths", what, State.FAIL,
-                     f"records/ writes and nothing declares it: "
+                     f"{targets[0].name}/ writes and nothing declares it: "
                      + "; ".join(str(t) for t in found[:4]))
     if not n:
         return Check("write-paths", what, State.UNKNOWN,
                      "no files scanned; nothing was checked")
     r = reads(targets)
-    return Check("write-paths", what, State.UNKNOWN,
-                 f"{n} module(s) scanned by AST: no writes"
-                 + (f", {len(r)} read(s)" if r else ", no reads")
-                 + " — but the manifest declares no write paths to reconcile "
-                   "against, so this is not evidence the mechanism works")
+    inner = (f"{n} module(s) in the inner ring scanned by AST: no writes"
+             + (f", {len(r)} read(s)" if r else ", no reads"))
+
+    if not MANIFEST.exists():
+        return Check("write-paths", what, State.UNKNOWN,
+                     inner + " — and no manifest to reconcile the rest of the "
+                             "tree against, so this is not evidence the "
+                             "mechanism works")
+    scanned = sources(ROOT)
+    if not scanned:
+        return Check("write-paths", what, State.UNKNOWN,
+                     inner + " — the reconciliation scanned no files at all")
+    outer = reconcile(manifest=MANIFEST, paths=scanned, surfaces_at=ROOT / "surfaces")
+    bad = [f for f in outer.findings if f.code.startswith("WRITE")]
+    if bad:
+        return Check("write-paths", what, State.FAIL,
+                     inner + " — and " + "; ".join(f.detail for f in bad[:3]))
+    declared = len((read_manifest_write_paths() or ()))
+    return Check("write-paths", what, State.PASS,
+                 inner + f"; {declared} write path(s) declared in manifest.json "
+                         f"and reconciled against {len(scanned)} scanned "
+                         "module(s), both directions")
+
+
+def read_manifest_write_paths():
+    """The declared write paths, or `None` when the manifest cannot say.
+
+    Separated so the count in the evidence above comes from the file rather than
+    from a literal — rule 17 inside a checker's own sentence, which is where
+    §18 item 6 found the last instance of it.
+    """
+    from manifest import MANIFEST, read  # noqa: E402
+
+    data, _ = read(MANIFEST)
+    if data is None or "write_paths" not in data:
+        return None
+    return tuple(data["write_paths"])
 
 
 def check_revocation_is_dated(where: Optional[Path] = None) -> Check:
@@ -258,7 +303,8 @@ def check_declared_sockets() -> Check:
                      "; ".join(f.detail for f in r.findings[:3]))
     return Check("declared-sockets", what, State.PASS,
                  f"{len(files)} source file(s) scanned; {len(r.listeners)} "
-                 "listener(s), all declared; 0 outbound")
+                 f"listener(s) and {len(r.outbound)} outbound connection(s), "
+                 "every one declared")
 
 
 def check_manifest() -> Check:
@@ -675,7 +721,17 @@ NAMED_MIDDLES: Tuple[str, ...] = (
 
 UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
     _unknown("sidecar-only", "canonical store read-only; agent writes are sidecar (§5)",
-             "there is no store, so the rule cannot be violated or demonstrated"),
+             "**this row's old evidence — 'there is no store, so the rule cannot "
+             "be violated or demonstrated' — stopped being true on 2026-07-31.** "
+             "There is one, and half the rule is now enforced: store/writing.py "
+             "lands application writes as drafts and cannot spell 'sealed', the "
+             "app role holds INSERT and SELECT and no UPDATE or DELETE, and "
+             "migration 002 makes a sealed row rewritable by nobody. What is "
+             "still unbuilt is the other half — nothing yet *promotes* a draft, "
+             "because the seal is records/sealing.py's and S-3 wires it. So the "
+             "cascade has a floor and no ceiling: rule 18 says that is a partial "
+             "enforcement and not a pass, and this row stays UNKNOWN until a "
+             "named human's seal is what moves a row"),
     _unknown("knock-enforcing", "the knock wired in enforcement mode (§7.2)",
              "the gate's own session reconciliation lives in willow-gate and is "
              "not wired here. records/commentary.py now builds the declared/"

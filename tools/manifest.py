@@ -61,7 +61,7 @@ SURFACES = ROOT / "surfaces"
 #: today and would be silently false the moment a surface listens.
 REQUIRED_KEYS: Tuple[str, ...] = (
     "app", "manifest_version", "surfaces", "listeners", "outbound",
-    "permissions", "inference",
+    "permissions", "inference", "write_paths",
 )
 
 #: Permissions this application may ask for. An allowlist, because the failure
@@ -204,6 +204,101 @@ def _check_surfaces(data: dict, where: Optional[Path] = None) -> List[Finding]:
     return out
 
 
+def _base_of(files: Sequence[Path]) -> Path:
+    """The root the scanned files are relative to.
+
+    `reconcile()` is called on other trees than this one — `conform.py`'s
+    unreachable-tree sweep, and every test that points it at a temporary
+    directory. Reporting a module path relative to `ROOT` for a file that is not
+    under `ROOT` raises, and a checker that raises where it should report is a
+    checker with a gap in exactly the case `tests/test_rule13_acceptance.py`
+    exists to cover.
+    """
+    for f in files:
+        try:
+            f.relative_to(ROOT)
+        except ValueError:
+            # Not under this tree. Walk up to the common ancestor of the batch.
+            base = f.parent
+            while not all(str(o).startswith(str(base)) for o in files):
+                base = base.parent
+            return base
+    return ROOT
+
+
+def _covers(declared: str, module: str) -> bool:
+    here = str(module).replace("\\", "/")
+    there = str(declared).replace("\\", "/").rstrip("/")
+    return here == there or here.startswith(there + "/")
+
+
+def _check_write_paths(data: dict, files: Sequence[Path],
+                       base: Optional[Path] = None) -> List[Finding]:
+    """Gate G-C: **every write path is declared, and every declaration writes.**
+
+    `docs/PLAN-STORE.md` decision 7 makes this an obligation of the same commit
+    as the store — *"the manifest gains a write-paths declaration and the
+    reconciliation lands in the same commit (rule 12; the
+    declaration-without-enforcement pair is the one §16 is written about)"* —
+    and the last acceptance item is explicit about the failure direction:
+    *"a write path appears that the manifest does not declare — the build fails
+    without anyone remembering to check."*
+
+    **The detection is `tools/purity.py`'s and is not re-implemented here.** That
+    module owns the question *where does this write*, and it now answers it for a
+    database as well as for a disk, because a write is a write whether the bytes
+    land on a local file or in a cluster. This function does the reconciling and
+    none of the finding.
+
+    **Both directions, for `_check_surfaces`'s reason.** An undeclared write
+    fails; so does a declared path that writes nothing, because a stale
+    declaration reads as a real one and the next module added under it inherits
+    a permission nobody re-examined.
+    """
+    from purity import scan_source  # noqa: E402 — the tool that owns writes
+
+    declared = data.get("write_paths", [])
+    if not isinstance(declared, list):
+        return [Finding("WRITE_PATHS_SHAPE", "write_paths is not a list")]
+
+    paths, out = [], []
+    for entry in declared:
+        if not isinstance(entry, dict) or not str(entry.get("path", "")).strip():
+            out.append(Finding(
+                "WRITE_PATH_SHAPE",
+                f"{entry!r} is not a write-path declaration; each names a path, a "
+                "kind and a why. A declaration with no reason is one nobody can "
+                "review, and it is the kind that outlives its reason"))
+            continue
+        if not str(entry.get("why", "")).strip():
+            out.append(Finding(
+                "WRITE_PATH_UNEXPLAINED",
+                f"{entry['path']!r} is declared as a write path with no reason"))
+        paths.append(str(entry["path"]))
+
+    root = ROOT if base is None else base
+    writing: Dict[str, List[str]] = {}
+    for p in files:
+        rel = str(p.relative_to(root)).replace("\\", "/")
+        for t in scan_source(p.read_text(encoding="utf-8"), rel):
+            if t.is_write:
+                writing.setdefault(rel, []).append(t.detail)
+
+    for module, why in sorted(writing.items()):
+        if not any(_covers(d, module) for d in paths):
+            out.append(Finding(
+                "WRITE_UNDECLARED",
+                f"{module} writes and the manifest does not declare it: {why[0]}"))
+
+    for d in paths:
+        if not any(_covers(d, module) for module in writing):
+            out.append(Finding(
+                "WRITE_PATH_ABSENT",
+                f"the manifest declares {d!r} as a write path and nothing under it "
+                "writes — a stale declaration reads as a real one"))
+    return out
+
+
 def _check_permissions(data: dict) -> List[Finding]:
     out = []
     perms = data.get("permissions", [])
@@ -266,6 +361,7 @@ def reconcile(manifest: Optional[Path] = None,
     # One AST scanner, called — never a second implementation of it here.
     socket_side = socket_check(list(files), MANIFEST if manifest is None else manifest)
     findings += list(socket_side.findings)
+    findings += _check_write_paths(data, files, base=_base_of(files))
 
     return Reconciliation(
         True, len(files), tuple(findings),
@@ -285,9 +381,13 @@ def main(argv: Sequence[str]) -> int:
     if r.findings:
         print(f"\n  FAIL — {len(r.findings)} finding(s) over {r.scanned} source file(s)")
         return 1
+    data, _ = read()
+    out = len((data or {}).get("outbound", []))
+    paths = len((data or {}).get("write_paths", []))
     print(f"  PASS — {r.scanned} source file(s) scanned; "
           f"{len(r.surfaces_declared)} surface(s) declared and present; "
-          "no listener, no outbound, no cloud permission")
+          f"no listener; {out} outbound path(s) and {paths} write path(s) "
+          "declared and reconciled; no cloud permission")
     return 0
 
 

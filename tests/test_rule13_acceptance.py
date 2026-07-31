@@ -49,12 +49,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "tools"))
+#: `store/reading.py` imports no driver, so the type that carries the store's
+#: error channel is reachable from a suite with no database — imported the way
+#: `tools/` is, by directory rather than through the package, because
+#: `store/__init__.py` does pull the driver in.
+sys.path.insert(0, str(ROOT / "store"))
 
 import voice  # noqa: E402
 
 import conform  # noqa: E402
 import discipline  # noqa: E402
 import purity  # noqa: E402
+import reading as store_reading  # noqa: E402 — store/reading.py, no driver
 import sockets  # noqa: E402
 
 #: `records/__init__.py` re-exports a *function* called `classify` and a
@@ -97,11 +103,16 @@ SEAMS = (
     ("serve_classification", "records/serving.py",
      "the field carries no rung", "Outcome.UNKNOWN"),
     ("entitlement_store", "records/serving.py",
-     "the edge store yields nothing", "REFUSED — see CANNOT_DISTINGUISH"),
+     "the edge store raises; and separately, yields nothing",
+     "UNKNOWN for the first, REFUSED for the second — closed 2026-07-31"),
     ("envelope_store", "records/crossing.py",
-     "the envelope store yields nothing", "REFUSED — see CANNOT_DISTINGUISH"),
+     "the envelope store raises; and separately, yields nothing",
+     "UNKNOWN for the first, REFUSED for the second — closed 2026-07-31"),
     ("widening_store", "records/standing.py",
-     "the widening store yields nothing", "INSTRUCTION/REFUSED, never PAYLOAD"),
+     "the widening store raises; and separately, yields nothing",
+     "WideningsUnknown for the first, cap held for the second"),
+    ("store_read", "store/reading.py",
+     "the connection is killed mid-read", "ReadState.UNAVAILABLE, never ()"),
     ("threshold_source", "records/standing.py",
      "the birthdate the threshold derives from is unknown", "not past the threshold"),
     ("own_log", "records/standing.py",
@@ -159,18 +170,6 @@ SEAMS = (
 #: unknown-shaped, and the *reason* attached to it names a fact nobody
 #: established.
 CANNOT_DISTINGUISH = (
-    ("entitlement_store",
-     "an edge store that errored and a principal with no edge both arrive at "
-     "serve() as an empty sequence, and both are REFUSED with the same reason. "
-     "`serve()` cannot say 'no entitlement' rather than 'entitlement unknown' "
-     "without an error channel on the edge source — the callable-or-sequence "
-     "shape `sending.recipients` already carries."),
-    ("envelope_store",
-     "same shape one lane over: an envelope store that errored and a crossing "
-     "nobody signed are both `()`, both REFUSED by W-3."),
-    ("widening_store",
-     "a widening store that errored and a category no guardian has widened both "
-     "return None from `widens()`, and the self-edge cap holds for both."),
     ("consent_backend",
      "an edge source that errored and a principal with no live relationship "
      "both produce Model.UNKNOWN with the 'nobody here to ask' reason. UNKNOWN "
@@ -799,38 +798,131 @@ def test_a_mark_with_no_score_position_makes_no_claim_about_the_score():
     assert got.drift_ms is None
 
 
+# --- store/reading.py: the adapter's error channel -------------------------
+#
+# The shape, with no database. The killed-connection attack is
+# tests/test_store_reading.py's, against a real cluster; a type that cannot be
+# shown to fire is not a guard, and a guard that only fires where a cluster
+# happens to be running is not one either. Both, on purpose.
+
+
+class _DeadCursor:
+    """A cursor that dies the way a terminated backend dies: on `execute`."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, *a, **kw):
+        raise ConnectionError("terminating connection due to administrator command")
+
+    def fetchall(self):  # pragma: no cover — execute raises first
+        return []
+
+
+class _DeadConnection:
+    def cursor(self):
+        return _DeadCursor()
+
+
+def test_store_read_over_a_dead_connection_is_unavailable_and_not_an_empty_result():
+    """The fourth forbidden act on `PLAN-STORE.md`'s acceptance list: *an errored
+    connection presents as an empty result anywhere.* Every way of consuming the
+    answer has to refuse, or the one nobody used is the one that ships."""
+    got = store_reading.read(_DeadConnection(), "SELECT 1")
+    assert got.state is store_reading.ReadState.UNAVAILABLE
+    assert "ConnectionError" in got.reason
+    for use in (lambda: got.rows, lambda: list(got), lambda: got(),
+                lambda: len(got), lambda: got.empty, lambda: got.one(),
+                lambda: bool(got)):
+        try:
+            use()
+        except store_reading.StoreUnavailable:
+            continue
+        raise AssertionError("an errored read was consumed as an empty one")
+
+
+def test_store_read_unknown_is_not_the_same_value_as_a_store_with_no_rows():
+    """The dangerous mirror, at the store. A lane with no entries and a store
+    that could not be reached must not compare equal — an equality that held
+    would let a caller test against `Reading(ROWS, ())` and be wrong half the
+    time."""
+    down = store_reading.read(_DeadConnection(), "SELECT 1")
+    empty = store_reading.rows(())
+    assert down != empty
+    assert empty.state is store_reading.ReadState.ROWS
+    assert list(empty) == [] and empty.empty and empty.one() is None
+
+
 # --- the findings, asserted to be still true -------------------------------
 
 
-def test_finding_entitlement_and_envelope_stores_cannot_report_their_own_failure():
-    """Asserted over the signature, because that is where the gap lives.
+def test_fixed_the_entitlement_and_envelope_stores_now_report_their_own_failure():
+    """**Was `test_finding_...`, and it went red exactly as its docstring said
+    it would.** The old text: *"Red the day either parameter grows the shape
+    `recipients` already has, which is the fix."* S-1 is that day —
+    `store/reading.py`'s `Reading` is callable, so a store that went down
+    mid-read reaches this predicate as a callable that raises, and `serve()`
+    answers `UNKNOWN` instead of refusing for a reason nobody established.
 
-    `recipients()` takes its restrictions as *a sequence or a callable*, and the
-    callable is the entire error channel: a source that raises becomes UNKNOWN.
-    `serve()` takes `edges` and `envelopes` as sequences only, so a caller has
-    exactly one way to say *nobody is entitled* and *nobody answered* — the
-    empty sequence — and the predicate answers REFUSED to both. Red the day
-    either parameter grows the shape `recipients` already has, which is the fix.
+    Both halves are held in place here: the errored source is UNKNOWN, and the
+    genuinely-empty source is still REFUSED. A fix that made every empty edge
+    list unknown would have closed the seam by breaking the predicate.
     """
     params = inspect.signature(serving.serve).parameters
-    assert "Callable" not in str(params["edges"].annotation)
-    assert "Callable" not in str(params["envelopes"].annotation)
+    assert "Callable" in str(params["edges"].annotation)
+    assert "Callable" in str(params["envelopes"].annotation)
     assert "Callable" in str(
         inspect.signature(sending.recipients).parameters["restrictions"].annotation
-    ), "recipients() lost its error channel; this finding is now about both"
-    down = serving.serve(health_field(), serving.Principal("g-mother"), [], AT)
-    assert down.outcome is serving.Outcome.REFUSED
+    ), "recipients() lost its error channel, which is where this shape came from"
+
+    errored = serving.serve(health_field(), serving.Principal("g-mother"),
+                            unreachable(), AT)
+    genuinely_none = serving.serve(health_field(), serving.Principal("g-mother"),
+                                   [], AT)
+    assert errored.outcome is serving.Outcome.UNKNOWN
+    assert "ConnectionError" in errored.reason
+    assert genuinely_none.outcome is serving.Outcome.REFUSED
+    assert errored != genuinely_none
+
+    crossing_down = serving.serve(
+        health_field(), serving.Principal("g-mother", frozenset({"health"})),
+        [mother()], AT, lane_id="lane-sister", envelopes=unreachable())
+    assert crossing_down.outcome is serving.Outcome.UNKNOWN
+    # `crossing.permits` itself still takes a sequence: the error channel lives
+    # at the predicate that decides, which is the one a caller reaches through.
     assert crossing.permits((), from_lane="a", to_lane=LANE, at=AT,
-                           subject_id=BEN) is None
+                            subject_id=BEN) is None
 
 
-def test_finding_a_widening_store_that_failed_looks_like_an_unwidened_category():
-    assert "Callable" not in str(
+def test_fixed_a_widening_store_that_failed_no_longer_looks_unwidened():
+    """Was `test_finding_...`. `widens()` raises `WideningsUnknown` rather than
+    returning the `None` that already meant *nobody widened this*, and `serve()`
+    turns that into `UNKNOWN` — so the self-edge cap still holds for the
+    unwidened category and no longer holds for the same reason as a store nobody
+    could reach."""
+    assert "Callable" in str(
         inspect.signature(standing_mod.widens).parameters["widenings"].annotation)
-    down = standing_mod.widens((), subject_id=BEN, category="health", at=AT)
     none_signed = standing_mod.widens((), subject_id=BEN, category="health", at=AT,
                                       signer_edges=[mother()])
-    assert down is None and none_signed is None
+    assert none_signed is None
+    try:
+        standing_mod.widens(unreachable(), subject_id=BEN, category="health", at=AT)
+    except standing_mod.WideningsUnknown as exc:
+        assert "ConnectionError" in str(exc)
+    else:
+        raise AssertionError("an unreadable widening source read as unwidened")
+
+    capped = serving.serve(health_field(instruction="on file with the office"),
+                           serving.Principal(BEN), [himself()], AT, widenings=())
+    down = serving.serve(health_field(instruction="on file with the office"),
+                         serving.Principal(BEN), [himself()], AT,
+                         widenings=unreachable())
+    assert capped.outcome is serving.Outcome.INSTRUCTION
+    assert down.outcome is serving.Outcome.UNKNOWN
+    assert capped != down
 
 
 def test_finding_consent_cannot_tell_an_errored_lookup_from_no_relationship():

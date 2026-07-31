@@ -69,6 +69,31 @@ def _digest(occurred_at, principal_id, subject_id, field_name, rung, outcome,
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
+def entry_for(serving: Serving, *, principal_id: str, subject_id: str,
+              field_name: str, at: datetime, prev: str,
+              authority: str = "") -> Entry:
+    """One entry, digested, following `prev`. **The only place an `Entry` is built.**
+
+    `Log.record` calls it with its own head; `store/narration.py` calls it with
+    the head it read out of `disclosure_log`, because the store's chain lives in
+    a table and not in a tuple. Two chains over one algorithm is §16's pair, and
+    the middle is that both get their digest from here — the store composes the
+    row, it does not compute the hash.
+
+    `prev` has no default. A caller that forgot it would silently start a second
+    chain from `GENESIS`, which verifies perfectly and says nothing about what
+    came before.
+    """
+    who = authority or (serving.via_edge or "")
+    return Entry(
+        occurred_at=at, principal_id=principal_id, subject_id=subject_id,
+        field_name=field_name, rung=serving.rung, outcome=serving.outcome,
+        authority=who, prev=prev,
+        digest=_digest(at, principal_id, subject_id, field_name, serving.rung,
+                       serving.outcome, who, prev),
+    )
+
+
 @dataclass(frozen=True)
 class Log:
     """An append-only chain. Every operation returns a new `Log`."""
@@ -88,16 +113,9 @@ class Log:
         restriction working"*, and rule 10 is explicit that an audit trail
         which logs only agreement is not one.
         """
-        prev = self.head
-        e = Entry(
-            occurred_at=at, principal_id=principal_id, subject_id=subject_id,
-            field_name=field_name, rung=serving.rung, outcome=serving.outcome,
-            authority=authority or (serving.via_edge or ""), prev=prev,
-            digest=_digest(at, principal_id, subject_id, field_name,
-                           serving.rung, serving.outcome, authority or (serving.via_edge or ""),
-                           prev),
-        )
-        return Log(self.entries + (e,))
+        return Log(self.entries + (entry_for(
+            serving, principal_id=principal_id, subject_id=subject_id,
+            field_name=field_name, at=at, prev=self.head, authority=authority),))
 
     # --- verification ------------------------------------------------------
 

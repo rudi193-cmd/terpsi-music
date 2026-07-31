@@ -578,9 +578,56 @@ MUTATIONS = [
      "elif name in _OWNED_WRITES:",
      "dataclasses.replace is not os.replace", "tests/test_purity.py"),
     ("tools/purity.py",
-     "return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE, Reach.UNPARSEABLE)",
-     "return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE, Reach.UNPARSEABLE, Reach.READ)",
+     "return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE, Reach.UNPARSEABLE,\n"
+     "                              Reach.DB_WRITE, Reach.UNKNOWN_SQL)",
+     "return self.reach in (Reach.WRITE, Reach.UNKNOWN_MODE, Reach.UNPARSEABLE,\n"
+     "                              Reach.DB_WRITE, Reach.UNKNOWN_SQL, Reach.READ)",
      "a read is not a write", "tests/test_purity.py"),
+    # --- the store's declaration seam (G-C) -------------------------------
+    #
+    # Each of these restores a hole the write-path reconciliation was written to
+    # close, and each must be caught by the suite named beside it. The first is
+    # the one the gate is *for*: with the finding suppressed, a module writing
+    # outside the declaration passes.
+    ("tools/manifest.py",
+     "        if not any(_covers(d, module) for d in paths):",
+     "        if False:",
+     "G-C: an undeclared write path fails the build", "tests/test_manifest.py"),
+    ("tools/purity.py",
+     "            if name in _SQL_EXECUTORS:\n                out.extend(_sql_touches(node, module))",
+     "            if False:\n                out.extend(_sql_touches(node, module))",
+     "a write to a database is a write", "tests/test_purity.py"),
+    ("tools/purity.py",
+     "    receiver_is_path = isinstance(call.func, ast.Attribute)\n    index = 0 if receiver_is_path else 1",
+     "    index = 1",
+     "path.open('w') is a write, and the mode is not always second",
+     "tests/test_purity.py"),
+    # tools/drivers.py — the tripwire on the second dependency. Two mutations,
+    # because the checker has two ways to go quiet: admit everything, or see
+    # nothing.
+    ("tools/drivers.py",
+     'ALLOWED: Tuple[str, ...] = ("store/",)',
+     'ALLOWED: Tuple[str, ...] = ("store/", "")',
+     "the driver is admitted in store/ and nowhere else", "tests/test_drivers.py"),
+    ("tools/drivers.py",
+     "        elif isinstance(node, ast.Call):\n            name = _dotted(node.func)",
+     "        elif False:\n            name = _dotted(node.func)",
+     "a dynamic import of the driver is still an import", "tests/test_drivers.py"),
+    # store/ — the two guards that are pure Python and can be ablated without a
+    # database. The role split, the migration refusals, the narration pairing
+    # and the killed-connection channel are ablated in the schema job instead:
+    # they need a cluster, and a mutation whose suite cannot run is a mutation
+    # that reports SURVIVES for the wrong reason.
+    ("store/reading.py",
+     "        if self.state is not ReadState.ROWS:\n            raise StoreUnavailable(",
+     "        if False:\n            raise StoreUnavailable(",
+     "an errored read is not an empty result",
+     "tests/test_rule13_acceptance.py"),
+    ("records/serving.py",
+     '        return None, f"the {what} source failed: {exc!r}"',
+     "        return (), None",
+     "an entitlement source that errored is not a principal with no edge",
+     "tests/test_rule13_acceptance.py"),
     ("tools/conform.py", "    if not n:\n        return Check(\"no-egress\", what, State.UNKNOWN,",
      "    if False:\n        return Check(\"no-egress\", what, State.UNKNOWN,",
      "a scan of nothing is not a pass", "tests/test_purity.py"),
