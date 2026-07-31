@@ -279,9 +279,11 @@ UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
              "no destination allowlist exists; §14 records the fleet-wide version "
              "as unique to UTETY"),
     _unknown("named-middles", "a named middle for every pair the app creates (§16)",
-             "not mechanically decidable. Four middles are named and tested "
-             "(crossing, standing.is_self_edge, marking.drift, practice._one_lane); "
-             "whether that is *every* pair is a reading, not a check"),
+             "not mechanically decidable. Seven middles are named and tested "
+             "(crossing, standing.is_self_edge, standing.may_supersede, "
+             "serving._acting_ward, serving._ceiling, marking.drift, "
+             "practice._one_lane); whether that is *every* pair is a reading, "
+             "not a check"),
 )
 
 
