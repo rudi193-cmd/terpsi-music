@@ -1112,6 +1112,13 @@ MUTATIONS = [
      '    c = aggregate("program_total", over=(Rung.L4,), cohort=cohort, floor=floor)',
      '    c = aggregate("program_total", over=(Rung.L2,), cohort=cohort, floor=floor)',
      "a total inherits FINANCIAL's rung", "tests/test_fees.py"),
+    # A balance is L4 because money is one of step 3's four categories. Drop
+    # the category and it lands at L3 -- served in full to anyone holding an
+    # edge, with no purpose declared, which is a balance on a chaperone's phone.
+    ("records/fees.py",
+     'BALANCE = Descriptor("balance", identifies_a_person=True, category="money")',
+     'BALANCE = Descriptor("balance", identifies_a_person=True)',
+     "a balance carries money's category", "tests/test_fees.py"),
     ("records/fees.py", "        if not self.servable:", "        if False:",
      "an unservable total yields no number", "tests/test_fees.py"),
     # records/attendance.py — refusal 7's seam. Both isinstance checks, because

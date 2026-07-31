@@ -26,8 +26,9 @@ from records.classify import classify  # noqa: E402
 from records.conflict import Escalation, NotComputable, Stake  # noqa: E402
 from records.fees import (  # noqa: E402
     WAIVER, Balance, CardData, Charge, FeeGroup, Membership, NotDisclosable,
-    Payment, Source, Tender, allocate, assess, balance, looks_like_a_card_number,
-    plan_priority, rank_by_need, reverse, roster_by_balance, total, waiver_rung,
+    Payment, Source, Tender, allocate, assess, balance, balance_rung,
+    looks_like_a_card_number, plan_priority, rank_by_need, reverse,
+    roster_by_balance, total, waiver_rung,
 )
 from records.rungs import NEVER_SERVED, Rung  # noqa: E402
 from records.serving import Edge, Field, Outcome, Principal, serve  # noqa: E402
@@ -156,6 +157,36 @@ def test_a_waiver_status_is_served_to_nobody_including_the_director():
     for who in (director, Principal(BEN, frozenset({"money"}))):
         got = serve(fld, who, edges, LATER, lane_id=LB)
         assert got.outcome is Outcome.REFUSED and got.value is None
+
+
+def test_a_balance_is_L4_and_needs_a_purpose_declared_for_money_at_serve():
+    """FINANCIAL's rung, enforced by the read predicate rather than by this
+    module: `SENSITIVITY.md`'s `L4` example with money substituted for the
+    auto-injector. The same staff member, the same device, a different declared
+    purpose."""
+    assert balance_rung() is Rung.L4
+    fld = Field(LB, BEN, "balance", balance_rung(), category="money",
+                payload="$240 outstanding", instruction="a fee matter is outstanding")
+    edges = [Edge("staff_of", "staff-nguyen", BEN, datetime(2020, 1, 1),
+                  created_at=datetime(2020, 1, 1))]
+    attendance_purpose = Principal("staff-nguyen", frozenset({"attendance"}))
+    money_purpose = Principal("staff-nguyen", frozenset({"money"}))
+    without = serve(fld, attendance_purpose, edges, LATER, lane_id=LB)
+    assert without.outcome is Outcome.INSTRUCTION and "$240" not in (without.value or "")
+    withp = serve(fld, money_purpose, edges, LATER, lane_id=LB)
+    assert withp.outcome is Outcome.PAYLOAD and withp.value == "$240 outstanding"
+
+
+def test_a_balance_in_another_students_lane_is_refused():
+    """W-3 at the read, over money: a guardian entitled to one lane's balance is
+    entitled to nothing in the next lane."""
+    fld = Field(LA, ANA, "balance", balance_rung(), category="money",
+                payload="$0 outstanding")
+    edges = [Edge("guardian_of", "guardian-alvarez", BEN, datetime(2020, 1, 1),
+                  created_at=datetime(2020, 1, 1))]
+    got = serve(fld, Principal("guardian-alvarez", frozenset({"money"})), edges,
+                LATER, lane_id=LB)
+    assert got.outcome is Outcome.REFUSED and got.value is None
 
 
 def test_a_charge_has_no_waiver_column_and_no_second_amount():

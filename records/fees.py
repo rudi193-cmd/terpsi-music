@@ -264,9 +264,31 @@ WAIVER = Descriptor("fee_waiver", identifies_a_person=True, category="money",
                     reveals_a_refusal=True)
 
 
+#: A balance, as a field. `FINANCIAL` is `L4` in the class table, and the same
+#: rung falls out of step 3 because money is one of its four familiar
+#: categories — so this descriptor states the *facts* about the field and the
+#: classifier states the rung, which is the arrangement `tools/registry.py`
+#: exists to keep honest. A balance is not `L5`: a guardian is entitled to be
+#: told what they owe, and the thing that must never render is *why it is what
+#: it is*.
+BALANCE = Descriptor("balance", identifies_a_person=True, category="money")
+
+
 def waiver_rung() -> Optional[Rung]:
     """What the classifier makes of a waiver status. `L5`, and derived not typed."""
     return classify(WAIVER).rung
+
+
+def balance_rung() -> Optional[Rung]:
+    """What the classifier makes of a balance. `L4`, and derived not typed.
+
+    Which matters at the read: `serving.serve()` gives an `L4` field to a
+    principal holding a live edge **and** a purpose declared for the category on
+    entry. A staff member with an attendance purpose does not see a balance on
+    the same device ten minutes earlier, which is `SENSITIVITY.md`'s worked `L4`
+    example with money substituted for the auto-injector.
+    """
+    return classify(BALANCE).rung
 
 
 # --- charges ---------------------------------------------------------------

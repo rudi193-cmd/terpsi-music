@@ -29,11 +29,11 @@ from .attendance import (AbsenceRequest, AttendanceEntry, Excusal, NoRoster,
                          SignalKind, correct, excusal, headcount, notify,
                          request_absence, roster, send_attendance, signal,
                          take_roll)
-from .fees import (WAIVER, Assessment, Balance, CardData, Charge, FeeGroup,
-                   Membership, NotDisclosable, Payment, Source, Tender, Total,
-                   allocate, assess, balance, looks_like_a_card_number,
-                   plan_priority, rank_by_need, reverse, roster_by_balance,
-                   total, waiver_rung)
+from .fees import (BALANCE, WAIVER, Assessment, Balance, CardData, Charge,
+                   FeeGroup, Membership, NotDisclosable, Payment, Source,
+                   Tender, Total, allocate, assess, balance, balance_rung,
+                   looks_like_a_card_number, plan_priority, rank_by_need,
+                   reverse, roster_by_balance, total, waiver_rung)
 from .disclosure import Entry, Ledger, Log, verify_against
 from .inference import (Answer, InferenceRefused, LocalModelUnavailable,
                         NonLocalInference, OffBoxLocalModel, Refusal, Unclassified,
@@ -73,6 +73,7 @@ __all__ = [
     "signal", "notify", "roster", "send_attendance",
     "Charge", "Payment", "FeeGroup", "Membership", "Tender", "Source",
     "Assessment", "Balance", "Total", "CardData", "NotDisclosable", "WAIVER",
+    "BALANCE", "balance_rung",
     "assess", "balance", "total", "reverse", "allocate", "rank_by_need",
     "plan_priority", "roster_by_balance", "waiver_rung",
     "looks_like_a_card_number",
