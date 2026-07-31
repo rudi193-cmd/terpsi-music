@@ -6,11 +6,18 @@ write arriving already sealed — plus the control that proves the adapter is no
 simply broken shut.
 
 **The registry is `tools/registry.py`'s and this file checks that too.** The
-adapter reads the seed out of `migrations/001_lanes.sql`; the cluster has its own
-copy in `field_classification`. Two copies of one mapping is exactly the pair
+adapter reads the seeds out of `migrations/` — every file, not just 001, since
+004 seeds four columns of its own; the cluster has its own copy in
+`field_classification`. Two copies of one mapping is exactly the pair
 `tools/registry.py` exists to close, so the pair is closed here as well: the
 adapter's view and the cluster's are asserted equal, and a row added to one and
 not the other goes red.
+
+**Every `lane_entry` write here carries a lane key**, because since S-3 the
+payload is sealed before the `INSERT` and there is no clear column to fall back
+to. That is the seam, and it is exercised incidentally by every test below; the
+seam's own refusals are `tests/test_sealing_plan.py` and the acts against a live
+cluster are `tests/test_store_atrest.py`.
 
 Needs a database. No skip — see `tests/cluster.py`.
 """
@@ -28,6 +35,8 @@ sys.path.insert(0, str(ROOT / "tests"))
 
 from cluster import ClusterUnknown, Database, available, installed, report  # noqa: E402
 
+from records.atrest import Keyring, new_master, open_lane_key  # noqa: E402
+
 from store.classification import (UnclassifiedColumn, carries,  # noqa: E402
                                   classification_of, registry_columns)
 from store.session import acting  # noqa: E402
@@ -39,6 +48,18 @@ AT = datetime(2026, 10, 12, 9, 0, tzinfo=timezone.utc)
 BEN = uuid.UUID("11111111-1111-1111-1111-111111111111")
 ANN = uuid.UUID("11111111-3333-3333-3333-333333333333")
 LBEN = uuid.UUID("22222222-1111-1111-1111-111111111111")
+
+
+def a_lane_key(lane_id=LBEN):
+    """One lane key, in memory, for the duration of one test (refusal 2).
+
+    Every write below needs one since S-3: `lane_entry.payload` is sealed at
+    rest, and `store/writing.py` refuses rather than falling back to a clear
+    column that migration 004 constrained to NULL.
+    """
+    master = new_master()
+    _, key = open_lane_key(Keyring(), lane_id=str(lane_id), master=master, at=AT)
+    return key
 
 
 def seed(owner):
@@ -65,10 +86,18 @@ def seed(owner):
 
 
 def an_entry(**over):
+    # `bytes`, not `str`, since S-3: the payload is sealed before the INSERT and
+    # `records/atrest.py::seal_bytes` refuses to guess an encoding.
     body = dict(entry_id=uuid.uuid4(), lane_id=LBEN, kind="attendance",
-                payload="{}", author_id=ANN, created_at=AT, valid_at=AT)
+                payload=b"{}", author_id=ANN, created_at=AT, valid_at=AT)
     body.update(over)
     return body
+
+
+def write(app, body, **over):
+    """`insert_draft` with a lane key, which every `lane_entry` write now needs."""
+    return insert_draft(app, "lane_entry", body, lane_key=a_lane_key(), at=AT,
+                        **over)
 
 
 # --- the ordinary path ------------------------------------------------------
@@ -80,8 +109,7 @@ def test_an_application_write_lands_as_a_draft():
         seed(owner)
         try:
             with acting(app, ANN):
-                got = insert_draft(app, "lane_entry", an_entry(),
-                                   returning="entry_id")
+                got = write(app, an_entry(), returning="entry_id")
                 state = app.execute(
                     "SELECT seal_state FROM lane_entry WHERE entry_id = %s", (got,)
                 ).fetchone()[0]
@@ -99,7 +127,7 @@ def test_the_write_does_not_commit_itself():
         owner, app = installed(db)
         seed(owner)
         try:
-            insert_draft(app, "lane_entry", an_entry())
+            write(app, an_entry())
             app.rollback()
             n = app.execute("SELECT count(*) FROM lane_entry").fetchone()[0]
             assert n == 0, "insert_draft committed on the caller's behalf"
@@ -121,7 +149,7 @@ def test_an_insert_into_an_unclassified_column_is_refused_with_the_registry_cite
             body = an_entry()
             body["nickname"] = "Benny"
             try:
-                insert_draft(app, "lane_entry", body)
+                write(app, body)
             except UnclassifiedColumn as exc:
                 assert "lane_entry.nickname" in str(exc)
                 assert "tools/registry.py" in str(exc)
@@ -163,7 +191,7 @@ def test_a_returning_column_is_checked_too():
         seed(owner)
         try:
             try:
-                insert_draft(app, "lane_entry", an_entry(), returning="nickname")
+                write(app, an_entry(), returning="nickname")
             except UnclassifiedColumn:
                 return
             raise AssertionError("an unclassified column was returned")
@@ -185,8 +213,7 @@ def test_an_application_write_cannot_arrive_sealed():
         seed(owner)
         try:
             try:
-                insert_draft(app, "lane_entry",
-                             an_entry(seal_state=SEALED, sealed_by=ANN))
+                write(app, an_entry(seal_state=SEALED, sealed_by=ANN))
             except SealStateRefused as exc:
                 assert "records/sealing.py" in str(exc)
                 assert "named human" in str(exc)
@@ -205,7 +232,7 @@ def test_an_application_write_cannot_name_a_sealer():
         seed(owner)
         try:
             try:
-                insert_draft(app, "lane_entry", an_entry(sealed_by=ANN))
+                write(app, an_entry(sealed_by=ANN))
             except SealStateRefused as exc:
                 assert "sealed_by is set by the seal" in str(exc)
             else:
@@ -222,7 +249,7 @@ def test_a_state_outside_the_cascade_is_refused_by_name():
         seed(owner)
         try:
             try:
-                insert_draft(app, "lane_entry", an_entry(seal_state="approved"))
+                write(app, an_entry(seal_state="approved"))
             except SealStateRefused as exc:
                 assert "'approved'" in str(exc)
                 assert "a third state is a place for a row to hide in" in str(exc)
@@ -244,9 +271,8 @@ def test_pending_is_still_reachable():
         seed(owner)
         try:
             with acting(app, ANN):
-                got = insert_draft(app, "lane_entry",
-                                   an_entry(seal_state="pending"),
-                                   returning="entry_id")
+                got = write(app, an_entry(seal_state="pending"),
+                            returning="entry_id")
                 assert app.execute(
                     "SELECT seal_state FROM lane_entry WHERE entry_id = %s", (got,)
                 ).fetchone()[0] == "pending"

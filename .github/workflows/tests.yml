@@ -233,10 +233,22 @@ jobs:
             "INSERT INTO lane VALUES ('44444444-4444-4444-4444-444444444444','$CARA','   ',now(),now(),now(),NULL)"
           refuse "a grant at L5" access_grant_max_rung \
             "INSERT INTO access_grant VALUES ('55555555-5555-5555-5555-555555555555','$ANN','$LBEN','$GBEN','L5','x','$ANN',now(),now(),now(),NULL)"
+          # payload is NULL in every lane_entry below: migration 004 tombstoned
+          # the clear column and constrained it to NULL, and passing '{}'::jsonb
+          # here would be refused by lane_entry_payload_is_tombstoned rather
+          # than by the guard each of these attacks is aimed at. That is the
+          # "refused by the wrong guard" failure this whole step is built to
+          # avoid, arriving through a migration rather than through a trigger.
           refuse "a lane_entry with no lane (W-1)" 'null value in column "lane_id"' \
-            "INSERT INTO lane_entry VALUES ('77777777-7777-7777-7777-777777777777',NULL,NULL,'attendance','{}'::jsonb,'$ANN','draft',NULL,now(),now(),NULL)"
+            "INSERT INTO lane_entry VALUES ('77777777-7777-7777-7777-777777777777',NULL,NULL,'attendance',NULL,'$ANN','draft',NULL,now(),now(),NULL)"
           refuse "sealed with no sealer" lane_entry_sealed_has_sealer \
-            "INSERT INTO lane_entry VALUES ('88888888-8888-8888-8888-888888888888','$LBEN',NULL,'commentary','{}'::jsonb,'$ANN','sealed',NULL,now(),now(),NULL)"
+            "INSERT INTO lane_entry VALUES ('88888888-8888-8888-8888-888888888888','$LBEN',NULL,'commentary',NULL,'$ANN','sealed',NULL,now(),now(),NULL)"
+          refuse "a payload in the clear (S-3)" lane_entry_payload_is_tombstoned \
+            "INSERT INTO lane_entry VALUES ('99999999-9999-9999-9999-999999999999','$LBEN',NULL,'medical_note','{\"body\":\"peanut allergy\"}'::jsonb,'$ANN','draft',NULL,now(),now(),NULL)"
+          refuse "readable bytes in the sealed column (S-3)" lane_entry_payload_sealed_is_ciphertext \
+            "INSERT INTO lane_entry (entry_id,lane_id,kind,payload_sealed,payload_key_id,payload_scheme,payload_sealed_at,author_id,created_at,valid_at) VALUES ('99999999-1111-9999-9999-999999999999','$LBEN','medical_note','{\"body\":\"peanut allergy\"}'::bytea,'lane-1','fernet-v1',now(),'$ANN',now(),now())"
+          refuse "half a sealed envelope (S-3)" lane_entry_payload_envelope_is_whole \
+            "INSERT INTO lane_entry (entry_id,lane_id,kind,payload_key_id,author_id,created_at,valid_at) VALUES ('99999999-2222-9999-9999-999999999999','$LBEN','medical_note','lane-1','$ANN',now(),now())"
           refuse "an edge with neither target set" edge_exactly_one_target \
             "INSERT INTO edge VALUES ('dddddddd-3333-3333-3333-333333333333','staff_of','$NGUYEN',NULL,NULL,'import',now(),now(),NULL)"
           refuse "an edge pointing at a scope that does not exist" edge_target_scope_id_fkey \
@@ -339,14 +351,15 @@ jobs:
       # list matches tests/test_store_*.py on disk — a glob would silently
       # cover a module that had stopped existing, and an explicit list that
       # nothing checks would silently miss one that started.
-      - name: The store, attacked (S-1)
+      - name: The store, attacked (S-1, S-3)
         run: |
           status=0
           for f in tests/test_store_roles.py \
                    tests/test_store_migrate.py \
                    tests/test_store_reading.py \
                    tests/test_store_narration.py \
-                   tests/test_store_writing.py; do
+                   tests/test_store_writing.py \
+                   tests/test_store_atrest.py; do
             echo "=== $f"
             python3 "$f" || status=1
           done
@@ -411,15 +424,29 @@ jobs:
           ANN=11111111-3333-3333-3333-333333333333
           LBEN=22222222-1111-1111-1111-111111111111
           E1=33333333-2222-2222-2222-222222222222
+          # A real Fernet token, minted here and used for one dropped database.
+          # It is not written to the tree and nothing in the tree can open it:
+          # the key is discarded on the next line (refusal 2, and
+          # tests/test_key_custody.py is the tripwire over the tree itself).
+          CT=$(python3 -c "
+          from cryptography.fernet import Fernet
+          print(Fernet(Fernet.generate_key()).encrypt(b'x' * 64).decode())")
           $A -c "INSERT INTO person VALUES ('$BEN','2010-05-01',now(),now(),NULL)"
           $A -c "INSERT INTO person VALUES ('$ANN','1979-02-02',now(),now(),NULL)"
           $A -c "INSERT INTO lane VALUES ('$LBEN','$BEN','keys at majority',now(),now(),now(),NULL)"
-          $A -c "INSERT INTO lane_entry VALUES ('$E1','$LBEN',NULL,'commentary','{}'::jsonb,'$ANN','sealed','$ANN',now(),now(),NULL)"
+          $A -c "INSERT INTO lane_entry (entry_id,lane_id,kind,payload_sealed,payload_key_id,payload_scheme,payload_sealed_at,author_id,seal_state,sealed_by,created_at,valid_at)
+                 VALUES ('$E1','$LBEN','commentary','$CT'::bytea,'lane-1','fernet-v1',now(),'$ANN','sealed','$ANN',now(),now())"
 
           # (a) With lane_entry_sealed_is_history in place, rewriting a sealed
           #     row is refused. Establish that first: a mutation is only
           #     evidence if the unmutated state is green.
-          if $A -c "UPDATE lane_entry SET payload = '{\"x\":1}'::jsonb WHERE entry_id = '$E1'" 2>/dev/null; then
+          #
+          #     The column is `kind`, not `payload`: since migration 004 the
+          #     clear payload is constrained to NULL, so an UPDATE naming it is
+          #     refused by lane_entry_payload_is_tombstoned and would still be
+          #     refused after the trigger is dropped -- an ablation that killed
+          #     nothing, reported as if it had.
+          if $A -c "UPDATE lane_entry SET kind = 'attendance' WHERE entry_id = '$E1'" 2>/dev/null; then
             echo "the sealed-row trigger did not refuse; there is nothing to ablate"; exit 1
           fi
           echo "guard present: a sealed row cannot be rewritten"
@@ -427,9 +454,16 @@ jobs:
           # (b) Drop it, and require the same statement to land. If it still
           #     fails, something other than this trigger was doing the work.
           $A -c "DROP TRIGGER lane_entry_sealed_is_history ON lane_entry"
-          $A -c "UPDATE lane_entry SET payload = '{\"x\":1}'::jsonb WHERE entry_id = '$E1'" \
+          $A -c "UPDATE lane_entry SET kind = 'attendance' WHERE entry_id = '$E1'" \
             || { echo "ABLATION KILLED NOTHING: the attack still fails with the trigger gone"; exit 1; }
           echo "ablation confirmed: the trigger was the guard"
+          # The trigger stays dropped, and (c) below depends on that: E1 is a
+          # sealed row, so with the trigger in place its DELETE is refused by
+          # the trigger no matter what the app role holds, and the privilege
+          # ablation would report ABLATION KILLED NOTHING for the wrong reason.
+          # Stated because restoring it here looks like tidiness and is not --
+          # the S-3 ablations below build their own database and need nothing
+          # from this one.
 
           # (c) The same discipline for the app role's missing privileges.
           #
@@ -459,5 +493,117 @@ jobs:
           test "$($A -At -c "SELECT count(*) FROM lane_entry WHERE entry_id = '$E1'")" = "0" \
             || { echo "ABLATION KILLED NOTHING: the delete reported success and removed no row"; exit 1; }
           echo "ablation confirmed: the missing privilege was the guard"
+
+          $PSQL -q -c "DROP DATABASE $DB"
+
+      # --- S-3: the sealing guards, ablated the same way ---------------------
+      #
+      # Three constraints and one trigger, each removed and each attack required
+      # to LAND once it is gone. A mutation that kills no gate is a failed
+      # mutation, not a passing one (scout-13 row B), so every step below
+      # establishes the refusal first and then requires the same statement to
+      # succeed with the guard removed.
+      - name: Ablate the sealing guards, and require the attacks to land (S-3)
+        run: |
+          set -e
+          DB=ablate_seal
+          $PSQL -q -c "DROP DATABASE IF EXISTS $DB"
+          $PSQL -q -c "CREATE DATABASE $DB"
+          A="psql -h localhost -U postgres -d $DB -v ON_ERROR_STOP=1 -q"
+          for f in migrations/*.sql; do $A -f "$f"; done
+
+          BEN=11111111-1111-1111-1111-111111111111
+          ANN=11111111-3333-3333-3333-333333333333
+          LBEN=22222222-1111-1111-1111-111111111111
+          E1=33333333-2222-2222-2222-222222222222
+          CT=$(python3 -c "
+          from cryptography.fernet import Fernet
+          print(Fernet(Fernet.generate_key()).encrypt(b'x' * 64).decode())")
+          CLEAR="{\"body\":\"peanut allergy; epi-pen in the case\"}"
+          $A -c "INSERT INTO person VALUES ('$BEN','2010-05-01',now(),now(),NULL)"
+          $A -c "INSERT INTO person VALUES ('$ANN','1979-02-02',now(),now(),NULL)"
+          $A -c "INSERT INTO lane VALUES ('$LBEN','$BEN','keys at majority',now(),now(),now(),NULL)"
+
+          clear_insert() {
+            $A -c "INSERT INTO lane_entry (entry_id,lane_id,kind,payload,author_id,created_at,valid_at)
+                   VALUES ('$1','$LBEN','medical_note','$CLEAR'::jsonb,'$ANN',now(),now())"
+          }
+          plaintext_into_sealed() {
+            $A -c "INSERT INTO lane_entry (entry_id,lane_id,kind,payload_sealed,payload_key_id,payload_scheme,payload_sealed_at,author_id,created_at,valid_at)
+                   VALUES ('$1','$LBEN','medical_note','$CLEAR'::bytea,'lane-1','fernet-v1',now(),'$ANN',now(),now())"
+          }
+
+          # (a) The tombstone. A clear jsonb payload is refused, and lands the
+          #     moment the constraint is gone -- which is what makes the
+          #     constraint the thing keeping payloads out of the clear column,
+          #     rather than the column merely being unused by the application.
+          if clear_insert aaaa0001-0000-0000-0000-000000000001 2>/dev/null; then
+            echo "the payload tombstone did not refuse; there is nothing to ablate"; exit 1
+          fi
+          echo "guard present: a payload cannot land in the clear"
+          $A -c "ALTER TABLE lane_entry DROP CONSTRAINT lane_entry_payload_is_tombstoned"
+          clear_insert aaaa0001-0000-0000-0000-000000000001 \
+            || { echo "ABLATION KILLED NOTHING: the clear payload still fails"; exit 1; }
+          echo "ablation confirmed: lane_entry_payload_is_tombstoned was the guard"
+          $A -c "DELETE FROM lane_entry WHERE entry_id = 'aaaa0001-0000-0000-0000-000000000001'"
+          $A -c "ALTER TABLE lane_entry ADD CONSTRAINT lane_entry_payload_is_tombstoned CHECK (payload IS NULL)"
+
+          # (b) The ciphertext shape. This is the constraint that refuses the
+          #     path around store/writing.py's seam entirely.
+          if plaintext_into_sealed aaaa0002-0000-0000-0000-000000000002 2>/dev/null; then
+            echo "the ciphertext shape check did not refuse; nothing to ablate"; exit 1
+          fi
+          echo "guard present: readable bytes cannot enter the sealed column"
+          $A -c "ALTER TABLE lane_entry DROP CONSTRAINT lane_entry_payload_sealed_is_ciphertext"
+          plaintext_into_sealed aaaa0002-0000-0000-0000-000000000002 \
+            || { echo "ABLATION KILLED NOTHING: plaintext still fails the sealed column"; exit 1; }
+          echo "ablation confirmed: lane_entry_payload_sealed_is_ciphertext was the guard"
+          $A -c "DELETE FROM lane_entry WHERE entry_id = 'aaaa0002-0000-0000-0000-000000000002'"
+
+          # (c) **The hole migration 004 found.** 002's comment claims a column
+          #     added without a thought for the sealed-row rule "is refused by
+          #     default, which is the direction that fails safe." It is not:
+          #     refuse_sealed_mutation() compares a hand-written list, and a
+          #     column missing from it is not compared. Restoring 002's version
+          #     of the function -- the four envelope columns absent -- must make
+          #     rewriting a sealed payload LAND. If it does not, the claim in
+          #     002 was true and 004's replacement was unnecessary; this step is
+          #     what decides that, rather than a comment.
+          $A -c "INSERT INTO lane_entry (entry_id,lane_id,kind,payload_sealed,payload_key_id,payload_scheme,payload_sealed_at,author_id,seal_state,sealed_by,created_at,valid_at)
+                 VALUES ('$E1','$LBEN','medical_note','$CT'::bytea,'lane-1','fernet-v1',now(),'$ANN','sealed','$ANN',now(),now())"
+          if $A -c "UPDATE lane_entry SET payload_sealed = NULL, payload_key_id = NULL, payload_scheme = NULL, payload_sealed_at = NULL WHERE entry_id = '$E1'" 2>/dev/null; then
+            echo "004's trigger did not refuse the envelope rewrite; nothing to ablate"; exit 1
+          fi
+          echo "guard present: a sealed row's envelope cannot be rewritten"
+          $A -c "
+            CREATE OR REPLACE FUNCTION refuse_sealed_mutation() RETURNS trigger
+            LANGUAGE plpgsql AS \$fn\$
+            BEGIN
+                IF TG_OP = 'DELETE' THEN
+                    IF OLD.seal_state = 'sealed' THEN
+                        RAISE EXCEPTION 'a sealed lane_entry is history';
+                    END IF;
+                    RETURN OLD;
+                END IF;
+                IF OLD.seal_state <> 'sealed' THEN RETURN NEW; END IF;
+                IF NEW.entry_id    IS DISTINCT FROM OLD.entry_id
+                OR NEW.lane_id     IS DISTINCT FROM OLD.lane_id
+                OR NEW.referent_id IS DISTINCT FROM OLD.referent_id
+                OR NEW.kind        IS DISTINCT FROM OLD.kind
+                OR NEW.payload     IS DISTINCT FROM OLD.payload
+                OR NEW.author_id   IS DISTINCT FROM OLD.author_id
+                OR NEW.seal_state  IS DISTINCT FROM OLD.seal_state
+                OR NEW.sealed_by   IS DISTINCT FROM OLD.sealed_by
+                OR NEW.created_at  IS DISTINCT FROM OLD.created_at
+                OR NEW.valid_at    IS DISTINCT FROM OLD.valid_at
+                THEN
+                    RAISE EXCEPTION 'a sealed lane_entry is insert-only history';
+                END IF;
+                RETURN NEW;
+            END;
+            \$fn\$;"
+          $A -c "UPDATE lane_entry SET payload_sealed = NULL, payload_key_id = NULL, payload_scheme = NULL, payload_sealed_at = NULL WHERE entry_id = '$E1'" \
+            || { echo "ABLATION KILLED NOTHING: 002's trigger already refused the envelope rewrite, so 004's replacement was not the guard"; exit 1; }
+          echo "ablation confirmed: 002's list left the envelope columns editable on a sealed row"
 
           $PSQL -q -c "DROP DATABASE $DB"

@@ -30,7 +30,9 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -103,8 +105,35 @@ class Database:
             conn.execute(
                 "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
                 "WHERE datname = %s AND pid <> pg_backend_pid()", (self.name,))
+            self._wait_for_backends(conn)
             conn.execute(f'DROP DATABASE IF EXISTS "{self.name}"')
         return False
+
+    def _wait_for_backends(self, conn, tries: int = 100) -> None:
+        """Block until the terminated backends are actually gone.
+
+        **`pg_terminate_backend` sends a signal; it does not wait.** Without
+        this the next test's `installed()` can begin while a backend from the
+        previous one is still dying, and `ensure_roles` — which touches
+        `pg_authid`, a *cluster-global* catalog that a dropped database does not
+        take with it — fails with `tuple concurrently updated`.
+
+        Observed once while `tests/test_store_atrest.py` was being written: two
+        of fifteen tests failed, both passed in isolation, and four subsequent
+        full runs were clean. That is the shape of a flake that teaches everyone
+        to press re-run, which is the habit that later hides a real failure.
+        Waiting is the fix that removes the race rather than retrying past it.
+        """
+        for _ in range(tries):
+            left = conn.execute(
+                "SELECT count(*) FROM pg_stat_activity WHERE datname = %s "
+                "AND pid <> pg_backend_pid()", (self.name,)).fetchone()[0]
+            if not left:
+                return
+            time.sleep(0.02)
+        # Not raised: the DROP below reports the real problem with the real
+        # message, and a harness that failed here would hide the test's own
+        # result behind its cleanup.
 
     @property
     def dsn(self) -> str:
@@ -145,6 +174,48 @@ def installed(db: "Database", *, migrations: Optional[Path] = None):
     run(owner, migrations, app_password=APP_PASSWORD)
     app = db.connect(user="terpsi_app", password=APP_PASSWORD)
     return owner, app
+
+
+class Custody:
+    """A master, a keyring and one lane key per lane — **minted in memory only.**
+
+    Refusal 2 at the test harness: *never commit the trust root.* Key material
+    is minted here, lives for the duration of one throwaway database, and is
+    never written to the tree, to a fixture, to an environment variable or to a
+    file. `records/atrest.py` persists nothing by design (§6's core/seam
+    partition), and this is the shape a caller who honours that looks like: it
+    holds the `Keyring` — which carries only wrappings, and is useless without
+    the master — plus the master and the unwrapped lane keys in local variables.
+
+    A fixture holding a real key would be worse than a fixture holding a
+    password: a key that opens a sealed payload is the payload, and it would be
+    in the tree forever. `tests/test_key_custody.py` scans the whole tree for
+    both spellings and fails on either, so this is a guard rather than a habit.
+
+    The password in `APP_PASSWORD` above is deliberately *not* the same kind of
+    thing and the distinction is worth keeping: it authenticates to a database
+    that is dropped before the caller returns, and it decrypts nothing.
+    """
+
+    def __init__(self, *lane_ids: str, at: datetime):
+        from records.atrest import Keyring, new_master, open_lane_key
+
+        self.master = new_master()
+        keyring, keys = Keyring(), {}
+        for lane_id in lane_ids:
+            keyring, keys[lane_id] = open_lane_key(
+                keyring, lane_id=str(lane_id), master=self.master, at=at)
+        self.keyring = keyring
+        self.keys = keys
+
+    def key(self, lane_id) -> "object":
+        return self.keys[str(lane_id)]
+
+    def __repr__(self) -> str:
+        # Same rule as `MasterKey.__repr__`: key material is L5 and a dataclass
+        # repr in a traceback is a rendering.
+        return (f"Custody(lanes={sorted(self.keys)}, "
+                f"master={self.master.key_id!r}, material=<withheld>)")
 
 
 def refused_by(fn, guard: str) -> str:

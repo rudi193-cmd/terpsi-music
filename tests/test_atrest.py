@@ -693,13 +693,48 @@ def test_the_survey_is_derived_from_the_wrappings():
 
 
 def test_the_conformance_check_reports_escrow_honestly_today():
-    """The check must read `ABSENT`, not `PASS`, and not be quietly absent."""
+    """The check must read `UNKNOWN` — not `PASS`, not `ABSENT`, not missing.
+
+    **This assertion said `ABSENT` until S-3 and was right to**, on evidence
+    that has since stopped being true: *"no keyring and no sealed store exist
+    here."* Gate G-A picked `E-1` (3-of-5, `docs/ESCROW.md`, 2026-07-31) and
+    migration 004 means a sealed store can exist, so both halves of that
+    evidence moved.
+
+    The row is now the middle state and both walls matter:
+
+    * not `ABSENT` — a policy *is* recorded, and *nothing decided* is a
+      different fact from *decided and never drilled* (rule 13, which is why
+      `EscrowState` has four members);
+    * not `PASS` — §5: *an untested key recovery is not escrow*, and
+      `docs/ESCROW.md` records zero rehearsals on purpose.
+
+    Both walls are ablated (`tests/ablate.py`), and the transition to `PASS` on
+    a dated rehearsal is driven in `tests/test_conform.py` against a synthetic
+    document rather than waited for.
+    """
     import conform  # noqa: E402
+    from audit import escrow_facts  # noqa: E402
 
     got = conform.check_key_escrow()
-    assert got.state is conform.State.ABSENT, got.evidence
+    assert got.state is conform.State.UNKNOWN, got.evidence
     assert got.id == "key-escrow"
     assert conform.check_key_escrow in conform.CHECKS
+
+    # The evidence cites the file and the file's own facts, derived rather than
+    # quoted here (rule 17): the threshold and the holder count come out of
+    # docs/ESCROW.md, so editing the policy moves this test with it.
+    facts = escrow_facts()
+    assert "ESCROW.md" in got.evidence, got.evidence
+    assert facts.threshold in got.evidence, got.evidence
+    assert f"{facts.holders} custodian" in got.evidence, got.evidence
+    assert f"{len(facts.rehearsals)} rehearsal" in got.evidence, got.evidence
+    assert not facts.rehearsed, (
+        "docs/ESCROW.md now records a rehearsal — this test and the row's "
+        "expected state both move to PASS, by a ceremony happening, which is "
+        "the only thing that should move them")
+    # The state name is atrest's, not a second vocabulary invented here.
+    assert atrest.EscrowState.UNKNOWN.value.upper() in got.evidence, got.evidence
 
 
 # --- the primitive seam ---------------------------------------------------

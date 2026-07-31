@@ -115,8 +115,8 @@ def seed(owner):
             "INSERT INTO edge VALUES (%s,'self',%s,%s,NULL,'enrolment',"
             "now(),now() - interval '1 year',NULL)", (SELF_CARA, CARA, LCARA))
         cur.execute(
-            "INSERT INTO lane_entry VALUES (%s,%s,NULL,'allergy',"
-            "'{\"value\": \"peanut\"}'::jsonb,%s,'draft',NULL,now(),now(),NULL)",
+            "INSERT INTO lane_entry (entry_id, lane_id, kind, author_id, "
+            " created_at, valid_at) VALUES (%s,%s,'allergy',%s,now(),now())",
             (ENTRY, LBEN, ANN))
     owner.commit()
 

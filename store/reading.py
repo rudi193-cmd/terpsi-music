@@ -47,6 +47,32 @@ can be imported and exercised by a suite with no database — which is how
 `tests/test_rule13_acceptance.py` reaches it. The real killed-connection attack
 lives in `tests/test_store_reading.py` against a real cluster, and both are
 needed: one proves the shape, the other proves it fires.
+
+---
+
+## Sealed payloads come back sealed (S-3)
+
+`envelope()` rebuilds `records/atrest.py`'s `Sealed` from the four columns
+migration 004 added. **It does not unseal, and nothing in `store/` does.**
+
+That is the core/seam partition (§6) rather than an omission, and it is the
+design's point rather than a limitation of it: the store holds ciphertext and
+does not hold the key, so *"the agent can carry the database out"* stops being a
+policy promise. `records/serving.py`'s `L3`+ path never needs the payload at all
+— above the derive floor it serves an **instruction**, and `Field.payload` is
+returned rather than read — so a store that cannot open a payload can still
+answer every question the resolver asks. `tests/test_store_atrest.py` runs
+`serve()` at `L4` with `records.atrest.unseal` instrumented and asserts it was
+called zero times.
+
+**`lane_id` is not one of the four columns**, and the omission is load-bearing.
+`Sealed` names its lane, and the envelope is rebuilt with the *row's* lane id —
+so a row moved into another lane produces a payload that authenticates against a
+header naming the lane it was sealed for, and reports `MISBOUND` instead of
+opening. A `payload_lane_id` column would simply have moved with the row.
+
+`tests/test_sealing_plan.py` scans this package for the unsealing verbs, so the
+paragraph above is a guard rather than a promise.
 """
 
 from __future__ import annotations
@@ -167,6 +193,56 @@ def read(conn, sql: str, params: Sequence[Any] = ()) -> Reading:
     except Exception as exc:  # noqa: BLE001 — see the docstring
         return unavailable(f"the store did not answer: {exc!r}", exc)
     return rows(found)
+
+
+# --- sealed payloads, as envelopes -----------------------------------------
+
+
+class EnvelopeBroken(ValueError):
+    """A sealed payload's four columns disagree about whether there is one.
+
+    `lane_entry_payload_envelope_is_whole` makes this unwritable through the
+    database, so reaching it means the row arrived some other way — a restore
+    from a dump taken before migration 004, a hand-edited table, a second
+    writer. Raised rather than returned as *no payload*, because *this row has
+    no payload* and *this row has half an envelope* are different facts and the
+    second is a finding (rule 13).
+    """
+
+
+def envelope_columns_sql(column: str = "payload") -> str:
+    """The `SELECT` list for one sealed column, from the derivation.
+
+    Spelled by `store/sealing_plan.py` rather than typed here, so a rename in the
+    migration reaches every read without anyone remembering to grep.
+    """
+    from .sealing_plan import envelope_columns
+    return ", ".join(envelope_columns(column))
+
+
+def envelope(*, lane_id: str, sealed, key_id, scheme, sealed_at):
+    """`records.atrest.Sealed` from a row's four envelope columns, or `None`.
+
+    `None` is *this row carries no sealed payload* — an established answer from
+    four NULLs, not an absence rendered as a result. Half an envelope raises.
+
+    The import is local so this module keeps importing on a box where the sealing
+    primitive is unusable: `records/atrest.py`'s own dependency import is lazy
+    for that reason, and a store that could not be read at all because a wheel
+    was broken would be a worse failure than one that cannot open a payload.
+    """
+    from records.atrest import Sealed
+
+    present = [v is not None for v in (sealed, key_id, scheme, sealed_at)]
+    if not any(present):
+        return None
+    if not all(present):
+        raise EnvelopeBroken(
+            f"lane {lane_id}: {sum(present)} of the 4 envelope columns are "
+            "populated. lane_entry_payload_envelope_is_whole refuses this at "
+            "the database, so this row did not arrive through it")
+    return Sealed(lane_id=str(lane_id), key_id=str(key_id), scheme=str(scheme),
+                  ciphertext=bytes(sealed), sealed_at=sealed_at)
 
 
 def guarded(fn: Callable[[], Sequence[Any]]) -> Reading:
