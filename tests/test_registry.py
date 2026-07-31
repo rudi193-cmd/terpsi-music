@@ -12,12 +12,12 @@ only against a seed that already agrees passes on the day it ships and every day
 after, whether or not it works (`tests/test_sockets.py`'s argument, one subject
 over).
 
-**The three undecided rows are pinned by name below.** They are a real finding —
-`reconciled_session.declared`, `.observed` and `.diff` are seeded `L4` where
-their class derives `L3`, and nothing in the migration, `LANE-MODEL.md` or
-`SENSITIVITY.md` records which rule reaches it. When a human records the reason,
-those assertions fail and are meant to: the enumeration is what the build
-checks, and it grows by human act.
+**The three formerly-undecided rows are held below as decided.** They were a
+real finding — `reconciled_session.declared`, `.observed` and `.diff` seeded
+`L4` where the class derives `L3`, nothing recording which rule — until
+2026-07-31, when the maintainer recorded the composition route. The pinning
+assertions failed that day exactly as written, and were flipped to hold the
+decision: the enumeration is what the build checks, and it grew by human act.
 
 Stdlib only. Runs under pytest or directly:
 
@@ -45,10 +45,14 @@ DECOY = ROOT / "tests" / "fixtures" / "decoys" / "registry_drift.sql"
 #: The elevation nobody has explained. Both values are carried here so a reader
 #: of this file sees the finding without running anything (rule 17: the pair
 #: comes from the seed, and the row count below is derived).
-UNEXPLAINED = {
-    ("reconciled_session", "declared"): ("L4", "L3"),
-    ("reconciled_session", "observed"): ("L4", "L3"),
-    ("reconciled_session", "diff"): ("L4", "L3"),
+#: Was `UNEXPLAINED` — the three reconciled_session columns, pinned UNDECIDED
+#: until 2026-07-31, when the maintainer recorded the composition route
+#: (registry Route.COMPOSITION). Kept as the decided set so the flip is
+#: visible in history rather than deleted.
+DECIDED_BY_COMPOSITION = {
+    ("reconciled_session", "declared"),
+    ("reconciled_session", "observed"),
+    ("reconciled_session", "diff"),
 }
 
 
@@ -70,7 +74,7 @@ def _states(r):
 def test_the_registry_and_the_procedure_agree_on_every_field_but_the_named_ones():
     """The verdict. Nothing here is a literal: the counts come from the file."""
     r = _real()
-    assert r.verdict is R.Verdict.UNDECIDED, [str(f) for f in r.findings]
+    assert r.verdict is R.Verdict.CLEAN, [str(f) for f in r.findings]
     assert not r.findings, [str(f) for f in r.findings]
 
     seeded = R.classified(R.SCHEMA.read_text(encoding="utf-8"))
@@ -80,32 +84,24 @@ def test_the_registry_and_the_procedure_agree_on_every_field_but_the_named_ones(
     assert r.agreed + len(r.of(R.Agreement.UNDECIDED)) == len(r.judgements)
 
 
-def test_the_three_unexplained_elevations_are_named_with_both_values():
-    """The finding, pinned. `reconciled_session`'s three `jsonb` columns are
-    seeded `L4` and their class derives `L3`.
-
-    Two readings are coherent and the fix direction is not obvious from
-    `SENSITIVITY.md`, so nothing here decides it:
-
-    * the **rung** is right and the class stays `PII_MINOR` — *Protected
-      status* says exactly that shape is permitted, *"the rung moved; the class
-      did not"* — and what is missing is only the recorded reason;
-    * the **class** is the defect: the seed's own note puts `lane_entry.payload`
-      at `HEALTH`/`L4` *"because composition is by max and that column can hold
-      anything"*, and these three columns hold whatever a session declared.
-
-    The first reading needs a human to name the rule; the second changes egress
-    and retention policy (§6), which is a decision and not a fix. Until one is
-    made, the row is `UNDECIDED` — not a pass, and not a build failure."""
+def test_the_session_columns_are_elevated_by_the_recorded_composition_rule():
+    """**Was the pinned finding; decided 2026-07-31.** The three jsonb columns
+    are `L4` with the class left `PII_MINOR`, by the composition rule the seed
+    already applied to `lane_entry.payload` — recorded in the seed comment, in
+    `Route.COMPOSITION`, and in §18 item 18's G-B. This test went red the day
+    the elevation was recorded, exactly as its docstring promised, and now
+    holds the decision: the three are ELEVATED with the rule named, and
+    nothing is UNDECIDED."""
     r = _real()
-    got = {(j.table, j.column): (j.seeded, j.derived)
-           for j in r.of(R.Agreement.UNDECIDED)}
-    assert got == UNEXPLAINED, got
-    for j in r.of(R.Agreement.UNDECIDED):
-        assert "nothing records which applies" in j.note, j.note
+    elevated = {(j.table, j.column) for j in r.of(R.Agreement.ELEVATED)}
+    assert DECIDED_BY_COMPOSITION <= elevated
+    assert not r.of(R.Agreement.UNDECIDED), [
+        (j.table, j.column) for j in r.of(R.Agreement.UNDECIDED)]
+    for j in r.of(R.Agreement.ELEVATED):
+        if (j.table, j.column) in DECIDED_BY_COMPOSITION:
+            assert "composition" in j.note.lower(), j.note
 
-
-def test_the_seven_recorded_elevations_are_the_ones_the_seed_makes():
+def test_the_ten_recorded_elevations_are_the_ones_the_seed_makes():
     """Both directions. Every enumerated elevation is elevated by the registry,
     and every elevation the registry makes is enumerated — an enumeration that
     could only grow would let a rung be raised with no rule named."""
@@ -115,8 +111,8 @@ def test_the_seven_recorded_elevations_are_the_ones_the_seed_makes():
         f"only in the seed: {sorted(elevated - set(R.ELEVATIONS))}; "
         f"only in ELEVATIONS: {sorted(set(R.ELEVATIONS) - elevated)}")
     for j in r.of(R.Agreement.ELEVATED):
-        assert j.seeded == "L5" and j.derived == "L3", j
-        assert "L5 rule 3" in j.note, j.note
+        assert j.derived == "L3" and j.seeded in ("L4", "L5"), j
+        assert ("L5 rule 3" in j.note) or ("composition" in j.note.lower()), j.note
 
 
 def test_every_recorded_route_reaches_the_rung_it_is_used_for():
@@ -281,21 +277,49 @@ def test_a_document_whose_table_moved_out_of_reach_is_vacuous():
 # --- wired into the conformance record --------------------------------------
 
 
-def test_the_conform_row_is_unknown_today_and_says_which_fields():
-    """Rule 18: this is enforcement because CI routes through it —
-    `.github/workflows/tests.yml` runs `tests/test_conform.py`, which runs every
-    check. Today's honest state is `UNKNOWN`, and the row carries the field
-    names rather than a count."""
+def test_the_conform_row_passes_on_the_merits_since_the_composition_call():
+    """Rule 18: this is enforcement because CI routes through it. The row read
+    `UNKNOWN` naming the three session fields until 2026-07-31; the maintainer
+    recorded the composition rule and it now reads `PASS` — earned by a
+    decision landing, not by a check softening, which is what this test's
+    previous version was written to distinguish."""
     got = check_classification_registry()
-    assert got.state is State.UNKNOWN, got
-    for table, column in UNEXPLAINED:
-        assert f"{table}.{column}" in got.evidence, got.evidence
+    assert got.state is State.PASS, got
+    assert "0 undecided" in got.evidence or "116" in got.evidence, got.evidence
 
 
 def test_the_conform_row_fails_on_the_decoy():
     got = check_classification_registry(schema=DECOY)
     assert got.state is State.FAIL
     assert "allergy_note" in got.evidence or "favourite_colour" in got.evidence
+
+
+UNDECIDED_ONLY = """\
+CREATE TABLE person (
+    person_id uuid PRIMARY KEY,
+    chair_assignment text
+);
+INSERT INTO field_classification (table_name, column_name, data_class, rung) VALUES
+    ('person','person_id','PII_MINOR','L3'),
+    ('person','chair_assignment','PII_MINOR','L4');
+"""
+
+
+def test_an_undecided_field_still_reads_unknown_not_pass():
+    """The real tree stopped supplying an UNDECIDED case on 2026-07-31 (the
+    composition call decided the last three), and the ablation harness
+    noticed the same day: the mutation forcing UNDECIDED→PASS survived,
+    because no input exercised the branch on a clean registry. So the branch
+    gets a synthetic input with exactly one drift — an L4 elevation nothing
+    records — and no FAIL-grade rows to mask it. This test is now what
+    catches that mutation; a guard whose forbidden input the tree no longer
+    produces still needs one from somewhere (rule 19)."""
+    with tempfile.TemporaryDirectory() as d:
+        schema = Path(d) / "undecided_only.sql"
+        schema.write_text(UNDECIDED_ONLY, encoding="utf-8")
+        got = check_classification_registry(schema=schema)
+    assert got.state is State.UNKNOWN, got
+    assert "person.chair_assignment" in got.evidence, got.evidence
 
 
 def test_the_conform_row_is_unknown_when_there_is_nothing_to_read():

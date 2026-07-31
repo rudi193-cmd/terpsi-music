@@ -466,6 +466,11 @@ CREATE TABLE reconciled_session (
     opened_at    timestamptz NOT NULL,
     closed_at    timestamptz,
     principal_id uuid        NOT NULL REFERENCES person(person_id),
+    -- declared/observed/diff are seeded L4 with the class left PII_MINOR:
+    -- composition is max and a jsonb column holds whatever the session
+    -- declared, the same rule lane_entry.payload carries. Decided by the
+    -- maintainer 2026-07-31 (registry Route.COMPOSITION; the rung moved,
+    -- the class did not).
     declared     jsonb       NOT NULL,  -- 13 fields in
     observed     jsonb,                 -- 13 fields out
     diff         jsonb,

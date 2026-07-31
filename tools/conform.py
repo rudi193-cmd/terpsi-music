@@ -463,7 +463,13 @@ def check_classification_registry(schema: Optional[Path] = None,
     """
     from registry import Agreement, Verdict, check as registry_check  # noqa: E402
 
-    r = registry_check(schema, doc)
+    # conform.ROOT, explicitly — registry's module default reads its own tree,
+    # and a check that scans the installed copy reports health out of a source
+    # that is not there. Invisible while this row was UNKNOWN; the sweep caught
+    # it the day the row first turned PASS (same class as check_manifest).
+    r = registry_check(
+        schema if schema is not None else ROOT / "migrations" / "001_lanes.sql",
+        doc if doc is not None else ROOT / "docs" / "SENSITIVITY.md")
     what = "the class-to-L mapping is enforced in one place (§9 item 2, §16)"
     if r.verdict is Verdict.VACUOUS:
         return Check("classification-registry", what, State.UNKNOWN,

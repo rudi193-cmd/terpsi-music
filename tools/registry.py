@@ -215,6 +215,9 @@ class Route(Enum):
     L5_ENFORCEMENT_CONTENT = "L5 rule 2: the content of an external restriction"
     L5_REVEALS_A_REFUSAL = "L5 rule 3: rendering it would reveal a refusal"
     CLAUSE = "step 3's general clause, per Protected status"
+    COMPOSITION = ("composition is max: the column can hold anything, so it "
+                   "inherits the max of what it can hold (SENSITIVITY.md, "
+                   "'Composition is max, everywhere')")
 
 
 REACHES: Dict[Route, Rung] = {
@@ -222,6 +225,7 @@ REACHES: Dict[Route, Rung] = {
     Route.L5_ENFORCEMENT_CONTENT: Rung.L5,
     Route.L5_REVEALS_A_REFUSAL: Rung.L5,
     Route.CLAUSE: Rung.L4,
+    Route.COMPOSITION: Rung.L4,
 }
 
 
@@ -246,6 +250,10 @@ _DECLINED = (
     "SENSITIVITY.md L5 rule 3"
 )
 
+_SESSION = (
+    "decided 2026-07-31 by the maintainer, recorded in the seed comment beside the three columns and in §18 item 18's G-B: a jsonb column holds whatever a session declared, and the rung follows the max of what it can hold — the same rule the seed already applies to lane_entry.payload. The class stays PII_MINOR: the rung moved; the class did not (Protected status)"
+)
+
 #: Every column whose seeded rung is above what its class derives, with the rule
 #: that permits it. Checked **both ways**: an entry with no elevated row behind
 #: it is a finding, so this list cannot outlive the seed it explains.
@@ -264,6 +272,12 @@ ELEVATIONS: Dict[Tuple[str, str], Elevation] = {
         Elevation(Rung.L5, Route.L5_REVEALS_A_REFUSAL, _DECLINED),
     ("declination", "invalid_at"):
         Elevation(Rung.L5, Route.L5_REVEALS_A_REFUSAL, _DECLINED),
+    ("reconciled_session", "declared"):
+        Elevation(Rung.L4, Route.COMPOSITION, _SESSION),
+    ("reconciled_session", "observed"):
+        Elevation(Rung.L4, Route.COMPOSITION, _SESSION),
+    ("reconciled_session", "diff"):
+        Elevation(Rung.L4, Route.COMPOSITION, _SESSION),
 }
 
 

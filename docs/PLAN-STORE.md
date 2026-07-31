@@ -78,8 +78,8 @@ expensive direction, so this plan exists before the first write does.
 
 | | gate | who |
 |---|---|---|
-| G-A | `docs/ESCROW.md` exists: custodians, threshold, rehearsal calendar, recorded and **rehearsed** — R16 flips to a build-failing `S1` at the first at-rest write without it | **maintainer picks; options below** |
-| G-B | The `reconciled_session` rung rule is recorded (the three `jsonb` columns at `L4`; the composition-is-max rule written where the seed can cite it) | **maintainer confirms** |
+| G-A | ~~maintainer picks~~ **Picked 2026-07-31: E-1, 3-of-5** — `docs/ESCROW.md` records the policy; names and the first rehearsal are install-acceptance acts, and until that rehearsal is dated the disposition honestly reads unrehearsed. R16's fuse stands: the first at-rest write before the rehearsal is still the build failure it should be | done (policy) |
+| G-B | ~~maintainer confirms~~ **Confirmed 2026-07-31** — the composition route recorded (`registry.Route.COMPOSITION`, the seed comment beside the columns); the three fields are ELEVATED with the rule named, the registry reads CLEAN, and the conformance row passes on the merits | done |
 | G-C | Manifest write-paths declaration + its reconciliation, same commit | build |
 | G-D | The two-role split exists before the first table is populated — a store born single-role never sheds the habit | build |
 
