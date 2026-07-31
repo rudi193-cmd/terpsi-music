@@ -20,6 +20,12 @@ from .atrest import (Agreement, Composition, Erasability, Erasure, EscrowDisposi
                      reseal, rewrap, rotate_lane_key, seal_bytes, unseal,
                      unseal_with, unwrap)
 from .crossing import Envelope, permits
+from .commentary import (Addressed, Capture, Declaration, ExitReconciliation,
+                         ExitState, GuestSession, Observed, Pending, Remark,
+                         StandingScore, Transcript, TranscriptState, Unlaned,
+                         Unsealed, capture, close, compare, fan_out, knock,
+                         log_capture, observed, pending_from, reconcile_exit,
+                         refuse_standing_score, release, to_draft, transcribe)
 from .dispatch import Dispatch, dispatch
 from .exit import Lane, Threshold, open_lane, transfer
 from .classify import Classification, Decision, Descriptor, classify, unclassified
@@ -77,6 +83,11 @@ __all__ = [
     "past_exercise",
     "Lane", "Threshold", "open_lane", "transfer",
     "Envelope", "permits", "Dispatch", "dispatch",
+    "Remark", "Capture", "Addressed", "capture", "fan_out", "to_draft",
+    "release", "compare", "refuse_standing_score", "StandingScore", "Unsealed",
+    "Unlaned", "Declaration", "GuestSession", "knock", "close", "log_capture",
+    "Observed", "observed", "ExitState", "ExitReconciliation", "reconcile_exit",
+    "Transcript", "TranscriptState", "Pending", "transcribe", "pending_from",
     "MasterKey", "LaneKey", "WrappedLaneKey", "Keyring", "KeyState", "Sealed",
     "Opening", "Readable", "Agreement", "Erasure", "Erasability", "Composition",
     "EscrowDisposition", "EscrowState", "KeyUnavailable", "PrimitiveUnavailable",
