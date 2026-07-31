@@ -114,7 +114,7 @@ entirely.
 | `TM-RACE-01` | R11 | `S2` | closed 2026-07-31 | The ablation lock was check-then-act, so it could be held twice. |
 | `TM-TMP-01` | R10 | `S2` | closed 2026-07-31 | A fixed sidecar name under `gettempdir()`, written through symlinks. |
 | `TM-RACE-02` | R11 | `S3` | closed 2026-07-31 | The conformance record's append-only rule was check-then-act too. |
-| `TM-ROOT-01` | R4 | `S2` | closed 2026-07-31 | Nothing kept the trust root out of the tree; mitigated, not enforced. |
+| `TM-ROOT-01` | R4 | `S2` | closed 2026-07-31 | Nothing kept the trust root out of the tree. Mitigated by `.gitignore`; enforced by `.githooks/pre-commit` (per-clone install, one residual named below). |
 | `TM-DEPS-01` | R14 | `S3` | open | The stdlib-only posture is prose in docstrings; nothing checks it. |
 
 ### `TM-RACE-01` — the ablation lock could be held twice (`S2`, closed)
@@ -209,11 +209,21 @@ had been committed (checked: neither path exists in the working tree or in
 
 **Fixed** by adding `mcp_apps/`, `_net_leases/`, `*.grant` and `*.lease`.
 
-**And the fix is a mitigation, not enforcement — rule 18.** `.gitignore` stops
+**The mitigation now has its enforcement half — rule 18.** `.gitignore` stops
 `git add -A`; it does not stop `git add -f`, and it has no opinion about a file
-already staged. The enforcement half is a pre-commit hook that refuses the
-commit, and it has not been written. Recorded here rather than in the
-`.gitignore` comment alone, so that the gap is visible from the audit.
+already staged. `.githooks/pre-commit` (written 2026-07-31) is the gate: it
+reads the staged set — what is actually about to be committed — and refuses the
+trust root there, naming the path and refusal 2. `tests/test_trust_root_hook.py`
+runs it against the force-add case `.gitignore` cannot catch and against a
+clean control, so the guard is shown to fail rather than trusted to exist.
+
+**One residual, stated rather than closed over.** The hook is a gate only where
+`core.hooksPath` points at it (`scripts/install-hooks.sh`, one act per clone).
+Uninstalled, it is a ledger — so the enforcement is per-clone, not automatic
+across every checkout, and a clone that never ran the install script is back to
+the `.gitignore` mitigation alone. Wiring the install into a repository
+bootstrap (a `make setup`, or CI asserting `core.hooksPath`) would make it
+automatic; that step is not written, and this is where it is recorded.
 
 ### `TM-DEPS-01` — the stdlib-only posture is unenforced (`S3`, open)
 
