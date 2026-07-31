@@ -138,9 +138,10 @@ def test_a_payload_written_through_the_seam_is_ciphertext_in_the_database():
         seed(owner)
         try:
             custody = custody_over(LBEN)
-            insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
-                         lane_key=custody.key(LBEN), at=AT)
-            app.commit()
+            with acting(app, ANN):
+                insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
+                             lane_key=custody.key(LBEN), at=AT)
+                app.commit()
 
             with acting(app, ANN), app.cursor() as cur:
                 cur.execute("SELECT payload, payload_sealed, payload_scheme "
@@ -170,9 +171,10 @@ def test_the_read_returns_an_envelope_and_the_key_holder_opens_it():
         seed(owner)
         try:
             custody = custody_over(LBEN)
-            insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
-                         lane_key=custody.key(LBEN), at=AT)
-            app.commit()
+            with acting(app, ANN):
+                insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
+                             lane_key=custody.key(LBEN), at=AT)
+                app.commit()
 
             got = sealed_rows(owner, LBEN)
             assert len(got) == 1
@@ -194,9 +196,10 @@ def test_the_keyring_without_the_master_says_the_key_is_available_not_missing():
         seed(owner)
         try:
             custody = custody_over(LBEN)
-            insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
-                         lane_key=custody.key(LBEN), at=AT)
-            app.commit()
+            with acting(app, ANN):
+                insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
+                             lane_key=custody.key(LBEN), at=AT)
+                app.commit()
             got = atrest.unseal(sealed_rows(owner, LBEN)[0], keyring=custody.keyring)
             assert got.state is atrest.Readable.MASTER_MISMATCH, got
             assert "was not asked for" in got.reason
@@ -218,9 +221,10 @@ def test_a_row_moved_into_another_lane_reads_as_misbound_not_as_that_lanes():
         seed(owner)
         try:
             custody = custody_over(LBEN, LCARA)
-            insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
-                         lane_key=custody.key(LBEN), at=AT)
-            app.commit()
+            with acting(app, ANN):
+                insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
+                             lane_key=custody.key(LBEN), at=AT)
+                app.commit()
             with owner.cursor() as cur:
                 cur.execute("UPDATE lane_entry SET lane_id = %s", (LCARA,))
             owner.commit()
@@ -314,10 +318,11 @@ def test_a_legitimate_sealed_write_still_lands():
         seed(owner)
         try:
             custody = custody_over(LBEN)
-            got = insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
-                               lane_key=custody.key(LBEN), at=AT,
-                               returning="entry_id")
-            app.commit()
+            with acting(app, ANN):
+                got = insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
+                                   lane_key=custody.key(LBEN), at=AT,
+                                   returning="entry_id")
+                app.commit()
             assert got is not None
             assert owner.execute(
                 "SELECT count(*) FROM lane_entry").fetchone()[0] == 1
@@ -335,10 +340,11 @@ def test_a_sealed_rows_envelope_cannot_be_rewritten_even_by_the_owner():
         seed(owner)
         try:
             custody = custody_over(LBEN)
-            entry = insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
-                                 lane_key=custody.key(LBEN), at=AT,
-                                 returning="entry_id")
-            app.commit()
+            with acting(app, ANN):
+                entry = insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
+                                     lane_key=custody.key(LBEN), at=AT,
+                                     returning="entry_id")
+                app.commit()
             with owner.cursor() as cur:
                 cur.execute("UPDATE lane_entry SET seal_state='sealed', "
                             "sealed_by=%s WHERE entry_id=%s", (ANN, entry))
@@ -384,9 +390,10 @@ def test_serve_at_L4_completes_without_a_single_unseal():
         seed(owner)
         try:
             custody = custody_over(LBEN)
-            insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
-                         lane_key=custody.key(LBEN), at=AT)
-            app.commit()
+            with acting(app, ANN):
+                insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
+                             lane_key=custody.key(LBEN), at=AT)
+                app.commit()
 
             calls = []
             originals = {name: getattr(atrest, name)
@@ -458,19 +465,25 @@ def ledger_from_store(app, *lanes):
     """
     subjects = {str(LBEN): str(BEN), str(LCARA): str(CARA)}
     lanes_out = []
-    for lane in lanes:
-        with app.cursor() as cur:
-            cur.execute(
-                "SELECT occurred_at, principal_id, lane_id, what, recipient, "
-                "authority, prev_hash, hash FROM disclosure_log "
-                "WHERE lane_id = %s ORDER BY seq", (lane,))
-            rows = cur.fetchall()
-        entries = tuple(unproject(
-            dict(occurred_at=r[0], principal_id=r[1], lane_id=r[2], what=r[3],
-                 recipient=r[4], authority=r[5], prev_hash=r[6], hash=r[7]),
-            subject_id=subjects[str(lane)]) for r in rows)
-        from records.disclosure import Log
-        lanes_out.append((str(lane), Log(entries)))
+    # ANN guardians both lanes; under migrations/003 disclosure_log is sealed by
+    # lane (disclosure_log_lane_seal), so the app role reads the chain only as a
+    # principal reaching the lane. Without this the read comes back empty and an
+    # empty chain reports "intact" — a COMPOSES the broken-chain test must be
+    # able to fail to reach (rule 19).
+    with acting(app, ANN):
+        for lane in lanes:
+            with app.cursor() as cur:
+                cur.execute(
+                    "SELECT occurred_at, principal_id, lane_id, what, recipient, "
+                    "authority, prev_hash, hash FROM disclosure_log "
+                    "WHERE lane_id = %s ORDER BY seq", (lane,))
+                rows = cur.fetchall()
+            entries = tuple(unproject(
+                dict(occurred_at=r[0], principal_id=r[1], lane_id=r[2], what=r[3],
+                     recipient=r[4], authority=r[5], prev_hash=r[6], hash=r[7]),
+                subject_id=subjects[str(lane)]) for r in rows)
+            from records.disclosure import Log
+            lanes_out.append((str(lane), Log(entries)))
     return Ledger(tuple(sorted(lanes_out)))
 
 
@@ -657,7 +670,7 @@ def test_rotating_the_master_reseals_nothing_and_the_live_rows_still_open():
             custody = custody_over(LBEN, LCARA)
             write_both(app, custody)
 
-            with app.cursor() as cur:
+            with acting(app, ANN), app.cursor() as cur:
                 cur.execute("SELECT entry_id, payload_sealed, payload_key_id "
                             "FROM lane_entry ORDER BY entry_id")
                 before = cur.fetchall()
@@ -666,7 +679,7 @@ def test_rotating_the_master_reseals_nothing_and_the_live_rows_still_open():
             rotated = atrest.rewrap(custody.keyring, was=custody.master,
                                     now=second, at=AT)
 
-            with app.cursor() as cur:
+            with acting(app, ANN), app.cursor() as cur:
                 cur.execute("SELECT entry_id, payload_sealed, payload_key_id "
                             "FROM lane_entry ORDER BY entry_id")
                 after = cur.fetchall()
@@ -699,19 +712,21 @@ def test_a_forward_only_lane_rotation_leaves_last_seasons_rows_readable():
         seed(owner)
         try:
             custody = custody_over(LBEN)
-            insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
-                         lane_key=custody.key(LBEN), at=AT)
-            app.commit()
+            with acting(app, ANN):
+                insert_draft(app, "lane_entry", an_entry(LBEN, BENS_NOTE),
+                             lane_key=custody.key(LBEN), at=AT)
+                app.commit()
             old_rows = sealed_rows(owner, LBEN)
 
             keyring, fresh = atrest.rotate_lane_key(
                 custody.keyring, lane_id=str(LBEN), master=custody.master, at=AT)
             later = AT + timedelta(days=200)
-            insert_draft(app, "lane_entry",
-                         an_entry(LBEN, b'{"kind":"note","body":"this season"}',
-                                  created_at=later, valid_at=later),
-                         lane_key=fresh, at=later)
-            app.commit()
+            with acting(app, ANN):
+                insert_draft(app, "lane_entry",
+                             an_entry(LBEN, b'{"kind":"note","body":"this season"}',
+                                      created_at=later, valid_at=later),
+                             lane_key=fresh, at=later)
+                app.commit()
 
             assert atrest.unseal(old_rows[0], keyring=keyring,
                                  master=custody.master).plaintext == BENS_NOTE
