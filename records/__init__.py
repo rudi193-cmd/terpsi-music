@@ -12,6 +12,13 @@ from .publication import (Cadence, NotPublishable, Payload, Proof, Publication,
                           Status, Submission, payload_for, payloads_for,
                           permitted, proof_artifact, reconcile, register,
                           submission_artifact, unpublished)
+from .atrest import (Agreement, Composition, Erasability, Erasure, EscrowDisposition,
+                     EscrowState, KeyState, KeyUnavailable, Keyring, LaneKey,
+                     MasterKey, Opening, PrimitiveUnavailable, Readable, Sealed,
+                     WrappedLaneKey, composes, destroy, escrow_state, escrow_survey,
+                     new_master, open_lane_key, record_escrow, rehearse,
+                     reseal, rewrap, rotate_lane_key, seal_bytes, unseal,
+                     unseal_with, unwrap)
 from .crossing import Envelope, permits
 from .dispatch import Dispatch, dispatch
 from .exit import Lane, Threshold, open_lane, transfer
@@ -70,6 +77,12 @@ __all__ = [
     "past_exercise",
     "Lane", "Threshold", "open_lane", "transfer",
     "Envelope", "permits", "Dispatch", "dispatch",
+    "MasterKey", "LaneKey", "WrappedLaneKey", "Keyring", "KeyState", "Sealed",
+    "Opening", "Readable", "Agreement", "Erasure", "Erasability", "Composition",
+    "EscrowDisposition", "EscrowState", "KeyUnavailable", "PrimitiveUnavailable",
+    "new_master", "open_lane_key", "unwrap", "seal_bytes", "unseal", "unseal_with",
+    "reconcile", "rewrap", "rotate_lane_key", "reseal", "destroy", "composes",
+    "record_escrow", "rehearse", "escrow_state", "escrow_survey",
     "Anchor", "Receipt", "Evidence", "Independence", "WitnessStanding",
     "anchor_for", "schedule", "missing", "standing",
     "anchor_for_ledger", "ledger_derivation", "derives",

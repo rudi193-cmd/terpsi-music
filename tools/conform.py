@@ -48,7 +48,11 @@ from typing import Callable, List, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(ROOT))          # the checks below run the core, not read it
+# `records` too, for checks that read the core rather than parse it. Running
+# `python3 tools/conform.py` puts only `tools/` on the path, so a check
+# importing the package worked under the test suite (which inserts ROOT) and
+# died from the command line — the two ways this file is run disagreeing.
+sys.path.insert(0, str(ROOT))
 RECORDS = ROOT / "docs" / "conformance"
 
 
@@ -483,6 +487,57 @@ def check_classification_registry(schema: Optional[Path] = None,
                  f"({len(r.of(Agreement.ELEVATED))} elevated by a recorded rule)")
 
 
+def check_key_escrow() -> Check:
+    """§5's escrow gap, and §10's proposed **R16 — data at rest is encrypted,
+    with the key escrowed.**
+
+    **This check is expected to read `ABSENT` and that is the finding.** §5 is
+    unambiguous that a locally-generated, never-copied key means *a single file
+    loss destroys every secret in the box, irrecoverably, by design*, and that
+    the trade is wrong for an organization holding minors' education records.
+    The policy — how many shares, who holds them, how often the drill runs — is
+    a maintainer's decision and this repository has not made it.
+
+    So the check reports the absence rather than skipping it. A conformance
+    series in which this row never appears and a series in which it is answered
+    look identical, which is item 0's defect; a row that says `ABSENT` on every
+    run until someone decides does not.
+    """
+    what = "data at rest is sealed and its key escrowed (§5; §10's R16)"
+    src = ROOT / "records" / "atrest.py"
+    if not src.exists():
+        return Check("key-escrow", what, State.ABSENT,
+                     "records/atrest.py does not exist; §9's foundation 3 is "
+                     "unbuilt and nothing can seal at rest")
+
+    from records.atrest import (EscrowState, Keyring, available,  # noqa: E402
+                                escrow_survey)
+
+    at = datetime.now(timezone.utc)
+    # This repository holds no keyring and must not (refusal 2: no key material,
+    # no grant material, in the tree). The survey of an empty one is empty, and
+    # an empty survey is the honest input here rather than a vacuous one.
+    survey = escrow_survey(Keyring(), at=at)
+    primitive = ("the sealing primitive is usable" if available()
+                 else "the sealing primitive is NOT usable on this box")
+    if survey:
+        undecided = [m for m, state, _ in survey
+                     if state is not EscrowState.RECORDED]
+        if undecided:
+            return Check("key-escrow", what, State.FAIL,
+                         f"{len(undecided)} of {len(survey)} master(s) have no "
+                         f"rehearsed escrow: {', '.join(undecided[:3])}")
+        return Check("key-escrow", what, State.PASS,
+                     f"{len(survey)} master(s), each with a rehearsed disposition "
+                     "inside its declared window")
+    return Check("key-escrow", what, State.ABSENT,
+                 f"no keyring and no sealed store exist here, so no master has a "
+                 f"disposition to report; {primitive}. §5 leaves the escrow "
+                 f"policy open and calls single-file key loss the failure mode "
+                 f"that ends the program — records/atrest.py reports ABSENT for "
+                 f"any master with none, and that guard is ablated")
+
+
 def check_component_map() -> Check:
     """Item 0: an unverified table and a verified one must not look identical."""
     r = subprocess.run([sys.executable, str(ROOT / "tests" / "test_component_map.py")],
@@ -512,7 +567,7 @@ UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
              "no destination allowlist exists; §14 records the fleet-wide version "
              "as unique to UTETY"),
     _unknown("named-middles", "a named middle for every pair the app creates (§16)",
-             "not mechanically decidable. Fifteen middles are named and tested "
+             "not mechanically decidable. Seventeen middles are named and tested "
              "(crossing, standing.is_self_edge, standing.may_supersede, "
              "serving._acting_ward, serving._ceiling, marking.drift, "
              "practice._one_lane, publication.reconcile, "
@@ -520,7 +575,8 @@ UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
              "inference.COVERED_CLASSES<->CLAUDE.md refusal 1, "
              "providers.GUARD_ENTRIES<->records.inference, scales.drift, "
              "render.check, manifest.reconcile, "
-             "registry.reconcile<->migrations/001_lanes.sql+records/classify.py); "
+             "registry.reconcile<->migrations/001_lanes.sql+records/classify.py, "
+             "atrest.reconcile, atrest.composes); "
              "whether that is *every* pair is a reading, not a check"),
 )
 
@@ -529,7 +585,7 @@ CHECKS: Tuple[Callable[[], Check], ...] = (
     check_no_egress, check_write_paths, check_revocation_is_dated,
     check_suite_runs_standalone, check_ablation, check_exit_line,
     check_component_map, check_classification_registry,
-    check_declared_sockets, check_manifest,
+    check_declared_sockets, check_manifest, check_key_escrow,
     check_local_inference, check_anchor_payload, check_anchor_published,
     check_receipt_attribution, check_deposit_procedure,
 ) + UNDECIDABLE
