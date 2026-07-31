@@ -24,7 +24,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from records.conflict import (  # noqa: E402
-    Escalation, NotComputable, Stake, halt, refuse_to_rank,
+    Escalation, NotComputable, Stake, halt, one_lane, refuse_to_rank,
 )
 
 BEN, ANA = "student-ben", "student-ana"
@@ -101,6 +101,31 @@ def test_refuse_to_rank_has_one_spelling():
     except NotComputable:
         return
     raise AssertionError("refuse_to_rank returned")
+
+
+def test_one_lane_refuses_a_mixed_row_set_rather_than_filtering():
+    """The middle three modules share (rule 12). Silently dropping the other
+    lane's rows returns a number that looks like an own-lane statistic and is
+    not — and the mixed set is the raw material for a ranking."""
+    from dataclasses import dataclass
+
+    @dataclass
+    class Row:
+        lane_id: str
+        subject_id: str
+
+    assert one_lane([Row("lane-ben", BEN), Row("lane-ben", BEN)], "a total") == "lane-ben"
+    try:
+        one_lane([Row("lane-ben", BEN), Row("lane-ana", ANA)], "a total")
+    except NotComputable as exc:
+        assert "a total" in str(exc)
+    else:
+        raise AssertionError("a mixed row set produced a lane")
+    try:
+        one_lane([], "a total")
+    except ValueError:
+        return
+    raise AssertionError("an empty row set produced a lane")
 
 
 def test_the_module_is_not_broken_shut():

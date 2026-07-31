@@ -28,7 +28,18 @@ from .commentary import (Addressed, Capture, Declaration, ExitReconciliation,
                          refuse_standing_score, release, to_draft, transcribe)
 from .dispatch import Dispatch, dispatch
 from .exit import Lane, Threshold, open_lane, transfer
-from .classify import Classification, Decision, Descriptor, classify, unclassified
+from .classify import (Classification, Decision, Descriptor, aggregate, classify,
+                       unclassified)
+from .attendance import (AbsenceRequest, AttendanceEntry, Excusal, NoRoster,
+                         NotSendable, OwnAttendance, Presence, Referent, Signal,
+                         SignalKind, correct, excusal, headcount, notify,
+                         request_absence, roster, send_attendance, signal,
+                         take_roll)
+from .fees import (BALANCE, WAIVER, Assessment, Balance, CardData, Charge,
+                   FeeGroup, Membership, NotDisclosable, Payment, Source,
+                   Tender, Total, allocate, assess, balance, balance_rung,
+                   looks_like_a_card_number, plan_priority, rank_by_need,
+                   reverse, roster_by_balance, total, waiver_rung)
 from .disclosure import Entry, Ledger, Log, verify_against
 from .inference import (Answer, InferenceRefused, LocalModelUnavailable,
                         NonLocalInference, OffBoxLocalModel, Refusal, Unclassified,
@@ -38,7 +49,8 @@ from .receipts import (AsymmetricUnavailable, Ed25519Signer, GuardianReceipt,
                        contradictions, gaps, generate_signer, held_by, issue,
                        receipt_text, schemes)
 from .dispositions import Disposition, Request, answer, ask, extend, state_at
-from .conflict import Escalation, NotComputable, Stake, halt, refuse_to_rank
+from .conflict import (Escalation, NotComputable, Stake, halt, one_lane,
+                       refuse_to_rank)
 from .consent import Governance, Model, governs
 from .export import Artifact, bundle
 from .aggregate import (Aggregate, AggregateRequest, Audience, CellFloor,
@@ -63,6 +75,17 @@ __all__ = [
     "ContactRestriction", "Payload", "SendList", "Standing", "deliver", "recipients",
     "who_could_see",
     "Descriptor", "Classification", "Decision", "classify", "unclassified",
+    "aggregate",
+    "Presence", "Referent", "AttendanceEntry", "AbsenceRequest", "Excusal",
+    "OwnAttendance", "Signal", "SignalKind", "NotSendable", "NoRoster",
+    "take_roll", "correct", "request_absence", "excusal", "headcount",
+    "signal", "notify", "roster", "send_attendance",
+    "Charge", "Payment", "FeeGroup", "Membership", "Tender", "Source",
+    "Assessment", "Balance", "Total", "CardData", "NotDisclosable", "WAIVER",
+    "BALANCE", "balance_rung",
+    "assess", "balance", "total", "reverse", "allocate", "rank_by_need",
+    "plan_priority", "roster_by_balance", "waiver_rung",
+    "looks_like_a_card_number",
     "Log", "Ledger", "Entry", "verify_against",
     "Answer", "Refusal", "InferenceRefused", "Unclassified", "UnknownProvider",
     "NonLocalInference", "OffBoxLocalModel", "LocalModelUnavailable",
@@ -73,7 +96,7 @@ __all__ = [
     "Record", "State", "draft", "seal", "reject", "redraft",
     "Record", "State", "authored_by", "draft", "seal", "reject", "redraft",
     "Request", "Disposition", "ask", "answer", "state_at", "extend",
-    "Escalation", "NotComputable", "Stake", "halt", "refuse_to_rank",
+    "Escalation", "NotComputable", "Stake", "halt", "refuse_to_rank", "one_lane",
     "Governance", "Model", "governs",
     "Artifact", "bundle",
     "Aggregate", "AggregateRequest", "Audience", "CellFloor", "CellResult",

@@ -36,9 +36,11 @@ already supplies it:
 > under content.
 
 So the rule this module enforces is one line: **a practice statistic reads one
-lane.** `_one_lane()` is the middle, and it raises rather than filtering,
-because a function that quietly dropped the other lanes' rows would return a
-number that looks like an own-work statistic and is not.
+lane.** `conflict.one_lane()` is the middle, and it raises rather than
+filtering, because a function that quietly dropped the other lanes' rows would
+return a number that looks like an own-work statistic and is not. It lived here
+as `_one_lane` until `records/attendance.py` and `records/fees.py` needed the
+same rule; `_one_lane` is now this module's phrasing over the shared one.
 
 **Milestones are addressed, never announced.** *"Ben reached fifty hours"* read
 by a section is a comparison by implication — it tells everyone else where they
@@ -60,7 +62,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Optional, Sequence, Tuple
 
-from .conflict import refuse_to_rank
+from .conflict import one_lane, refuse_to_rank
 
 
 @dataclass(frozen=True)
@@ -87,20 +89,15 @@ class Session:
 
 
 def _one_lane(sessions: Sequence[Session]) -> str:
-    """The single lane these sessions belong to, or a refusal.
+    """This module's words for `conflict.one_lane`, which used to live here.
 
-    **Raises rather than filtering.** Silently dropping the other lanes' rows
-    would return a number that looks like an own-work statistic and is not —
-    the same reason `receipts.gaps()` refuses a mixed sequence instead of
-    picking one.
+    It moved on 2026-07-31, in the commit where `records/attendance.py` and
+    `records/fees.py` became the second and third callers. The rule is the same
+    one — *a statistic reads one lane* — and a copy per module is the pair rule
+    12 forbids. What stays here is the phrasing, because a refusal should name
+    the statistic that was attempted rather than the helper that stopped it.
     """
-    lanes = {s.lane_id for s in sessions}
-    if len(lanes) > 1:
-        refuse_to_rank("a practice statistic spanning lanes",
-                       [s.subject_id for s in sessions])
-    if not lanes:
-        raise ValueError("no sessions; an own-work statistic needs a lane to be about")
-    return next(iter(lanes))
+    return one_lane(sessions, "a practice statistic spanning lanes")
 
 
 @dataclass(frozen=True)
