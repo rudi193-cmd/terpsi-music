@@ -1,7 +1,7 @@
 # The lane model — schema for W-1 and W-3
 
-**Status:** proposed. Canonical for the reasoning behind
-`docs/schema/001_lanes.proposed.sql`, which is the DDL. `docs/ARCHITECTURE.md`
+**Status:** adopted 2026-07-31. Canonical for the reasoning behind
+`migrations/001_lanes.sql`, which is the DDL. `docs/ARCHITECTURE.md`
 governs everything else; `docs/SENSITIVITY.md` governs the rungs. This document
 carries no numbered sections — a `§N` here always refers to the architecture.
 
@@ -11,9 +11,15 @@ retrofitting either clause later is a data migration across every table that
 references a student. Migration 001 could not be written from what was on the
 page.
 
-> **Read the provenance note at the bottom before building on this.** It rests
-> on a one-line paraphrase of a charter this session could not open, and that
-> is a materially weaker footing than the sensitivity ladder stands on.
+**Fourteen tables, 116 columns, all classified** — counted from
+`migrations/001_lanes.sql` and confirmed against a live PostgreSQL 16 instance,
+not carried forward from the previous revision of this sentence, which said
+twelve and 93. The DDL moved out of `docs/schema/` on 2026-07-31; a tombstone
+stands at the old path.
+
+> **The provenance note at the bottom is now a record rather than a warning.**
+> Part III was opened at source (`c8c96b4`) before this was promoted, which was
+> the condition that note set. Reading it added two tables.
 
 ---
 
@@ -24,9 +30,18 @@ page.
 operative words are *first act*: this is §5's per-subject partitioning, but
 created at the first write rather than assembled when someone requests erasure.
 
-**W-3 — lanes are mutually sealed.** Default deny between wards, and *"a shared
-event is two lane entries with one referent."* Two students at one rehearsal is
-two records.
+**W-3 — lanes are mutually sealed.** Default deny between wards, *"a crossing
+requires a guardian-signed envelope naming both lanes, purpose, and expiry,"*
+and *"a shared event is two lane entries with one referent."* Two students at
+one rehearsal is two records.
+
+Three sentences, and this document encoded two of them for a day. The middle
+one is a **permission**, and the two halves fail in opposite directions: default
+deny unenforced means an illegitimate crossing is not stopped; no envelope table
+means a legitimate crossing is not *representable*, so the only way to serve a
+real sibling case is to not record that it happened. `crossing_envelope` is the
+thirteenth table and closes the second half. **A ward clause that forbids
+without providing the sanctioned path is not the clause.**
 
 The cost is concentrated and worth stating plainly: **a rehearsal attended by
 150 students writes 150 rows.** Every instinct trained on normalized schemas
@@ -75,8 +90,23 @@ the same move §6 makes with egress: no destination to deny because there is no
 client to call one.
 
 **`L5` is unreachable through a grant, by CHECK.** `access_grant.max_rung`
-permits `L1`–`L4`. The ladder's top rung is not policy-excluded, it is absent
-from the constraint, so a grant purporting to serve `L5` fails at write time.
+permits `L1`–`L4`; `self_widening.max_rung` permits `L4` and nothing else. The
+ladder's top rung is not policy-excluded, it is absent from both constraints, so
+a grant or a widening purporting to serve `L5` fails at write time.
+
+`crossing_envelope` takes the stronger form of the same rule: it has **no rung
+column at all**. An envelope crosses a seal and widens nothing — the rung, the
+entitlement edge and the declared purpose all still apply below it — so there is
+nowhere to write `L5` rather than a constraint refusing it. Inexpressible rather
+than rejected, which is the move W-2 makes with group scopes and §6 makes with
+egress.
+
+**A widening names one matter, and the schema will not take a set.**
+`self_widening.category` carries a non-blank `CHECK` and a wildcard `CHECK`
+against `*`, `all`, `any`, `every`. That is W-2's *"'the children' is not a
+scope; a name is"* applied to the other axis: refusal 5 is unexpressible in both
+directions at once, because the subject is one person by foreign key and the
+matter is one string that cannot be a star.
 
 **Declinations are a table, not a column.** A `declined boolean` on
 `lane_entry` travels in `SELECT *`, and §7's indistinguishability guarantee
@@ -99,7 +129,16 @@ history must not, because a historical fact is not mutable state.
 |---|---|
 | `person`, `lane`, `referent`, `lane_entry` | `disclosure_log` |
 | `edge`, `access_grant`, `declination` | `consent_chain` |
-| | `reconciled_session` |
+| `scope_object`, `crossing_envelope`, `self_widening` | `reconciled_session` |
+
+Ten and three; `field_classification` is a registry and takes neither. The
+envelope and the widening are **state** and that is a decision, not an
+oversight: both end by a date and never by a `DELETE` (refusal 3). A revoked
+envelope that was deleted cannot answer *"who could cross into Ben's lane on 12
+October, and why."* Both carry `expires_at` beside the pair — the timebound the
+clause requires *declared at issuance* (I-6) — and the two are different facts:
+`expires_at` is what the signer wrote down, `invalid_at` is the revocation that
+arrived afterwards.
 
 **Both axes are needed, and the case that proves it is ordinary.** A court order
 dated in March, delivered to the program in October. *When the restriction took
@@ -144,7 +183,7 @@ reading would have caught:
 | `UPDATE` and `DELETE` both succeeded on `disclosure_log` — the FERPA §99.32 record was silently rewritable | `BEFORE UPDATE OR DELETE` trigger on all three history tables |
 | `edge.target_id` had no foreign key; a UUID referring to nothing was accepted | `scope_object` table; two nullable FKs with `num_nonnulls(...) = 1` |
 | `edge.target_kind` had no CHECK — `'Sandwich'` was accepted | Column removed; which FK is set *is* the kind |
-| `field_classification` held 0 rows against 87 columns | All 93 columns seeded, coverage asserted in the suite and in CI |
+| `field_classification` held 0 rows against 87 columns | Every column seeded — 93 on the day, 116 since the two tables below — coverage asserted in the suite and in CI |
 
 **Three of the four were declarations without enforcement**, written into a
 migration whose own document names that defect — "append-only" in a comment
@@ -157,13 +196,35 @@ decorative. `docs/SENSITIVITY.md` says an unclassified field is a build
 failure; there was no build failure, because there was nothing to check
 against.
 
+### And what running it found at promotion, 2026-07-31
+
+The two new tables were attacked the same way — 27 forbidden acts against
+PostgreSQL 16, six legitimate ones asserted still to land. Two findings, both
+about the *guard that fired* rather than about a hole:
+
+| Defect | Fix |
+|---|---|
+| **A `BEFORE ROW` trigger fires ahead of every `CHECK`, `NOT NULL` and foreign key on the same row.** An envelope pointed at an ensemble instead of a lane was refused — by the signature trigger, which never let it reach the foreign key. The guard under test had not fired, and the attack passed | Attacks assert on the **constraint named in the error**, never on the fact of a refusal. Three cases now approach through a column the trigger does not read, so the intended guard is the one that speaks |
+| **Refusing only a forged `self` edge left the mirror row insertable.** `('guardian_of', Ben, Ben's lane)` is a ward holding guardianship over itself, and every "is the signer a guardian of this lane" check then answers *yes* for the ward — W-4 defeated one table down, including on the envelope, which carries no signer `CHECK` of its own | The rule is an **equivalence**: exactly one edge kind may name its own subject as holder, and it is `self`. Both directions refused by one trigger, both attacked |
+
+The first is `EXTERNAL-ARM.md`'s *"a gate green because a different constraint
+was catching it"*, arriving through execution order rather than through
+overlapping rules. It is the reason a refusal count is a weak claim: **eight
+refusals with the guards unnamed is consistent with one guard refusing eight
+things.**
+
 ---
 
 ## What the DDL still cannot enforce
 
-Three invariants are stated in the schema's comments and are **not** constraints.
-Naming them here is the §16 discipline: a declaration without an enforcement is
-a pair, and the middle is the code that closes it.
+**Three, down from four as of 2026-07-31.** The invariants below are stated in
+the schema's comments and are **not** constraints. Naming them here is the §16
+discipline: a declaration without an enforcement is a pair, and the middle is
+the code that closes it.
+
+The one that left the list did so by becoming a constraint. See *The `self`
+edge's holder*, below, which is kept struck rather than deleted because the tally
+is only useful if it records what came off it as well as what went on.
 
 **I-7 — the record binds the holder most.** *Entries authored by the governed
 about the office are as durable as entries authored by the office about the
@@ -178,43 +239,56 @@ stays in its lane. Enforcement is one predicate, compiled once, funnelled
 through the single read method — §7's resolver shape, with #127's
 authenticate-at-the-read so a fourth read added later inherits the gate.
 
-> **And the crossing itself has no table — found by reading W-3 at source,
-> 2026-07-30.** The full clause is *"Between wards, default deny; **a crossing
-> requires a guardian-signed envelope naming both lanes, purpose, and
-> expiry.** A shared event is two lane entries with one referent."* This
-> document encoded the third sentence and the first; the middle one is absent
-> from all twelve tables — `envelope` and `crossing` appear zero times in the
-> DDL.
+> **~~And the crossing itself has no table.~~ Closed 2026-07-31 — it is
+> `crossing_envelope`, the thirteenth table.** Found by reading W-3 at source
+> on 2026-07-30 and built at promotion: two `NOT NULL` lane references that
+> must differ, a non-blank purpose, an expiry `CHECK`ed to follow the
+> signature, a signer who is a person, and a `BEFORE INSERT OR UPDATE` trigger
+> requiring that person to hold a live `guardian_of` edge over the lane whose
+> seal is being opened.
 >
-> The distinction matters because the two halves fail differently. Default deny
-> unenforced means an *illegitimate* crossing is not stopped, which is recorded
-> above. No envelope table means a **legitimate** crossing is not
-> *representable* — there is nowhere to put the guardian's signature, the
-> purpose, or the expiry, so the only way to serve a real sibling case is to
-> not record that it happened.
+> The other half of the paragraph stands and is the entry above: default deny
+> is still a predicate, not a partition. **The two halves failed differently
+> and only one of them is fixed by a table** — an illegitimate crossing is
+> still stopped by `records/serving.py` and by nothing in the DDL.
 >
-> This is exactly the risk §18 item 3 named: the schema was built from a
-> paraphrase, and the paraphrase kept the prohibition and dropped the
-> permission. **A ward clause that forbids without providing the sanctioned
-> path is not the clause** — W-5's *"agency grows by signature"* has the same
-> shape and would fail the same way. Fixing it is a thirteenth table and it is
-> not written here, because the DDL stays in `docs/schema/` until item 3's
-> other gates clear.
+> W-5's *"agency grows by signature"* had the identical shape and was found by
+> looking for it: `self_widening` is the fourteenth table, and it is the only
+> thing that lifts the `self` edge's `L3` cap.
 
-**The `self` edge's holder.** Added to `edge_kind` 2026-07-30 (§18 item 12).
+**~~The `self` edge's holder.~~ Closed 2026-07-31 by
+`edge_self_holder_is_subject`.** Added to `edge_kind` 2026-07-30 (§18 item 12).
 Its defining property is that `holder_id` **is** the lane's `subject_id`, and a
 CHECK cannot reach through `target_lane_id` to `lane.subject_id` to say so — so
-this is the one edge kind whose meaning the table states and cannot hold. A row
-reading `('self', <staff person>, <Ben's lane>)` is accepted by the DDL and
+this was the one edge kind whose meaning the table stated and could not hold. A
+row reading `('self', <staff person>, <Ben's lane>)` was accepted by the DDL and
 would, unchecked, entitle a staff member through the subject's own door.
-`records/standing.py`'s `is_self_edge()` is the middle, called by the read
+`records/standing.py`'s `is_self_edge()` was the middle, called by the read
 predicate before any edge matches, and ablated in `tests/ablate.py` as *"a
-forged self edge."* A `BEFORE INSERT OR UPDATE` trigger is the DDL-side answer
-when this migration stops being proposed. **A fourth entry on this list, and the
-first one added by widening the schema rather than by reading it.**
+forged self edge."* The comment above `edge` said a `BEFORE INSERT OR UPDATE`
+trigger was the DDL-side answer *when this migration stops being proposed*, and
+this is that. The predicate stays: the store is not the only path to a row.
+
+> **Writing the trigger found the row it was not written to refuse.** Refusing
+> a forged `self` edge and stopping there leaves `('guardian_of', Ben, Ben's
+> lane)` insertable — a ward holding guardianship over itself. Every guard that
+> asks *"is the signer a guardian of this lane"* then answers yes for the ward,
+> so the clause falls one table down: the ward signs its own crossing envelope, which
+> has no signer `CHECK` of its own because the clause puts the requirement on
+> the guardian rather than on a column. The rule is an **equivalence** —
+> exactly one edge kind may name its own subject as holder — and both
+> directions are refused and both attacked.
+>
+> The consequence for `self_widening_ward_cannot_sign_its_own`: with the edge
+> trigger standing, that CHECK cannot be reached through an ordinary path. It is
+> kept as defence in depth and demonstrated in CI **with the signature trigger
+> disabled**, because a constraint nobody has seen fire has not been shown to
+> work (rule 19).
 
 **The rung ceiling.** `access_grant.max_rung` records the ceiling and the
-registry is now populated for all 93 columns, so the lookup has something to
+registry is now populated for every column the DDL declares — 116, counted from
+`migrations/001_lanes.sql` and confirmed against `information_schema` on a live
+instance — so the lookup has something to
 resolve against. What is missing is the code that performs it at serving time.
 Until that exists the registry is **a ledger and not a gate**, and §7.2's rule
 applies — say which. This is the largest remaining piece of the ladder.
@@ -249,26 +323,47 @@ mechanism.
 
 ## Provenance of this file
 
-**Weaker than `docs/SENSITIVITY.md`, and the difference matters.**
+**Resolved 2026-07-31, and the resolution is the reason to keep the note.**
 
-The ladder had nothing to verify against — §18 recorded that no definition
+~~Weaker than `docs/SENSITIVITY.md`, and the difference matters.~~ The clauses
+here are now `P2 Cited` at **one** remove: `Willow`'s `PROTECTED_AGENTS.md`
+Part III was opened at source (`c8c96b4`) and W-1…W-7 read as written, before
+promotion rather than after. That was the condition the struck paragraphs set.
+
+~~The ladder had nothing to verify against — §18 recorded that no definition
 existed anywhere in the fleet, so writing one from scratch was the whole task.
 This document is different: W-1 through W-7 and I-6/I-7/I-10 **exist**, in
 `Willow`'s `PROTECTED_AGENTS.md` Part III, and this session could not open
 them. Every clause here is quoted from CLAUDE.md's one-line summary of a
 paraphrase in §7.4, which was itself assembled from a reading of a charter
 document. That is `P2 Cited` at two removes, and §15's warning about citations
-that cannot be re-fetched applies directly.
+that cannot be re-fetched applies directly.~~
 
-Concretely, the risk is not that W-1 says something other than "a lane, not an
-account." It is that Part III states seven clauses in a *machine register*
+~~Concretely, the risk is not that W-1 says something other than "a lane, not an
+account."~~ It is that Part III states seven clauses in a *machine register*
 whose exact wording is the specification — §7.4 notes the fragment carries two
 registers and that *"a clause that cannot survive translation between the two
 registers is not yet a clause."* A schema encoding the human-register gloss of
 a machine-register clause is exactly the translation failure that sentence
 warns about.
 
-**So: open `PROTECTED_AGENTS.md` Part III before this becomes
-`migrations/001_lanes.sql`.** Not before reviewing it, not before arguing with
-it — before promoting it. The DDL is cheap to revise now and a data migration
-across every table referencing a student once it has run.
+**And that is precisely what had happened, which is why the warning is kept
+rather than deleted.** The gloss this document encoded was *"lanes are mutually
+sealed"* and *"a shared event is two lane entries with one referent."* Both are
+true. The sentence between them — *"a crossing requires a guardian-signed
+envelope naming both lanes, purpose, and expiry"* — was gone, and nothing about
+reading the paraphrase could have revealed that, because **a paraphrase that
+drops a clause reads as complete.** W-5 had lost the same half in the same way.
+
+The correction cost the two tables named above and a trigger. The lesson generalises past this
+file: **a summary preserves prohibitions and loses permissions**, because a
+prohibition is the memorable half. Anywhere this repository encodes a clause
+from a gloss, the sanctioned path is the part to go and check.
+
+~~**So: open `PROTECTED_AGENTS.md` Part III before this becomes
+`migrations/001_lanes.sql`.**~~ Done. **The remaining warning is narrower and
+still live:** I-6, I-7 and I-10 are cited here from §7.4's summary and have
+*not* been read at source. Nothing in the DDL turns on them today — I-7's
+supersession asymmetry is the first entry on the unenforced list and is a
+predicate, not a column — but the next thing that does should open Part II
+first, for the reason the paragraph above gives.

@@ -35,16 +35,21 @@ chosen, and until it is, the rest is a very careful diary.
 | | | |
 |---|---|---|
 | **B3** | item 4 — which surfaces exist | **Deferred, in hand elsewhere.** Nothing about the first commit's layout is decidable until it lands. This is the only item that blocks rather than merely waits |
-| **item 3** | the lane DDL leaves `docs/schema/` | One gate cleared, one opened — see below |
+| ~~**item 3**~~ | ~~the lane DDL leaves `docs/schema/`~~ | **Done 2026-07-31.** `migrations/001_lanes.sql`, fourteen tables, tombstone at the old path |
 | **item 5** | the exit line | §11.1 requires it **before the first install**. It does not exist |
 
-**Item 3 moved sideways rather than forward.** Reading Part III at source
-cleared the *"rests on a paraphrase"* gate — and opened a new one. W-3 requires
-*"a guardian-signed envelope naming both lanes, purpose, and expiry"*, and no
-such table exists among the twelve. The prohibition is encoded; the permission
-is not, so a legitimate sibling crossing is **unrepresentable**, not merely
-ungated. A thirteenth table is needed before promotion, and item 4 still gates
-it either way.
+**~~Item 3 moved sideways rather than forward.~~ Item 3 closed 2026-07-31.**
+Reading Part III at source cleared the *"rests on a paraphrase"* gate and opened
+a better one: W-3 requires *"a guardian-signed envelope naming both lanes,
+purpose, and expiry"* and no such table existed among the twelve, so the
+permission was **unrepresentable** rather than merely ungated. W-5 had lost its
+second half the same way. Both are tables now — `crossing_envelope` and
+`self_widening` — and the DDL is `migrations/001_lanes.sql`.
+
+**Item 4 turned out not to gate it.** Which surfaces exist decides what *reads*
+the schema and what the first directory layout is; it never decided whether the
+schema exists. That was worth an hour to notice and is the kind of gate this
+plan should keep testing rather than inheriting.
 
 ### One thing that got worse on 2026-07-30, not better
 
@@ -80,7 +85,7 @@ into something testable, and is the shape to build.
 ### Where the tree actually stands
 
 ```
-migrations/   ABSENT — the DDL is still in docs/schema/
+migrations/   001_lanes.sql — fourteen tables, run against PostgreSQL 16
 surface dir   none
 craft/        text-only: no student data, no network, no model
 voice.py      ROUTED — records/dispatch.py runs it after the seal, before dispatch
@@ -138,7 +143,9 @@ says what a surface is.
 ## Order
 
 1. **B3** — surfaces. Everything about layout waits on it.
-2. **The crossing-envelope table**, then item 4 clears the DDL into `migrations/`.
+2. ~~**The crossing-envelope table**, then item 4 clears the DDL into `migrations/`.~~
+   **Done 2026-07-31** — and in the other order, because item 4 was found not to
+   gate it. Two tables, not one: W-5 had lost the same half of its clause as W-3.
 3. **The exit line**, before anything installs.
 4. **Decide the refusal-1 inheritance question** before any inference path is written.
 5. Then §9's list in its existing order — noting foundations 1 and 2 are **to build**.

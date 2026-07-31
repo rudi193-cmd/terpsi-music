@@ -6,14 +6,16 @@ W-3 at source (`Willow` `PROTECTED_AGENTS.md` Part III, `c8c96b4`):
 > requires a guardian-signed envelope naming both lanes, purpose, and expiry.**
 > A shared event is two lane entries with one referent."*
 
-`docs/LANE-MODEL.md` encoded the first sentence and the third. The middle one is
-absent from all twelve tables — `envelope` and `crossing` appear zero times in
-`docs/schema/001_lanes.proposed.sql` — so the prohibition is enforced and the
-**permission is unrepresentable**. A real sibling case can only be served by not
-recording that it happened, which is the worse of the two failures.
+`docs/LANE-MODEL.md` encoded the first sentence and the third. The middle one was
+absent from all twelve tables — `envelope` and `crossing` appeared zero times in
+the DDL — so the prohibition was enforced and the **permission was
+unrepresentable**. A real sibling case could only be served by not recording that
+it happened, which is the worse of the two failures.
 
-This is the thirteenth table, as a type. Four things are required and none has
-a default, because each is the one a hurried implementation would omit:
+This was the thirteenth table as a type before it was one in SQL; since
+2026-07-31 it is `crossing_envelope` in `migrations/001_lanes.sql`, and the
+columns there are the fields below. Four things are required and none has a
+default, because each is the one a hurried implementation would omit:
 
 * **both lanes named** — an envelope naming one lane is a wildcard over the other
 * **a purpose** — a crossing "because it is convenient" is W-7's territory

@@ -241,8 +241,8 @@ This is the row shape item 0 most needs: *checked, and the claim held.*
 **`willow-2.0` is where this repository took `valid_at`/`invalid_at`, and this
 repository hardened it.** The source migration adds the pair to 17 tables and
 carries **no CHECK constraint on interval ordering** — nothing stops an
-`invalid_at` that precedes its `valid_at`. `docs/schema/001_lanes.proposed.sql`
-carries eight named ones, and enforces append-only with a trigger rather than a
+`invalid_at` that precedes its `valid_at`. `migrations/001_lanes.sql`
+carries ten named ones, and enforces append-only with a trigger rather than a
 comment. So the direction of divergence here is the opposite of the
 `marching-arts` case: the paraphrase was *stronger* than its source.
 

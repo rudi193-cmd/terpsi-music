@@ -413,6 +413,48 @@ MUTATIONS = [
     ("records/standing.py", "return threshold is not None and at >= threshold",
      "return threshold is None or at >= threshold",
      "an unknown threshold is not a reached one", "tests/test_standing.py"),
+    # The schema, mutated as an artifact — the same shape as the
+    # ARCHITECTURE.md row above, and for the same reason. tests/test_lane_model.py
+    # is a checker over SQL text, so ablating *it* and asking it to notice would
+    # be the circular case; the mutation belongs on the file it watches.
+    #
+    # Every replacement leaves the DDL valid SQL that a reviewer would wave
+    # through. That is the point: each one is a softening that looks reasonable
+    # in isolation, which is the failure mode the guard exists for.
+    ("migrations/001_lanes.sql",
+     "        CHECK (from_lane_id <> to_lane_id),",
+     "        CHECK (from_lane_id IS NOT NULL),",
+     "W-3: an envelope names two different lanes", "tests/test_lane_model.py"),
+    ("migrations/001_lanes.sql",
+     "    to_lane_id    uuid        NOT NULL REFERENCES lane(lane_id),",
+     "    to_lane_id    uuid        REFERENCES lane(lane_id),",
+     "W-3: an envelope's second lane is not optional", "tests/test_lane_model.py"),
+    ("migrations/001_lanes.sql",
+     "    CONSTRAINT self_widening_max_rung CHECK (max_rung IN ('L4')),",
+     "    CONSTRAINT self_widening_max_rung CHECK (max_rung IN ('L4', 'L5')),",
+     "the ladder: a widening cannot reach L5", "tests/test_lane_model.py"),
+    ("migrations/001_lanes.sql",
+     "        CHECK (signed_by <> subject_id),",
+     "        CHECK (signed_by IS NOT NULL),",
+     "W-4: the widening's signer is not its subject", "tests/test_lane_model.py"),
+    ("migrations/001_lanes.sql",
+     "        CHECK (lower(btrim(category)) NOT IN ('*', 'all', 'any', 'every')),",
+     "        CHECK (btrim(category) IS NOT NULL),",
+     "W-2: a widening names one matter", "tests/test_lane_model.py"),
+    # AFTER rather than BEFORE: the trigger still exists, still fires, and no
+    # longer stops the row. A grep for the trigger's name finds it either way.
+    ("migrations/001_lanes.sql",
+     "CREATE TRIGGER self_widening_guardian_signed\n    BEFORE INSERT OR UPDATE ON self_widening",
+     "CREATE TRIGGER self_widening_guardian_signed\n    AFTER INSERT OR UPDATE ON self_widening",
+     "W-5: the widening's signature is checked before the write",
+     "tests/test_lane_model.py"),
+    ("migrations/001_lanes.sql",
+     "CREATE TRIGGER edge_self_holder_is_subject\n    BEFORE INSERT OR UPDATE ON edge",
+     "CREATE TRIGGER edge_self_holder_is_subject\n    AFTER INSERT OR UPDATE ON edge",
+     "a forged self edge is refused at the write", "tests/test_lane_model.py"),
+    ("migrations/001_lanes.sql",
+     "    ('self_widening','max_rung','INTERNAL','L2'),\n", "",
+     "a new column arrives unclassified", "tests/test_lane_model.py"),
 ]
 
 

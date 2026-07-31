@@ -41,8 +41,9 @@ the item's second option and the cheaper one:
    §7.2's *narrate the read* silently broken by the fix.
 3. **It can be ended** by `invalid_at` (refusal 3). A safety plan in which the
    subject is the risk is rare and real, and has nowhere to live otherwise.
-4. **It is already a row.** `docs/schema/001_lanes.proposed.sql`'s `edge` table
-   takes it by widening one CHECK.
+4. **It is already a row.** `migrations/001_lanes.sql`'s `edge` table takes it
+   by widening one CHECK — and, since promotion, a trigger that refuses a
+   `self` row whose holder is not the lane's subject.
 
 **Why not the item's third option — deliberate no-standing.** It makes I-7
 unverifiable by the party it protects. *"A student's entries are as durable as
