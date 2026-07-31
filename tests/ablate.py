@@ -625,6 +625,105 @@ MUTATIONS = [
     ("migrations/001_lanes.sql",
      "    ('self_widening','max_rung','INTERNAL','L2'),\n", "",
      "a new column arrives unclassified", "tests/test_lane_model.py"),
+    # presentation/ — the middle §18 item 4 landed. Rule 14 is enforced by the
+    # type in records/rungs.py; here it is enforced by the *badge*, which is
+    # the last place a rung can lose its prefix before a human reads it.
+    ("presentation/scales.py", "if isinstance(key, (bool, int, float)):", "if False:",
+     "a bare integer is refused by type", "tests/test_presentation.py"),
+    ("presentation/scales.py", 'return f"{self.prefix} {self.word or UNNAMED}"',
+     "return self.word or UNNAMED",
+     "a badge carries its prefix", "tests/test_presentation.py"),
+    ("presentation/scales.py", '("T0", "Exiled"), ("T1", None), ("T2", None), ("T3", None), ("T4", "Elder"),',
+     '("T0", "Exiled"), ("T1", "Rookie"), ("T2", "Steady"), ("T3", "Veteran"), ("T4", "Elder"),',
+     "an unverified rung name is not rendered", "tests/test_presentation.py"),
+    ("presentation/scales.py", "if not _more_restricted(Rung[b], Rung[a]):", "if False:",
+     "drift sees a reordered ladder", "tests/test_presentation.py"),
+    ("presentation/scales.py", "if set(p_here) != set(_P_ORDER):", "if False:",
+     "drift sees a missing provenance row", "tests/test_presentation.py"),
+    ("presentation/scales.py", 'if lv.token != f"caution_{lv.weight}":', "if False:",
+     "drift sees a token that outranks its weight", "tests/test_presentation.py"),
+    ("presentation/scales.py",
+     "        rows.append(Level(Scale.TRUST, prefix, word,\n"
+     "                          f\"caution_{len(_T_ORDER) - 1 - i}\", len(_T_ORDER) - 1 - i))",
+     "        rows.append(Level(Scale.TRUST, prefix, word, f\"caution_{i}\", i))",
+     "the trust ladder renders opposite", "tests/test_presentation.py"),
+    ("presentation/tokens.py", "if not la > lb:", "if False:",
+     "a flattened luminance ladder", "tests/test_presentation.py"),
+    ("presentation/tokens.py", 'if raw[0] in "[{&*|>":', "if False:",
+     "an unimplemented YAML construct", "tests/test_presentation.py"),
+    ("presentation/tokens.py", '            if key in block:', "            if False:",
+     "a duplicate token definition", "tests/test_presentation.py"),
+    ("presentation/tokens.py", "        if missing:", "        if False:",
+     "a token missing a channel", "tests/test_presentation.py"),
+    ("presentation/tokens.py", "        if name in tokens:", "        if False:",
+     "an alias defined as a token", "tests/test_presentation.py"),
+    ("presentation/tokens.py", '        if "\\t" in line:', "        if False:",
+     "a tab in the palette", "tests/test_presentation.py"),
+    ("presentation/render.py", "        if name not in row:", "        if False:",
+     "an unknown template variable", "tests/test_presentation.py"),
+    ("presentation/render.py", "        if _OPEN.search(body):", "        if False:",
+     "a nested template section", "tests/test_presentation.py"),
+    ("presentation/ir.py",
+     "        if self.shown in (Shown.SERVED, Shown.DERIVED) and not self.value:",
+     "        if False:",
+     "a served cell with nothing to show", "tests/test_presentation.py"),
+    ("presentation/ir.py", "        if self.shown is Shown.UNKNOWN and self.value != UNKNOWN_TEXT:",
+     "        if False:", "absence renders as the word unknown", "tests/test_presentation.py"),
+    ("presentation/ir.py", "        if serving.value is not None:", "        if False:",
+     "a refusal carrying its payload", "tests/test_presentation.py"),
+    ("presentation/ir.py", "        if serving.value is None:", "        if False:",
+     "a served decision with no value", "tests/test_presentation.py"),
+    # surfaces/ — the parity claim, which is the one guard no off-the-shelf
+    # linter makes (scout-21 §5).
+    ("presentation/parity.py", "            if text not in plain:", "            if False:",
+     "a prefix missing from a rendering", "tests/test_surfaces.py"),
+    ("presentation/parity.py", "        missing = sorted({t for t in want if t not in plain})",
+     "        missing = []",
+     "the monochrome backend is singled out", "tests/test_surfaces.py"),
+    ("presentation/parity.py", "    if not renderings:", "    if False:",
+     "a parity check of nothing", "tests/test_surfaces.py"),
+    ("presentation/parity.py", "    for prefix in unknown:", "    for prefix in ():",
+     "a badge on no ladder", "tests/test_surfaces.py"),
+    ("surfaces/tui/render.py",
+     'return f"\\x1b[38;5;{palette.resolve(seg.token).xterm256}m{seg.text}{_RESET}"',
+     'return f"\\x1b[38;5;{palette.resolve(seg.token).xterm256}m'
+     '{seg.text.replace(seg.token[-1], \'\')}{_RESET}"',
+     "the TUI adds colour and nothing else", "tests/test_surfaces.py"),
+    # Mutating the shared `document()` is NOT this guard: it moves both halves
+    # and the two stay equal, which is what the first version of this row did
+    # and why it read SURVIVES. The failure mode is the paper path drifting
+    # ALONE — the prior art's own `// TODO: Migrate older prints to print
+    # theme` — so the mutation belongs in the print door.
+    ("surfaces/print/render.py",
+     '    return document(view, stylesheet=STYLESHEET, mode="print")',
+     '    return document(view, stylesheet=STYLESHEET, mode="print").replace(\n'
+     '        \'<dd class="badges">\', \'<dd class="badges" hidden>\')',
+     "the paper and the screen share a body", "tests/test_surfaces.py"),
+    # tools/manifest.py — the declaration, against the tree.
+    ("tools/manifest.py", "        if name not in declared:", "        if False:",
+     "a door on disk nobody declared", "tests/test_manifest.py"),
+    ("tools/manifest.py", "        if name not in present:", "        if False:",
+     "a declared door with no directory", "tests/test_manifest.py"),
+    ("tools/manifest.py", "        if any(shape in name.lower() for shape in CLOUD_SHAPED):",
+     "        if False:", "a cloud permission", "tests/test_manifest.py"),
+    ("tools/manifest.py", "        elif name not in ALLOWED_PERMISSIONS:", "        elif False:",
+     "a permission nobody recognises", "tests/test_manifest.py"),
+    ("tools/manifest.py", 'if provider != "local":', "if False:",
+     "a non-local inference provider", "tests/test_manifest.py"),
+    ("tools/manifest.py", 'if inference.get("cloud_fallback") is not False:', "if False:",
+     "a fallback not declared false", "tests/test_manifest.py"),
+    ("tools/manifest.py", "        if key not in REQUIRED_KEYS:", "        if False:",
+     "a typo'd manifest key", "tests/test_manifest.py"),
+    ("tools/manifest.py", "        if key not in data:", "        if False:",
+     "a missing manifest key", "tests/test_manifest.py"),
+    ("tools/manifest.py", "    if not files:", "    if False:",
+     "a scan of nothing is not a pass", "tests/test_manifest.py"),
+    ("tools/manifest.py", "        return not self.present or self.scanned == 0",
+     "        return False",
+     "the vacuous case is not clean", "tests/test_manifest.py"),
+    ("tools/manifest.py", "    return tuple(p for p in _all_python(base) if _excused(p.relative_to(base)) is None)",
+     "    return tuple(p for p in _all_python(base) if 'presentation' not in p.parts)",
+     "the scan covers the whole tree", "tests/test_manifest.py"),
 ]
 
 
@@ -752,6 +851,25 @@ def verdict(passed: bool, output: str) -> str:
     return "caught"
 
 
+#: Suites that run **this harness** — directly, or through `tools/conform.py`'s
+#: `check_ablation`. They cannot be part of the control run: starting them here
+#: starts a second ablation, which `_acquire_lock` refuses, correctly. Both are
+#: run by the ordinary suite and by CI, so nothing goes unchecked; what is given
+#: up is only checking them *first*.
+REENTRANT = ("tests/test_ablate.py", "tests/test_conform.py")
+
+
+def control_suites() -> list:
+    """Every suite a mutation points at, minus the re-entrant two.
+
+    Derived, not hand-kept. A hand-kept list is how a suite came to be mutated
+    without ever being run green first — and a suite that is already red reports
+    `caught` for every mutation aimed at it, because the harness sees a nonzero
+    exit and a `FAIL ` line that belongs to somebody else.
+    """
+    return sorted({m[4] for m in MUTATIONS} - set(REENTRANT))
+
+
 def _purge_bytecode() -> int:
     """Drop every `__pycache__` before the first mutation.
 
@@ -819,6 +937,15 @@ def main() -> int:
         "tests/test_exit.py", "tests/test_crossing.py", "tests/test_dispatch.py",
         "tests/test_witness.py", "tests/test_receipts.py",
         "tests/test_inference.py", "tests/test_providers.py"))
+    # **Every suite a mutation points at, and that is the point.** A suite that
+    # is already red reports `caught` for every mutation aimed at it, because
+    # `verdict()` sees a nonzero exit and a named failure — the mutation's or
+    # somebody else's. That happened here on 2026-07-31: `tests/test_presentation.py`
+    # was red for an unrelated reason and eighteen mutations pointed at it all
+    # read `caught` while proving nothing. The control list had been a hand-kept
+    # subset; it is now derived from MUTATIONS, so a new mutation cannot arrive
+    # pointing at a suite nobody checked first.
+    healthy = all(run(s)[0] for s in control_suites())
     print("green" if healthy else "RED — every result below is meaningless")
     if not healthy:
         return 1

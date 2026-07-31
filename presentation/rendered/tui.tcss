@@ -1,0 +1,74 @@
+/* Terminal styling — terpsi-presentation/2026-07-31
+ * Generated from presentation/tokens.yaml. Edit the template, not this file.
+ *
+ * The xterm-256 index and the hex above it are two spellings of one colour and
+ * are resolved from ONE token, so the terminal and the browser cannot disagree
+ * about a rung. Under a monochrome profile every rule here drops out and the
+ * badge text is unchanged, which is the parity claim in one sentence.
+ */
+
+Screen {
+  background: #101418;
+  color: #ffffff;
+}
+
+.badge-l1 {
+  /* L1 Open · sensitivity · fill . */
+  color: ansi_255;
+}
+.badge-l2 {
+  /* L2 Internal · sensitivity · fill : */
+  color: ansi_252;
+}
+.badge-l3 {
+  /* L3 Attributed · sensitivity · fill - */
+  color: ansi_246;
+}
+.badge-l4 {
+  /* L4 Restricted · sensitivity · fill = */
+  color: ansi_240;
+}
+.badge-l5 {
+  /* L5 Enforcement-only · sensitivity · fill # */
+  color: ansi_235;
+}
+.badge-t0 {
+  /* T0 Exiled · trust · fill # */
+  color: ansi_235;
+}
+.badge-t1 {
+  /* T1 name unknown · trust · fill = */
+  color: ansi_240;
+}
+.badge-t2 {
+  /* T2 name unknown · trust · fill - */
+  color: ansi_246;
+}
+.badge-t3 {
+  /* T3 name unknown · trust · fill : */
+  color: ansi_252;
+}
+.badge-t4 {
+  /* T4 Elder · trust · fill . */
+  color: ansi_255;
+}
+.badge-p1 {
+  /* P1 Measured · provenance · fill . */
+  color: ansi_255;
+}
+.badge-p2 {
+  /* P2 Cited · provenance · fill : */
+  color: ansi_252;
+}
+.badge-p3 {
+  /* P3 Fitted · provenance · fill - */
+  color: ansi_246;
+}
+.badge-p4 {
+  /* P4 Estimated · provenance · fill = */
+  color: ansi_240;
+}
+.badge-p5 {
+  /* P5 Assumed · provenance · fill # */
+  color: ansi_235;
+}

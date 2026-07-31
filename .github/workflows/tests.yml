@@ -33,6 +33,22 @@ jobs:
           done
           exit $status
 
+      # The declaration, reconciled against the source, in THIS repository's
+      # CI. §18 item 4's closing note makes it an obligation of the first
+      # surfaces commit, and the reason it is not the store's job is measured:
+      # the store's lint errors on a missing manifest only for entries carrying
+      # a local path, so an external-repo app falls between the declaration
+      # surface and the enforcement surface. Exit 2 is the vacuous case --
+      # nothing checked -- and it fails here too, because a check that checked
+      # nothing must not pass a build.
+      - name: The manifest, against the tree
+        run: python3 tools/manifest.py
+
+      # The template/rendered pair's named middle (rule 12). A repaint that was
+      # not regenerated, or a generated file edited by hand, fails here.
+      - name: Rendered artifacts match their templates
+        run: python3 presentation/render.py --check
+
       # Runnable artifacts a document derives a claim from. scout-13's mutation
       # table is the case: it is the one result in the survey derived by running
       # code rather than by citation, so leaving it out of CI would put it back

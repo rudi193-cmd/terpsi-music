@@ -1,0 +1,19 @@
+/* Terminal styling — {{version}}
+ * Generated from presentation/tokens.yaml. Edit the template, not this file.
+ *
+ * The xterm-256 index and the hex above it are two spellings of one colour and
+ * are resolved from ONE token, so the terminal and the browser cannot disagree
+ * about a rung. Under a monochrome profile every rule here drops out and the
+ * badge text is unchanged, which is the parity claim in one sentence.
+ */
+
+Screen {
+  background: {{ink}};
+  color: {{paper}};
+}
+
+{{#levels}}.badge-{{key}} {
+  /* {{text}} · {{scale}} · fill {{mono}} */
+  color: ansi_{{xterm256}};
+}
+{{/levels}}

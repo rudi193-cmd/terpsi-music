@@ -1,0 +1,14 @@
+BADGE LEGEND — {{version}}
+generated from presentation/tokens.yaml; edit the template, not this file
+
+The channel that survives everything: the prefix is the identity, the word is
+the meaning, the fill is the emphasis. No colour appears below, and nothing is
+missing because of that.
+
+  badge                   scale         fill
+{{#levels}}  {{text_pad}}{{scale_pad}}{{mono}}
+{{/levels}}
+
+Emphasis is caution, not magnitude. The heaviest fill on each ladder is the
+rung a reader should slow down at: L5, T0, P5. The trust ladder therefore runs
+opposite to the other two, deliberately.

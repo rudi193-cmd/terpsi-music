@@ -157,11 +157,19 @@ def test_the_evidence_says_how_many_files_were_looked_at():
     assert "module(s) scanned" in got.evidence and "recursively" in got.evidence
 
 
-def test_the_write_check_stays_unknown_because_there_is_no_manifest():
+def test_the_write_check_stays_unknown_because_no_write_path_is_declared():
     """No writes found is not the same as writes being declared and matched.
-    Until a manifest exists this is `UNKNOWN`, not `PASS`."""
+
+    **This test read `"no manifest" in got.evidence` until 2026-07-31**, when
+    §18 item 4 landed one. The manifest declares surfaces, listeners and
+    permissions and says nothing about write paths, so this check is `UNKNOWN`
+    for a narrower reason than before and the evidence now says which — the old
+    wording would have gone on claiming a fact the tree had moved past, which
+    is rule 17's defect living in a checker's own evidence string.
+    """
     got = check_write_paths()
-    assert got.state is State.UNKNOWN and "no manifest" in got.evidence
+    assert got.state is State.UNKNOWN
+    assert "no write paths" in got.evidence, got.evidence
 
 
 # --- the checkers do not do the things they check for ---------------------

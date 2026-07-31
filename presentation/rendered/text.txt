@@ -1,0 +1,27 @@
+BADGE LEGEND — terpsi-presentation/2026-07-31
+generated from presentation/tokens.yaml; edit the template, not this file
+
+The channel that survives everything: the prefix is the identity, the word is
+the meaning, the fill is the emphasis. No colour appears below, and nothing is
+missing because of that.
+
+  badge                   scale         fill
+  L1 Open                 sensitivity   .
+  L2 Internal             sensitivity   :
+  L3 Attributed           sensitivity   -
+  L4 Restricted           sensitivity   =
+  L5 Enforcement-only     sensitivity   #
+  T0 Exiled               trust         #
+  T1 name unknown         trust         =
+  T2 name unknown         trust         -
+  T3 name unknown         trust         :
+  T4 Elder                trust         .
+  P1 Measured             provenance    .
+  P2 Cited                provenance    :
+  P3 Fitted               provenance    -
+  P4 Estimated            provenance    =
+  P5 Assumed              provenance    #
+
+Emphasis is caution, not magnitude. The heaviest fill on each ladder is the
+rung a reader should slow down at: L5, T0, P5. The trust ladder therefore runs
+opposite to the other two, deliberately.
