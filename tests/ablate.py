@@ -60,6 +60,28 @@ LOCK = ROOT / ".ablate-lock"
 
 #: (target file, pattern, replacement, label, suite that must catch it)
 MUTATIONS = [
+    # records/rungs.py — the base every other module imports, and it carried no
+    # mutation until 2026-07-31. Rule 14 is enforced by the *type*, so the
+    # mutations are on the type.
+    ("records/rungs.py", "class Rung(Enum):", "class Rung(__import__('enum').IntEnum):",
+     "rule 14: rungs do not compare", "tests/test_rungs.py"),
+    ("records/rungs.py", 'raise ValueError("compose() of no rungs — an empty record is not L1")',
+     "return Rung.L1", "compose() of nothing is not L1", "tests/test_rungs.py"),
+    ("records/rungs.py", 'raise ValueError(f"not a rung: {value!r}") from None',
+     "return Rung.L1", "parse refuses rather than defaulting", "tests/test_rungs.py"),
+    ("records/rungs.py", "return _ASCENDING.index(a) > _ASCENDING.index(b)",
+     "return _ASCENDING.index(a) >= _ASCENDING.index(b)",
+     "outranks is strict", "tests/test_rungs.py"),
+    ("records/rungs.py", "return _ASCENDING.index(a) >= _ASCENDING.index(floor)",
+     "return _ASCENDING.index(a) > _ASCENDING.index(floor)",
+     "at_least includes the floor", "tests/test_rungs.py"),
+    ("records/rungs.py", "return max(rungs, key=_ASCENDING.index)",
+     "return min(rungs, key=_ASCENDING.index)",
+     "composition is max", "tests/test_rungs.py"),
+    ("records/rungs.py", "DERIVE_AT = Rung.L3", "DERIVE_AT = Rung.L4",
+     "the derive floor is L3", "tests/test_rungs.py"),
+    ("records/rungs.py", "        return self.name", "        return self.value",
+     "a rung prints as its name", "tests/test_rungs.py"),
     ("records/serving.py", "if fld.rung is NEVER_SERVED:", "if False:",
      "L5 never-served", "tests/test_serving.py"),
     ("records/serving.py", "if lane_id is not None and lane_id != fld.lane_id:", "if False:",
@@ -162,12 +184,12 @@ MUTATIONS = [
      "a broken streak is not current", "tests/test_practice.py"),
     ("records/conflict.py", "raise NotComputable(\n            \"W-7: the system presents",
      "return None  # (\n            \"W-7: the system presents",
-     "an escalation yields no recommendation", "tests/test_practice.py"),
+     "an escalation yields no recommendation", "tests/test_conflict.py"),
     ("records/conflict.py", "if not who or who.lower() in _NOT_A_PERSON:", "if False:",
-     "escalation names a person", "tests/test_practice.py"),
+     "escalation names a person", "tests/test_conflict.py"),
     ("records/conflict.py",
      "if self.stake is Stake.BETWEEN_WARDS and len(set(self.affects)) < 2:",
-     "if False:", "a collision names two", "tests/test_practice.py"),
+     "if False:", "a collision names two", "tests/test_conflict.py"),
     # Staleness is checked *before* drift. Swapping the order lets a position
     # derived against a superseded score report AGREES, which is the more
     # dangerous answer — it is internally consistent and points at a bar that
