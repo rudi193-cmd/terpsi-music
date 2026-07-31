@@ -71,6 +71,7 @@ def dispatch(
     envelopes: Sequence = (),
     threshold: Optional[datetime] = None,
     widenings: Sequence = (),
+    grants: Optional[Sequence] = None,
     log: Optional[Log] = None,
     authority: str = "",
 ) -> Dispatch:
@@ -82,6 +83,11 @@ def dispatch(
     surface cannot route around this by rendering somewhere else.
 
     **Every argument `serve()` takes is forwarded, and that is load-bearing.**
+    `grants` is forwarded *as given*, `None` included, because `None` and `()`
+    are different instructions to the predicate — a join that normalised the
+    one into the other would decide the ceiling question on behalf of a surface
+    that had not been asked yet.
+
     This function previously accepted neither `threshold` nor `widenings` nor
     `known_as_of`, so the §18 item 12 mechanism and G5's two-clock case were
     unreachable through the only path that renders, gates and logs. The
@@ -101,7 +107,7 @@ def dispatch(
     """
     decision = serve(fld, principal, edges, at, lane_id=lane_id,
                      known_as_of=known_as_of, envelopes=envelopes,
-                     threshold=threshold, widenings=widenings)
+                     threshold=threshold, widenings=widenings, grants=grants)
 
     recorded = None
     if log is not None:

@@ -195,6 +195,34 @@ def test_dispatch_forwards_the_knowledge_horizon():
     )
 
 
+def test_dispatch_forwards_the_grant_ceiling():
+    """The rung ceiling has to be reachable through the join, for the same
+    reason `threshold` did: the log records the decision **this** function made,
+    so a ceiling the join cannot see makes §7.2's narration disagree with the
+    predicate it claims to narrate.
+
+    And `None` is forwarded *as `None`*. Normalising it to `()` here would deny
+    on behalf of every surface that has not been asked about grants yet;
+    normalising the other way would be the fail-open. The join does neither.
+    """
+    from records import Grant
+
+    edges = [Edge("staff_of", "staff-nguyen", BEN, T0, created_at=T0)]
+    who = Principal("staff-nguyen")
+    capped = [Grant("staff-nguyen", "lane-ben", Rung.L2, "dana-reyes", T0,
+                    datetime(2026, 12, 1), created_at=T0)]
+
+    d = dispatch(chair(), who, edges, T0, render, grants=capped, log=Log())
+    assert d.serving.outcome is not Outcome.PAYLOAD, d.serving.reason
+    assert "ceiling" in d.serving.reason
+    assert d.log.entries[-1].outcome is d.serving.outcome, (
+        "the log must record the decision the predicate would make"
+    )
+
+    unconsulted = dispatch(chair(), who, edges, T0, render, grants=None)
+    assert unconsulted.serving.outcome is Outcome.PAYLOAD
+
+
 def test_an_instruction_carries_the_fields_provenance():
     """A value that leaves the system says where it came from.
 
