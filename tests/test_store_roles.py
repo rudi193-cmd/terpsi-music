@@ -38,6 +38,7 @@ sys.path.insert(0, str(ROOT / "tests"))
 from cluster import ClusterUnknown, Database, installed, refused_by  # noqa: E402
 
 from store.roles import APP_HOLDS, APP_LACKS, META_SCHEMA, held_by_app  # noqa: E402
+from store.session import acting  # noqa: E402
 
 AT = datetime(2026, 10, 12, 9, 0, tzinfo=timezone.utc)
 
@@ -49,13 +50,25 @@ SEALED = uuid.UUID("33333333-2222-2222-2222-222222222222")
 
 
 def seed(owner):
-    """Two people, a lane, one draft entry and one sealed one."""
+    """Two people, a lane, Ann's guardianship, one draft entry and one sealed one.
+
+    The edge is S-2's: with `migrations/003_row_security.sql` applied, the app
+    role's control test below writes a row it must then be able to read back,
+    and reading it back is a question about standing. Every *refusal* in this
+    module is a privilege or a trigger and is unaffected by the seal — which is
+    the point of asserting on the guard named in each error rather than on the
+    fact of a refusal.
+    """
     with owner.cursor() as cur:
         for who, born in ((BEN, "2010-05-01"), (ANN, "1979-02-02")):
             cur.execute("INSERT INTO person VALUES (%s,%s,now(),now(),NULL)",
                         (who, born))
         cur.execute("INSERT INTO lane VALUES (%s,%s,%s,now(),now(),now(),NULL)",
                     (LBEN, BEN, "everything, as CSV, on request"))
+        cur.execute(
+            "INSERT INTO edge VALUES (%s,'guardian_of',%s,%s,NULL,'enrolment "
+            "form',now(),now() - interval '1 year',NULL)",
+            (uuid.UUID("dddddddd-1111-1111-1111-111111111111"), ANN, LBEN))
         cur.execute(
             "INSERT INTO lane_entry VALUES (%s,%s,NULL,'attendance','{}'::jsonb,"
             "%s,'draft',NULL,now(),now(),NULL)", (ENTRY, LBEN, ANN))
@@ -210,16 +223,18 @@ def test_the_app_role_can_still_insert_a_draft_and_select():
         seed(owner)
         try:
             new = uuid.uuid4()
-            app.execute(
-                "INSERT INTO lane_entry VALUES (%s,%s,NULL,'attendance',"
-                "'{}'::jsonb,%s,'draft',NULL,now(),now(),NULL)",
-                (new, LBEN, ANN))
+            with acting(app, ANN):
+                app.execute(
+                    "INSERT INTO lane_entry VALUES (%s,%s,NULL,'attendance',"
+                    "'{}'::jsonb,%s,'draft',NULL,now(),now(),NULL)",
+                    (new, LBEN, ANN))
+                got = app.execute(
+                    "SELECT seal_state FROM lane_entry WHERE entry_id = %s",
+                    (new,)).fetchone()
+                assert got == ("draft",)
+                n = app.execute("SELECT count(*) FROM lane_entry").fetchone()[0]
+                assert n == 3, f"the app role reads {n} rows, expected 3"
             app.commit()
-            got = app.execute("SELECT seal_state FROM lane_entry WHERE entry_id = %s",
-                              (new,)).fetchone()
-            assert got == ("draft",)
-            n = app.execute("SELECT count(*) FROM lane_entry").fetchone()[0]
-            assert n == 3, f"the app role reads {n} rows, expected 3"
         finally:
             app.close()
             owner.close()

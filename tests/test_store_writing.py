@@ -30,6 +30,7 @@ from cluster import ClusterUnknown, Database, available, installed, report  # no
 
 from store.classification import (UnclassifiedColumn, carries,  # noqa: E402
                                   classification_of, registry_columns)
+from store.session import acting  # noqa: E402
 from store.writing import (OPENS_AS, SEALED, SealStateRefused,  # noqa: E402
                            UnknownTable, insert_draft)
 
@@ -41,12 +42,25 @@ LBEN = uuid.UUID("22222222-1111-1111-1111-111111111111")
 
 
 def seed(owner):
+    """Ben's lane, and Ann's guardianship over it.
+
+    The edge is S-2's. Row security does not gate the INSERT — the
+    `..._insert_unsealed` policies in `migrations/003_row_security.sql` are
+    permissive and say so in their names — but `INSERT ... RETURNING` hands the
+    new row back through the SELECT policy, so a writer who reaches no lane
+    cannot read back what it wrote. That is the right behaviour and it needs a
+    principal with standing to demonstrate, which is what this edge is.
+    """
     with owner.cursor() as cur:
         for who, born in ((BEN, "2010-05-01"), (ANN, "1979-02-02")):
             cur.execute("INSERT INTO person VALUES (%s,%s,now(),now(),NULL)",
                         (who, born))
         cur.execute("INSERT INTO lane VALUES (%s,%s,%s,now(),now(),now(),NULL)",
                     (LBEN, BEN, "everything, as CSV, on request"))
+        cur.execute(
+            "INSERT INTO edge VALUES (%s,'guardian_of',%s,%s,NULL,'enrolment "
+            "form',now(),now() - interval '1 year',NULL)",
+            (uuid.UUID("dddddddd-1111-1111-1111-111111111111"), ANN, LBEN))
     owner.commit()
 
 
@@ -65,13 +79,14 @@ def test_an_application_write_lands_as_a_draft():
         owner, app = installed(db)
         seed(owner)
         try:
-            got = insert_draft(app, "lane_entry", an_entry(),
-                               returning="entry_id")
+            with acting(app, ANN):
+                got = insert_draft(app, "lane_entry", an_entry(),
+                                   returning="entry_id")
+                state = app.execute(
+                    "SELECT seal_state FROM lane_entry WHERE entry_id = %s", (got,)
+                ).fetchone()[0]
+                assert state == "draft"
             app.commit()
-            state = app.execute(
-                "SELECT seal_state FROM lane_entry WHERE entry_id = %s", (got,)
-            ).fetchone()[0]
-            assert state == "draft"
         finally:
             app.close()
             owner.close()
@@ -228,12 +243,14 @@ def test_pending_is_still_reachable():
         owner, app = installed(db)
         seed(owner)
         try:
-            got = insert_draft(app, "lane_entry", an_entry(seal_state="pending"),
-                               returning="entry_id")
+            with acting(app, ANN):
+                got = insert_draft(app, "lane_entry",
+                                   an_entry(seal_state="pending"),
+                                   returning="entry_id")
+                assert app.execute(
+                    "SELECT seal_state FROM lane_entry WHERE entry_id = %s", (got,)
+                ).fetchone()[0] == "pending"
             app.commit()
-            assert app.execute(
-                "SELECT seal_state FROM lane_entry WHERE entry_id = %s", (got,)
-            ).fetchone()[0] == "pending"
         finally:
             app.close()
             owner.close()

@@ -267,10 +267,44 @@ office-derived grant confers.
 > calling `reject()` on a student's account of an incident made it permanently
 > unservable without deleting a row.
 
-**W-3's default deny.** The schema partitions; it does not enforce that a query
-stays in its lane. Enforcement is one predicate, compiled once, funnelled
-through the single read method — §7's resolver shape, with #127's
-authenticate-at-the-read so a fourth read added later inherits the gate.
+**~~W-3's default deny.~~ The schema no longer only partitions — closed
+2026-07-31 by `migrations/003_row_security.sql` (S-2), and closed *precisely*
+rather than entirely.** The sentence this entry carried was *"the schema
+partitions; it does not enforce that a query stays in its lane"*, and that is
+now false for the seal and still true for four other things.
+
+> **Compiled into the store**: the lane seal's two clauses — a live edge into
+> the lane, and *between wards, default deny* with a live guardian-signed
+> envelope as the only crossing — as row-level security policies on eleven
+> tables, evaluated against a per-transaction acting principal
+> (`store/session.py`, `SET LOCAL` on a custom GUC). An unset principal reads no
+> row anywhere, `FORCE ROW LEVEL SECURITY` is on and ownership moved to
+> `terpsi_migrator` so the flag binds a role that is not a superuser, and the
+> crossing is attacked as raw SQL with nothing from `records/` on the path.
+>
+> **Still a predicate and not a partition**: the grant ceiling, the derive
+> floor and the payload/instruction split, `L5`'s never-served rule, `L4`'s
+> declared purpose with the self cap and W-5's widening, and §7.1's second
+> clock. Each turns on something that is not a column of the row being read.
+> The migration's header lists them; rule 18 is why the list is in the file
+> rather than in a summary.
+>
+> **The predicate stays, and now there are two of it.** That is §16's pair and
+> it ships with its middle in the same commit:
+> `tests/test_store_differential.py` drives one case set through
+> `records/serving.py` with real rows and through the cluster under RLS, and
+> fails on any disagreement in either direction. `tests/ablate_store.py` breaks
+> both sides in turn and requires the middle to notice.
+>
+> **One thing the middle cannot attribute, recorded rather than rounded up**:
+> reversing the compiled envelope's direction survives the differential,
+> because a reach comparison can only see it for a principal who is a ward of
+> one lane *and* holds an entitlement edge into another — and a crossing does
+> not widen the entitlement edge, so no such principal exists in this domain.
+> It is caught one level below reach, by
+> `tests/test_store_rowsecurity.py::test_the_compiled_envelope_is_directional`
+> for the SQL and `tests/test_crossing.py::test_an_envelope_is_directional` for
+> the Python.
 
 > **~~And the crossing itself has no table.~~ Closed 2026-07-31 — it is
 > `crossing_envelope`, the thirteenth table.** Found by reading W-3 at source
