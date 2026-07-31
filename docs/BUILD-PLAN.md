@@ -47,8 +47,9 @@ and it is ordered below.**
 ```
 migrations/    001_lanes.sql — fourteen tables, run against PostgreSQL 16;
                five-part tombstone at docs/schema/
-presentation/  ABSENT — specified by scout-21 §3, now buildable
-surfaces/      ABSENT — same
+presentation/  the middle — IR, tokens, one mapping table, rendered/ diffed
+surfaces/      four doors on ls — tui, web, print, text; skeletons
+manifest.json  four surfaces, zero listeners, zero outbound; reconciled in CI
 craft/         text-only: no student data, no network, no model
 records/       the domain core; suite green
 inference      GUARD ONLY — refusal 1 asserted in records/inference.py;
@@ -60,10 +61,16 @@ tools/         conform, sockets, purity, providers, discipline — checkers
 
 ## Order
 
-1. **The surfaces skeleton.** `presentation/` (IR, tokens, one mapping table)
-   and the manifest — with rule 12's socket-reconciliation test
-   (`tools/sockets.py`) in the same commit as the manifest, in this
-   repository's own CI. §18 item 4's closing note names both obligations.
+1. ~~**The surfaces skeleton.**~~ — **Built 2026-07-31, audited and merged** —
+   `presentation/` (IR, tokens, the one mapping table, committed rendered
+   artifacts diffed in CI) and `surfaces/{tui,web,print,text}` — four doors on
+   `ls`, thin renderers, no framework. `manifest.json` landed in the same
+   commit as the reconciliation that checks it, per item 4's obligations.
+   Honest limits, recorded there and held here: these are skeletons — no
+   server, no session, and scout-21's three trust paths are docstrings, a
+   ledger not an enforcement; and the IR does not re-check W-1 (a `Serving`
+   carries no lane id), so the cross-lane refusal lives in `serve()` alone —
+   a named gap.
 2. ~~**Promote the lane DDL.**~~ — **Built 2026-07-31, audited and merged** —
    `migrations/001_lanes.sql`: fourteen tables, `crossing_envelope` (W-3's
    permission) and `self_widening` (W-5's) encoded structurally, executed
