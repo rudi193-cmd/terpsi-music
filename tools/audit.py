@@ -264,51 +264,68 @@ def anything_at_rest(where: Optional[Path] = None) -> int:
 #: number of non-test callers of that path, which is derived below and is zero.
 #:
 #: **The commit that flips it is named rather than left to be noticed**: the
-#: first module outside `tests/` that calls the store's write path — S-4's TUI
-#: vertical, on `docs/PLAN-STORE.md`'s decomposition. At that commit `durable`
-#: becomes nonzero, R16 becomes an open `S1` unless `docs/ESCROW.md` carries a
-#: dated rehearsal by then, and §11.1's install acceptance is where that
-#: rehearsal is asserted for a real deployment. `tests/test_audit.py` exercises
-#: both sides of that transition against a synthetic tree, so it is a branch that
-#: has been shown to fire rather than one that is waiting to.
+#: first module outside `tests/` that calls the store's **record-write** path.
+#: S-4's read-first vertical (`docs/PLAN-STORE.md`) deliberately is not that
+#: commit — it reads, narrates and reconciles, and none of those puts a sealed
+#: payload at rest (see the two verb sets below). The commit that flips R16 is
+#: the *write* surface after it — an attendance mark, a human sealing a draft —
+#: at which `durable` becomes nonzero, R16 becomes an open `S1` unless
+#: `docs/ESCROW.md` carries a dated rehearsal by then, and §11.1's install
+#: acceptance is where that rehearsal is asserted for a real deployment.
+#: `tests/test_audit.py` exercises both sides of that transition, and the
+#: narration-only side, against a synthetic tree — branches shown to fire rather
+#: than waiting to.
 #:
 #: Stated as a **definition plus a rule**, and deliberately not as a claim about
 #: this tree: the tree-specific half is measured in each result's evidence and
 #: moves, while this sentence is what the measurement means and must not.
 AT_REST_BOUNDARY = (
-    "at rest = a byte that outlives the process that wrote it. A write path is "
-    "not a store at rest until a non-test caller drives it: tests/cluster.py "
-    "creates a database per module and drops it. The first non-test caller "
-    "(PLAN-STORE's S-4) makes the store's writes durable and R16 S1 without a "
-    "dated rehearsal; §11.1's install acceptance is where the rehearsal is "
-    "asserted for a deployment"
+    "at rest = a byte that outlives the process that wrote it. The escrow fuse "
+    "turns on the RECORD-write path (store.writing: a lane_entry draft and its "
+    "sealed payload), not the narration/history path (disclosure_log, "
+    "reconciled_session), which carries no sealed column — store/sealing_plan.py "
+    "derives exactly one in the whole schema, lane_entry.payload, and it is on "
+    "the record-write path. A write path is not a store at rest until a non-test "
+    "caller drives the record-write path: tests/cluster.py creates a database per "
+    "module and drops it. The first non-test record-write caller — the write "
+    "surface after S-4 — makes the store's sealed payloads durable and R16 S1 "
+    "without a dated rehearsal; a read-first surface that only narrates and "
+    "reconciles (S-4) does not. §11.1's install acceptance is where the rehearsal "
+    "is asserted for a deployment"
 )
 
-#: How a module is recognised as reaching the store's write path: it imports the
-#: writing module, or calls one of its verbs. Read by AST, never by import —
-#: same rule as `at_rest_seam`.
+#: **The record-write path — the escrow-relevant one.** These writes put a
+#: *record* at rest: a `lane_entry` draft, and through `seal_payloads` its sealed
+#: payload — the one column `store/sealing_plan.py` derives as sealed in the whole
+#: schema. A non-test caller of this path makes a sealed payload durable, which is
+#: the commit R16's escrow fuse turns on. Recognised by an import of the writing
+#: module or a call to one of its verbs, read by AST.
 _WRITE_PATH_MODULE = "store.writing"
-_WRITE_PATH_VERBS = frozenset({"insert_draft", "seal_payloads", "narrate",
-                               "serve_field", "apply_all"})
+_WRITE_PATH_VERBS = frozenset({"insert_draft", "seal_payloads", "apply_all"})
+
+#: **The narration/history path — deliberately NOT a record at rest.** `serve_field`
+#: and `narrate` write `disclosure_log`; `land_reconciliation` writes
+#: `reconciled_session`. Both are append-only *history* (§7.1: "the disclosure
+#: log ... and reconciled sessions are history"), and neither carries a sealed
+#: column — the one sealed column is on the record-write path above. So a surface
+#: that only reads, narrates and reconciles (S-4's read-first vertical) puts no
+#: escrow-dependent byte at rest, and R16 stays `S2` rather than flipping to `S1`
+#: on it; the fuse still trips on the first record-write caller. `narration_callers()`
+#: reports these separately so the evidence can say what it saw rather than fold
+#: them into the durable count. **This is the boundary S-4 had to settle out loud
+#: rather than by picking a number** (`docs/PLAN-STORE.md` S-4, and the report).
+_NARRATION_MODULES = frozenset({"store.narration", "store.reconcile"})
+_NARRATION_VERBS = frozenset({"narrate", "serve_field", "land_reconciliation"})
 
 
-def durable_callers(where: Optional[Path] = None,
-                    store: Optional[Path] = None) -> Tuple[Tuple[str, str], ...]:
-    """`(module, how)` for every non-test module that reaches the store's writes.
-
-    Zero of these means the write path exists and nothing in a deployment drives
-    it, which is the whole of `AT_REST_BOUNDARY`. Derived from the tree by AST so
-    that the day somebody wires the TUI to the store, this check notices without
-    anybody remembering to come back and edit it.
-
-    **One entry per module**, with its reasons joined. A file that both imports
-    the module and calls its verb is one caller; counting it twice made the
-    evidence read *"2 non-test caller(s) (app/main.py, app/main.py)"*, which is a
-    number a reader would go looking for a second file behind.
+def _scan_callers(base: Path, store: Path, modules: frozenset,
+                  verbs: frozenset) -> Tuple[Tuple[str, str], ...]:
+    """`(module, how)` for every non-test module importing `modules` or calling
+    `verbs`. The shared body of `durable_callers` and `narration_callers`, so the
+    record-write scan and the narration scan cannot drift in how they read a tree.
     """
-    base = where if where is not None else ROOT
-    skip = {(store if store is not None else STORE).resolve()}
     out: List[Tuple[str, str]] = []
+    skip = {store.resolve()}
     for py in sorted(base.rglob("*.py")):
         relpath = py.relative_to(base)
         rel = str(relpath)
@@ -327,21 +344,55 @@ def durable_callers(where: Optional[Path] = None,
         except (SyntaxError, OSError):
             continue
         for node in ast.walk(tree):
-            if isinstance(node, ast.ImportFrom) and node.module and \
-                    node.module.replace("store.", "store.") == _WRITE_PATH_MODULE:
-                out.append((rel, f"imports {_WRITE_PATH_MODULE}"))
+            if isinstance(node, ast.ImportFrom) and node.module in modules:
+                out.append((rel, f"imports {node.module}"))
             elif isinstance(node, ast.Import):
                 for a in node.names:
-                    if a.name == _WRITE_PATH_MODULE:
-                        out.append((rel, f"imports {_WRITE_PATH_MODULE}"))
+                    if a.name in modules:
+                        out.append((rel, f"imports {a.name}"))
             elif isinstance(node, ast.Call):
                 name = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
-                if name in _WRITE_PATH_VERBS:
+                if name in verbs:
                     out.append((rel, f"calls {name}()"))
     by_module: Dict[str, List[str]] = {}
     for module, how in sorted(set(out)):
         by_module.setdefault(module, []).append(how)
     return tuple((m, ", ".join(hows)) for m, hows in sorted(by_module.items()))
+
+
+def durable_callers(where: Optional[Path] = None,
+                    store: Optional[Path] = None) -> Tuple[Tuple[str, str], ...]:
+    """`(module, how)` for every non-test module that reaches the **record-write**
+    path — the escrow-relevant one.
+
+    Zero of these means the write path exists and nothing in a deployment writes a
+    record through it, which is the whole of `AT_REST_BOUNDARY`. Derived from the
+    tree by AST so that the day somebody wires a write surface to the store, this
+    check notices without anybody remembering to come back and edit it.
+
+    **One entry per module**, with its reasons joined. A file that both imports
+    the module and calls its verb is one caller; counting it twice made the
+    evidence read *"2 non-test caller(s) (app/main.py, app/main.py)"*, which is a
+    number a reader would go looking for a second file behind.
+    """
+    base = where if where is not None else ROOT
+    return _scan_callers(base, store if store is not None else STORE,
+                         frozenset({_WRITE_PATH_MODULE}), _WRITE_PATH_VERBS)
+
+
+def narration_callers(where: Optional[Path] = None,
+                      store: Optional[Path] = None) -> Tuple[Tuple[str, str], ...]:
+    """`(module, how)` for every non-test module that narrates or reconciles.
+
+    **Reported, and deliberately not counted as durable** — see `_NARRATION_VERBS`
+    and `AT_REST_BOUNDARY`. A non-empty result here with `durable_callers()` still
+    empty is exactly S-4: a read-first surface writes history (`disclosure_log`,
+    `reconciled_session`) and no sealed payload, so R16 stays `S2`. Enumerated so
+    the evidence names them rather than saying nothing wrote anything.
+    """
+    base = where if where is not None else ROOT
+    return _scan_callers(base, store if store is not None else STORE,
+                         _NARRATION_MODULES, _NARRATION_VERBS)
 
 
 def store_writes(where: Optional[Path] = None) -> int:
@@ -372,16 +423,24 @@ def r16_at_rest(records: Optional[Path] = None,
     ring_writes = anything_at_rest(records)
     staged = store_writes(store)
     callers = durable_callers(tree, store)
+    narrators = narration_callers(tree, store)
     durable = ring_writes + (staged if callers else 0)
 
     # Said the same way in every branch, so a reader comparing two runs is
     # comparing the same measurement.
+    narration_note = (
+        f"; {len(narrators)} narration/reconcile caller(s)"
+        + (f" ({', '.join(m for m, _ in narrators[:3])})" if narrators else "")
+        + " write append-only history (disclosure_log, reconciled_session), which "
+          "carries no sealed column and is not a record at rest"
+        if narrators else "")
     measured = (
         f"purity.writes(): {ring_writes} site(s) in records/, {staged} in store/; "
-        f"{len(callers)} non-test caller(s) of the store's write path"
+        f"{len(callers)} non-test caller(s) of the store's record-write path"
         + (f" ({', '.join(m for m, _ in callers[:3])})" if callers
            else ", so those {} write(s) reach a database created and dropped "
                 "inside one test module".format(staged))
+        + narration_note
         + f". Boundary: {AT_REST_BOUNDARY}")
 
     if not seam and not durable:
@@ -414,15 +473,22 @@ def r16_at_rest(records: Optional[Path] = None,
         # writes, so "anything writes a record to disk" reads as satisfied on a
         # careless count — and it is not, because the only writes are into
         # databases that are dropped at the end of the module that made them.
+        #
+        # S-4 is the third. The read-first vertical narrates and reconciles from a
+        # deployment module (console/), so "a non-test caller drives the store's
+        # writes" now reads as satisfied — and it is not, because narration and
+        # reconciliation write history that carries no sealed column. The condition
+        # names the RECORD-write path, which is the one the escrow ceremony guards.
         return Result(
             "R16", title, Verdict.FINDING, Severity.S2,
             f"sealing at {', '.join(m for m, _ in seam)}, nothing durably at "
             f"rest yet, and no rehearsed escrow disposition — {why}. {measured}",
-            condition="the first non-test caller of the store's write path "
-                      "(docs/PLAN-STORE.md's S-4). This finding becomes S1 at "
-                      "that commit unless a recorded, rehearsed escrow "
-                      "disposition exists by then; §11.1's install acceptance is "
-                      "where the rehearsal is asserted for a deployment",
+            condition="the first non-test caller of the store's RECORD-write path "
+                      "(store.writing) — the write surface after S-4, not S-4's "
+                      "read-first vertical, which only narrates and reconciles. "
+                      "This finding becomes S1 at that commit unless a recorded, "
+                      "rehearsed escrow disposition exists by then; §11.1's install "
+                      "acceptance is where the rehearsal is asserted for a deployment",
         )
     if not disposed:
         return Result(

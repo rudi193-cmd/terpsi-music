@@ -827,6 +827,51 @@ def check_row_security_differential() -> Check:
                  "in either direction")
 
 
+def check_knock_enforcing() -> Check:
+    """§7.2's knock, wired in enforcement mode by S-4 — no longer a ledger.
+
+    This row read `UNKNOWN` with the words *"session reconciliation lives in
+    willow-gate and is not wired here … so by rule 18 it is a ledger and not
+    enforcement until a surface exists (§18 item 4)."* The surface exists:
+    `console/session.py` opens a session over the store, and a session cannot
+    read without a declared purpose (`ReadWithoutDeclaration`) and cannot close
+    without reconciling declared against observed and landing the
+    `reconciled_session` row (`store/reconcile.py`). Something routes through the
+    knock, so this becomes a gate.
+
+    **`PASS` means the cluster suite ran and the knock enforced.** Like
+    `check_row_security_differential`, this needs a real PostgreSQL:
+    `tests/test_store_knock.py` exits `2` with `UNKNOWN` where there is none, and
+    a conformance record that reported enforcement holding on a machine where it
+    did not run would be the formality §17 warns about. The pure-Python half —
+    a read refused before the store is touched — is ablated in `tests/ablate.py`
+    and caught by `tests/test_console.py`, which needs no database.
+    """
+    suite = ROOT / "tests" / "test_store_knock.py"
+    what = "the knock wired in enforcement mode (§7.2)"
+    if not suite.exists():
+        return Check("knock-enforcing", what, State.ABSENT,
+                     f"{suite.name} does not exist; the knock has no surface "
+                     "routing through it, so it is a ledger (§18 item 4)")
+    r = subprocess.run([sys.executable, str(suite)], capture_output=True,
+                       text=True, cwd=ROOT)
+    lines = [l.strip() for l in (r.stdout or "").splitlines() if l.strip()]
+    if r.returncode == 2:
+        return Check("knock-enforcing", what, State.UNKNOWN,
+                     "no PostgreSQL to route a session through the knock, so "
+                     "enforcement was not exercised: "
+                     + (lines[-1] if lines else "the suite reported UNKNOWN"))
+    if r.returncode != 0:
+        failed = [l for l in lines if l.lower().startswith("fail")]
+        return Check("knock-enforcing", what, State.FAIL,
+                     "; ".join(failed[:3]) or (lines[-1] if lines else "the suite failed"))
+    return Check("knock-enforcing", what, State.PASS,
+                 (lines[-1] if lines else "the suite passed")
+                 + " — a session refused a read without a declared purpose and "
+                   "reconciled declared against observed on exit, landing the "
+                   "reconciled_session row (console/session.py, store/reconcile.py)")
+
+
 def check_component_map() -> Check:
     """Item 0: an unverified table and a verified one must not look identical."""
     r = subprocess.run([sys.executable, str(ROOT / "tests" / "test_component_map.py")],
@@ -887,13 +932,6 @@ UNDECIDABLE: Tuple[Callable[[], Check], ...] = (
              "cascade has a floor and no ceiling: rule 18 says that is a partial "
              "enforcement and not a pass, and this row stays UNKNOWN until a "
              "named human's seal is what moves a row"),
-    _unknown("knock-enforcing", "the knock wired in enforcement mode (§7.2)",
-             "the gate's own session reconciliation lives in willow-gate and is "
-             "not wired here. records/commentary.py now builds the declared/"
-             "observed/diff reconciliation for an adjudication session, with the "
-             "observed half a filter over records/disclosure.py's chain — but "
-             "nothing routes a session through it, so by rule 18 it is a ledger "
-             "and not enforcement until a surface exists (§18 item 4)"),
     _unknown("allowlist-rot", "allowlist rot tests (§16)",
              "no destination allowlist exists; §14 records the fleet-wide version "
              "as unique to UTETY"),
@@ -908,7 +946,7 @@ CHECKS: Tuple[Callable[[], Check], ...] = (
     check_no_egress, check_write_paths, check_revocation_is_dated,
     check_suite_runs_standalone, check_ablation, check_exit_line,
     check_component_map, check_classification_registry,
-    check_row_security_differential,
+    check_row_security_differential, check_knock_enforcing,
     check_declared_sockets, check_manifest, check_key_escrow,
     check_security_audit, check_stdlib_only, check_local_inference,
     check_anchor_payload, check_anchor_published, check_receipt_attribution,
