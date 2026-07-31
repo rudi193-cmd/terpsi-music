@@ -30,16 +30,20 @@ from .consent import Governance, Model, governs
 from .export import Artifact, bundle
 from .marking import Mark, ScorePosition, align, drift, realign
 from .practice import Milestone, OwnPractice, Session, milestones, own
-from .standing import (SELF, SELF_CAP, LogAccess, OwnLog, Widening, is_self_edge,
-                       own_log, past_threshold, self_edge, widens)
+from .standing import (SELF, SELF_CAP, LogAccess, MaySupersede, OwnLog, Supersession,
+                       Widening, is_self_edge, may_supersede, own_log,
+                       past_threshold, self_edge, widens)
+from .orders import (Ended, Ending, Guardianship, GuardianshipState, NoGuardian,
+                     Order, OrderKind, end_guardianship, guardianship_of,
+                     past_exercise, supersede)
 from .rungs import DERIVE_AT, NEVER_SERVED, Rung, at_least, compose, outranks, parse
-from .sealing import Record, State, draft, redraft, reject, seal
+from .sealing import Record, State, authored_by, draft, redraft, reject, seal
 from .sending import ContactRestriction, Payload, SendList, Standing, deliver, recipients, who_could_see
-from .serving import Edge, Field, Outcome, Principal, Serving, serve
+from .serving import Edge, Field, Grant, Outcome, Principal, Serving, serve
 
 __all__ = [
     "Rung", "DERIVE_AT", "NEVER_SERVED", "at_least", "outranks", "compose", "parse",
-    "Edge", "Field", "Principal", "Serving", "Outcome", "serve",
+    "Edge", "Field", "Grant", "Principal", "Serving", "Outcome", "serve",
     "ContactRestriction", "Payload", "SendList", "Standing", "deliver", "recipients",
     "who_could_see",
     "Descriptor", "Classification", "Decision", "classify", "unclassified",
@@ -51,6 +55,7 @@ __all__ = [
     "Issuance", "HmacTagger", "AsymmetricUnavailable", "NoSigner", "Uncheckable",
     "receipt_text", "schemes",
     "Record", "State", "draft", "seal", "reject", "redraft",
+    "Record", "State", "authored_by", "draft", "seal", "reject", "redraft",
     "Request", "Disposition", "ask", "answer", "state_at", "extend",
     "Escalation", "NotComputable", "Stake", "halt", "refuse_to_rank",
     "Governance", "Model", "governs",
@@ -59,6 +64,10 @@ __all__ = [
     "Session", "OwnPractice", "Milestone", "own", "milestones",
     "SELF", "SELF_CAP", "Widening", "OwnLog", "LogAccess", "self_edge",
     "is_self_edge", "past_threshold", "widens", "own_log",
+    "Supersession", "MaySupersede", "may_supersede",
+    "Order", "OrderKind", "NoGuardian", "Ending", "Ended", "Guardianship",
+    "GuardianshipState", "end_guardianship", "supersede", "guardianship_of",
+    "past_exercise",
     "Lane", "Threshold", "open_lane", "transfer",
     "Envelope", "permits", "Dispatch", "dispatch",
     "Anchor", "Receipt", "Evidence", "Independence", "WitnessStanding",

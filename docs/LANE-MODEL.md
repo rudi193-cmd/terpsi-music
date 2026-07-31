@@ -170,6 +170,18 @@ The case §7.1 is written against, traced through the schema.
 6. The order is modified in January. `invalid_at` moves; no record was
    discarded that reinstatement has to reconstruct.
 
+**`records/orders.py` is this walkthrough as code**, and building it added two
+things the trace above did not have. The first is that the ending needs its
+**own** knowledge clock: `created_at` says when the *edge* was learned and
+nothing said when its *termination* was, so the March-delivered-in-October case
+could be recorded and not asked about — `Edge.ended_known_at` and
+`live_as_known_at()` are that second axis on the second event. The second is
+step 7, which was missing: **an order may not leave the lane in silence.** An
+ending that removes the last live `guardian_of` edge is refused unless the order
+carries a named, dated declaration of the state it leaves behind, or names the
+guardianship that supersedes it. *No guardian, and nobody said why* is `UNKNOWN`,
+and `UNKNOWN` is not a state a court order is allowed to produce.
+
 ---
 
 ## What running it found
@@ -217,22 +229,43 @@ things.**
 
 ## What the DDL still cannot enforce
 
-**Three, down from four as of 2026-07-31.** The invariants below are stated in
-the schema's comments and are **not** constraints. Naming them here is the §16
-discipline: a declaration without an enforcement is a pair, and the middle is
-the code that closes it.
+Invariants stated in the schema's comments and **not** expressible as
+constraints. Naming them here is the §16 discipline: a declaration without an
+enforcement is a pair, and the middle is the code that closes it.
 
-The one that left the list did so by becoming a constraint. See *The `self`
-edge's holder*, below, which is kept struck rather than deleted because the tally
-is only useful if it records what came off it as well as what went on.
+**The four §18 item 3 names are now closed, and each entry below says where.**
+The `self` edge's holder closed twice, once per layer — `is_self_edge()` at
+the predicate (2026-07-30) and the `edge_self_holder_is_subject` trigger at
+the store (2026-07-31), which is the right shape rather than a duplicate: the
+store is not the only path to a row, and the predicate is not the only path
+to a read. The other three closed together on 2026-07-31, because they turned
+out to be the same kind of thing — **predicates over the acting principal**,
+which is why none could be a column CHECK and why all three landed in
+`records/` beside the read predicate rather than in ledgers of their own.
+
+**The hash chain, last on this list, is still open** and is not one of the four.
+It is not a predicate over a principal; it is a mechanism whose columns exist
+and whose code does not.
 
 **I-7 — the record binds the holder most.** *Entries authored by the governed
 about the office are as durable as entries authored by the office about the
 governed.* Expressed as policy: supersession of a `lane_entry` whose
 `author_id` is the lane's own subject requires an authority that no
-office-derived grant confers. That is a predicate over the acting principal and
-the row, not a column CHECK, and it belongs in the same place as the read
-predicate.
+office-derived grant confers.
+
+> **Enforced at `records/standing.py`'s `may_supersede()`**, called from
+> `records/sealing.py`'s `reject()` and `redraft()` — the two verbs the clause
+> names, *deleting or amending*, and the only two spellings this tree offers.
+> `Record.author_id` is `lane_entry.author_id`; the refusing branch reads **no
+> edges at all**, because an authority "that no office-derived grant confers"
+> cannot be one a predicate looks for among grants. Ablated as *"I-7's
+> supersession asymmetry"*, *"I-7: the office cannot reject the ward's entry"*
+> and *"I-7: the office cannot rewrite the ward's entry"*.
+>
+> **The forbidden act it stops was reachable before it existed.** Rejection is
+> terminal in that module — `seal()` refuses a rejected record — so a director
+> calling `reject()` on a student's account of an incident made it permanently
+> unservable without deleting a row.
 
 **W-3's default deny.** The schema partitions; it does not enforce that a query
 stays in its lane. Enforcement is one predicate, compiled once, funnelled
@@ -246,6 +279,30 @@ authenticate-at-the-read so a fourth read added later inherits the gate.
 > signature, a signer who is a person, and a `BEFORE INSERT OR UPDATE` trigger
 > requiring that person to hold a live `guardian_of` edge over the lane whose
 > seal is being opened.
+>
+> **Enforced at `records/serving.py`'s `serve()`**, on the branch that also
+> carries the named-lane crossing, using `_acting_ward()`. The seal now has
+> both halves of the clause rather than one: a read that *names* another lane,
+> and a reader who *is* another ward. The second was open in two ordinary
+> places at once — a read passing no `lane_id` never reached the seal, and a
+> field below the derive floor needs no entitlement edge — so a ward was served
+> another ward's `L2` lane entry with nothing consulted. The check sits above
+> the derive floor because **the seal is not rung-shaped**: it is about the
+> partition, not the sensitivity. Ablated as *"W-3 default deny between wards"*,
+> *"an unnamed origin lane is not a wildcard"*, *"a forged self edge does not
+> make a ward"* and *"an ended self edge is not a ward's seal"*.
+>
+> **And the sanctioned path still works**, which is the half this document
+> warns about one entry down: a ward reading a sibling's lane from their own,
+> on a guardian-signed envelope naming both lanes, is served.
+
+> **And the crossing itself has no table — found by reading W-3 at source,
+> 2026-07-30.** The full clause is *"Between wards, default deny; **a crossing
+> requires a guardian-signed envelope naming both lanes, purpose, and
+> expiry.** A shared event is two lane entries with one referent."* This
+> document encoded the third sentence and the first; the middle one is absent
+> from all twelve tables — `envelope` and `crossing` appear zero times in the
+> DDL.
 >
 > The other half of the paragraph stands and is the entry above: default deny
 > is still a predicate, not a partition. **The two halves failed differently
@@ -291,7 +348,34 @@ registry is now populated for every column the DDL declares — 116, counted fro
 instance — so the lookup has something to
 resolve against. What is missing is the code that performs it at serving time.
 Until that exists the registry is **a ledger and not a gate**, and §7.2's rule
-applies — say which. This is the largest remaining piece of the ladder.
+applies — say which.
+
+> **Enforced at `records/serving.py`'s `serve()`**, beside the entitlement-edge
+> check, via `_ceiling()` and the `Grant` type. `Grant` refuses at construction
+> everything `access_grant` refuses by CHECK — `L5`, a wildcard lane, an `L4`
+> grant with no purpose, an expiry that is not in the future — so the two
+> spellings of the rule cannot disagree. **The edge is a fact; the grant
+> authorizes**, and until this existed `serve()` decided on the edge alone.
+> Ablated as *"the grant ceiling is consulted"*, *"the ceiling refuses above
+> itself"*, *"no live grant is not an unlimited one"*, *"a grant's own dates"*,
+> *"L5 is unreachable through a grant"*, *"W-2: a grant names one lane"* and
+> *"L4 without a purpose is not a grant"*.
+>
+> **What remains, stated exactly rather than left to be discovered.** `grants`
+> is `Optional`: `None` means *no grant source was consulted* and the decision
+> rests on the edge alone, `()` means *consulted and this principal holds
+> nothing*, which denies at `L3` and above. That distinction is rule 13 in a
+> signature and it is also the residual — **a caller that passes `None` is not
+> gated by the ceiling**. There is no surface to make it mandatory for (§18
+> item 4), and the two failure directions are opposite, so a single sentinel
+> would have merged a fail-open with a fail-closed. `records/dispatch.py`
+> forwards it as given and never normalises it; that forwarding is itself
+> ablated.
+>
+> The other half of the original entry is untouched: **the 93-column registry
+> is still a ledger.** Nothing in `records/` resolves a column name to its rung
+> — `Field.rung` is supplied by the caller. That is the largest remaining piece
+> of the ladder and it is a different piece from this one.
 
 **The hash chain.** `disclosure_log`, `consent_chain` and `reconciled_session`
 each carry `prev_hash` and `hash`. Nothing computes either, and nothing

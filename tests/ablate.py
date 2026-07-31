@@ -107,8 +107,63 @@ MUTATIONS = [
      "a rung prints as its name", "tests/test_rungs.py"),
     ("records/serving.py", "if fld.rung is NEVER_SERVED:", "if False:",
      "L5 never-served", "tests/test_serving.py"),
-    ("records/serving.py", "if lane_id is not None and lane_id != fld.lane_id:", "if False:",
+    # The lane seal is one branch with two disjuncts and each is a separate
+    # guard. Splitting them is the same lesson `and r.live_at(at)` taught in
+    # records/sending.py: a pattern covering two conditions mutates as one and
+    # leaves the other unablated.
+    ("records/serving.py",
+     "    if (lane_id is not None and lane_id != fld.lane_id) or (\n"
+     "            ward is not None and ward != fld.subject_id):",
+     "    if (lane_id is not None and lane_id != fld.lane_id) or (\n"
+     "            False):",
+     "W-3 default deny between wards", "tests/test_serving.py"),
+    ("records/serving.py",
+     "    if (lane_id is not None and lane_id != fld.lane_id) or (\n"
+     "            ward is not None and ward != fld.subject_id):",
+     "    if (False) or (\n"
+     "            ward is not None and ward != fld.subject_id):",
      "W-3 lane seal", "tests/test_serving.py"),
+    ("records/serving.py",
+     "        if lane_id is None:\n            # An unnamed origin is unknown",
+     "        if False:\n            # An unnamed origin is unknown",
+     "an unnamed origin lane is not a wildcard", "tests/test_serving.py"),
+    ("records/serving.py",
+     "        if is_self_edge(e) and e.principal_id == principal_id and e.live_at(at):",
+     "        if e.kind == SELF and e.principal_id == principal_id and e.live_at(at):",
+     "a forged self edge does not make a ward", "tests/test_serving.py"),
+    ("records/serving.py",
+     "        if is_self_edge(e) and e.principal_id == principal_id and e.live_at(at):",
+     "        if is_self_edge(e) and e.principal_id == principal_id:",
+     "an ended self edge is not a ward's seal", "tests/test_serving.py"),
+    # The rung ceiling. `None` and `()` are different instructions and the
+    # first mutation collapses them, which is the fail-open a single sentinel
+    # would have shipped.
+    ("records/serving.py", "    if grants is not None:", "    if False:",
+     "the grant ceiling is consulted", "tests/test_serving.py"),
+    ("records/serving.py", "        if not at_least(cap, fld.rung):", "        if False:",
+     "the ceiling refuses above itself", "tests/test_serving.py"),
+    ("records/serving.py", "        if cap is None:", "        if False:",
+     "no live grant is not an unlimited one", "tests/test_serving.py"),
+    ("records/serving.py",
+     "            and g.live_at(at)]",
+     "            ]",
+     "a grant's own dates", "tests/test_serving.py"),
+    ("records/serving.py",
+     "        if self.max_rung is NEVER_SERVED:",
+     "        if False:",
+     "L5 is unreachable through a grant", "tests/test_serving.py"),
+    ("records/serving.py",
+     "        if not lane or lane.lower() in _WILDCARDS:",
+     "        if False:",
+     "W-2: a grant names one lane", "tests/test_serving.py"),
+    ("records/serving.py",
+     "        if self.max_rung is Rung.L4 and not (self.purpose or \"\").strip():",
+     "        if False:",
+     "L4 without a purpose is not a grant", "tests/test_serving.py"),
+    ("records/serving.py",
+     "        if self.ended_known_at is not None and horizon < self.ended_known_at:",
+     "        if False:",
+     "the ending's own knowledge clock", "tests/test_orders.py"),
     ("records/serving.py", "if fld.rung is None:", "if False:",
      "rule 13 unclassified", "tests/test_serving.py"),
     ("records/serving.py", "if fld.category and fld.category in principal.purposes:", "if True:",
@@ -175,6 +230,80 @@ MUTATIONS = [
      "if False:", "envelope direction", "tests/test_crossing.py"),
     ("records/crossing.py", "if not standing:", "if False:",
      "signer standing at use", "tests/test_crossing.py"),
+    # I-7, at the two verbs the clause names: *deleting or amending*.
+    ("records/sealing.py", "    _i7(rec, by, \"rejection\")", "    pass",
+     "I-7: the office cannot reject the ward's entry", "tests/test_sealing.py"),
+    ("records/sealing.py", "    _i7(rec, by or \"\", \"re-draft\")", "    pass",
+     "I-7: the office cannot rewrite the ward's entry", "tests/test_sealing.py"),
+    ("records/standing.py", "    if author_id == subject_id:", "    if False:",
+     "I-7's supersession asymmetry", "tests/test_standing.py"),
+    ("records/standing.py", "    if principal_id == author_id:", "    if False:",
+     "an author supersedes their own entry", "tests/test_standing.py"),
+    ("records/standing.py",
+     "    if not (author_id or \"\").strip() or not (subject_id or \"\").strip():",
+     "    if False:",
+     "unrecorded authorship is unknown, not the office's", "tests/test_standing.py"),
+    ("records/standing.py", "    if not standing:", "    if False:",
+     "superseding an office entry needs live standing", "tests/test_standing.py"),
+    # `if at is None:` -> `if False:` would make `e.live_at(None)` raise, and a
+    # crash is not a guard firing (see `verdict`). Flip the *answer* instead, so
+    # the module still runs and only the decision changes.
+    ("records/standing.py",
+     "        return MaySupersede(\n            Supersession.UNKNOWN,\n"
+     "            \"supersession is a dated act and no instant was supplied\")",
+     "        return MaySupersede(\n            Supersession.PERMITTED,\n"
+     "            \"supersession is a dated act and no instant was supplied\")",
+     "an undated supersession is not permitted", "tests/test_standing.py"),
+    # records/orders.py — §7.1's ending, bound.
+    ("records/orders.py", "        if matches:", "        if False:",
+     "an order ends a guardianship at all", "tests/test_orders.py"),
+    ("records/orders.py", "                invalid_at=order.effective_at,",
+     "                invalid_at=order.received_at,",
+     "the ending takes the order's date, not the post's", "tests/test_orders.py"),
+    ("records/orders.py",
+     "                ended_by=f\"{order.authority} ({order.order_id})\",",
+     "                ended_by=None,",
+     "an ending records its authority", "tests/test_orders.py"),
+    # Refusal 3, as the mutation rather than as the branch. `if len(after) !=
+    # len(edges): -> if False:` SURVIVES and correctly: nothing in the function
+    # can produce a shorter list, so the branch is a tripwire no mutation of the
+    # *rest* of the code reaches, and a guard that cannot be made to fire has
+    # not been shown to work. So the mutation is the forbidden act itself —
+    # revocation by dropping the row — and the tripwire is what catches it.
+    ("records/orders.py",
+     "            ended.append(closed)\n            after.append(closed)",
+     "            ended.append(closed)",
+     "an ending never shortens the graph", "tests/test_orders.py"),
+    ("records/orders.py", "    if standing.state is GuardianshipState.UNKNOWN:",
+     "    if False:", "an order may not orphan a lane", "tests/test_orders.py"),
+    ("records/orders.py", "    if not ended:", "    if False:",
+     "an order against no standing is unknown", "tests/test_orders.py"),
+    ("records/orders.py", "                   and e.invalid_at is None)",
+     "                   )",
+     "an ended standing is not re-ended", "tests/test_orders.py"),
+    ("records/orders.py", "        if self.state is not Ended.APPLIED:", "        if False:",
+     "a refused ending iterates", "tests/test_orders.py"),
+    ("records/orders.py", "        if self.state is GuardianshipState.UNKNOWN:",
+     "        if False:", "an unknown guardianship iterates", "tests/test_orders.py"),
+    ("records/orders.py", "    if said:", "    if False:",
+     "a declared state is read", "tests/test_orders.py"),
+    ("records/orders.py", "    if order.kind is not OrderKind.SUPERSEDES:", "    if False:",
+     "supersede takes a superseding order", "tests/test_orders.py"),
+    ("records/orders.py",
+     "        if self.kind is OrderKind.SUPERSEDES and not (self.successor_id or \"\").strip():",
+     "        if False:",
+     "a superseding order names its successor", "tests/test_orders.py"),
+    ("records/orders.py",
+     "        if not name or name.lower() in _NOT_A_PERSON:\n            raise ValueError(\n"
+     "                f\"{self.authority!r} is not an authority;",
+     "        if False:\n            raise ValueError(\n"
+     "                f\"{self.authority!r} is not an authority;",
+     "an order names its authority", "tests/test_orders.py"),
+    ("records/orders.py", "        if not (self.reason or \"\").strip():", "        if False:",
+     "a lane's unguarded state names a reason", "tests/test_orders.py"),
+    ("records/dispatch.py", "threshold=threshold, widenings=widenings, grants=grants)",
+     "threshold=threshold, widenings=widenings, grants=None)",
+     "the join forwards the grant ceiling", "tests/test_dispatch.py"),
     ("records/dispatch.py", "if refused:", "if False:",
      "voice gate blocks dispatch", "tests/test_dispatch.py"),
     ("records/dispatch.py", "if decision.outcome in (Outcome.REFUSED, Outcome.UNKNOWN):",
@@ -514,8 +643,8 @@ MUTATIONS = [
     # reverts one to the value it effectively had when `dispatch()` did not
     # accept it at all — which is how §18 item 12 came to be unreachable
     # through the only path that renders, gates and logs.
-    ("records/dispatch.py", "threshold=threshold, widenings=widenings)",
-     "threshold=None, widenings=())",
+    ("records/dispatch.py", "threshold=threshold, widenings=widenings, grants=grants)",
+     "threshold=None, widenings=(), grants=grants)",
      "the join forwards the self-edge threshold", "tests/test_dispatch.py"),
     ("records/dispatch.py", "known_as_of=known_as_of, envelopes=envelopes,",
      "known_as_of=None, envelopes=envelopes,",
@@ -980,12 +1109,6 @@ def main() -> int:
     if dropped:
         print(f"  purged {dropped} stale .pyc before mutating")
     print("  control".ljust(38), end="")
-    healthy = all(run(s)[0] for s in (
-        "tests/test_serving.py", "tests/test_sending.py", "tests/test_classify.py",
-        "tests/test_disclosure.py", "tests/test_sealing.py", "tests/test_dispositions.py",
-        "tests/test_exit.py", "tests/test_crossing.py", "tests/test_dispatch.py",
-        "tests/test_witness.py", "tests/test_receipts.py",
-        "tests/test_inference.py", "tests/test_providers.py"))
     # **Every suite a mutation points at, and that is the point.** A suite that
     # is already red reports `caught` for every mutation aimed at it, because
     # `verdict()` sees a nonzero exit and a named failure — the mutation's or

@@ -820,7 +820,8 @@ def test_finding_entitlement_and_envelope_stores_cannot_report_their_own_failure
     ), "recipients() lost its error channel; this finding is now about both"
     down = serving.serve(health_field(), serving.Principal("g-mother"), [], AT)
     assert down.outcome is serving.Outcome.REFUSED
-    assert crossing.permits((), from_lane="a", to_lane=LANE, at=AT) is None
+    assert crossing.permits((), from_lane="a", to_lane=LANE, at=AT,
+                           subject_id=BEN) is None
 
 
 def test_finding_a_widening_store_that_failed_looks_like_an_unwidened_category():

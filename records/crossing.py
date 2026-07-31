@@ -79,8 +79,8 @@ def permits(
     from_lane: str,
     to_lane: str,
     at: datetime,
+    subject_id: str,
     signer_edges: Sequence[Edge] = (),
-    subject_id: Optional[str] = None,
 ) -> Optional[Envelope]:
     """The live envelope permitting this crossing, or `None`.
 
@@ -92,19 +92,28 @@ def permits(
     signing.** A guardian whose standing has since ended cannot keep a crossing
     open by having signed it while they still had it — that is refusal 3's whole
     point, applied to the envelope rather than to the edge.
+
+    **`subject_id` is required and used to have a `None` default**, which meant
+    the standing check was skipped entirely for any caller who did not pass it.
+    That is the hole a court order walks through: an envelope signed in
+    September by a guardian whose standing ended in March still opened the seal,
+    because nobody had named whose seal it was. `serve()` always passed it, so
+    the defect was invisible from the read path and live for every direct
+    caller. The parameter is now the missing-parameter form of the same
+    discipline `deliver()` uses for recipients: you cannot ask whether a
+    crossing is permitted without saying **whose lane is being opened**.
     """
     for env in envelopes:
         if env.from_lane != from_lane or env.to_lane != to_lane:
             continue
         if not env.live_at(at):
             continue
-        if subject_id is not None:
-            standing = any(
-                e.kind == "guardian_of" and e.principal_id == env.signed_by
-                and e.subject_id == subject_id and e.live_at(at)
-                for e in signer_edges
-            )
-            if not standing:
-                continue
+        standing = any(
+            e.kind == "guardian_of" and e.principal_id == env.signed_by
+            and e.subject_id == subject_id and e.live_at(at)
+            for e in signer_edges
+        )
+        if not standing:
+            continue
         return env
     return None
