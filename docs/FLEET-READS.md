@@ -665,7 +665,7 @@ were checked; **eight do not exist under `rudi193-cmd`**:~~
 | `the-squirrel` | **absent** |
 | `nest-seed` | **absent** — Tier 2 lists it as *"digitisation, `nest_promote`/`nest_digest`"* |
 | `safe-app-common` | **renamed** → `safe-app-common-package`, read at `2b3d088` |
-| `almanac-template`, `almanac-data` | **exist**, under the `almanac-data` org — unreachable cross-tier |
+| `almanac-template`, `almanac-data` | **exist**, under the `almanac-data` org — cross-tier for `add_repo`, but `almanac-template` was read over the public web (row 996 `VERIFIED`; see the corrected section above) |
 
 **This is §15's dead-link tally landing on this document.** It records fifteen
 store manifests naming a repository that does not exist and warns *"bare names
