@@ -174,21 +174,38 @@ def _season_of(record: Retainable) -> str:
     return season
 
 
+def _require_aware(dt: datetime, what: str) -> datetime:
+    """A naive datetime is refused the same way `Calendar` and `Disposition`
+    refuse one — a boundary comparison against a datetime with no timezone would
+    silently mean whatever the process's clock happened to be, or raise a bare
+    `TypeError` deep in a comparison. Rule 13's spirit: an ambiguous input is an
+    error stated plainly, not a crash and not a guess."""
+    if dt.tzinfo is None:
+        raise ValueError(
+            f"{what} is a naive datetime; a retention boundary needs a timezone "
+            "so 'past the horizon' means one thing, not the local clock's guess")
+    return dt
+
+
 def assess(record: Retainable, kind: str, calendar: Calendar, policy: Policy,
            now: datetime) -> Assessment:
     """One record's standing. Raises `NoSeason`/`UnknownKind` rather than
-    guessing; returns `UNKNOWN` when the calendar cannot place the season."""
+    guessing; returns `UNKNOWN` when the calendar cannot place the season; and
+    refuses a naive `now` or a naive `invalid_at` (`ValueError`) rather than
+    comparing across timezone-awareness."""
     if isinstance(record, Disposition):
         raise Indelible(
             "a purge disposition is the record of an erasure and is not itself "
             "retainable — rule 16: no role deletes the record of its own act")
     season = _season_of(record)
     horizon = policy.horizon(kind)   # raises UnknownKind before anything else
+    _require_aware(now, "now")
     ended = calendar.ended_at(season)
     if ended is None:
         return Assessment(kind, season, Standing.UNKNOWN, horizon, None)
     if record.invalid_at is None:
         return Assessment(kind, season, Standing.LIVE, horizon, None)
+    _require_aware(record.invalid_at, "invalid_at")
     retain_until = ended + horizon
     standing = Standing.DUE if now >= retain_until else Standing.RETAINED
     return Assessment(kind, season, standing, horizon, retain_until)

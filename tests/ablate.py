@@ -1806,6 +1806,9 @@ MUTATIONS = [
      "    standing = Standing.DUE if now >= ended else Standing.RETAINED",
      "the retention horizon is honored, not just the season end (§10)",
      "tests/test_retention.py"),
+    ("records/retention.py", "    if dt.tzinfo is None:", "    if False:",
+     "a naive now/invalid_at is refused, not compared (clean, not a crash)",
+     "tests/test_retention.py"),
 ]
 
 

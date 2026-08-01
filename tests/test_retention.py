@@ -181,6 +181,26 @@ def test_a_naive_season_end_is_refused():
     raise AssertionError("a season boundary without a timezone was accepted")
 
 
+def test_a_naive_now_is_refused_not_crashed():
+    """A naive `now` gets the same clean refusal `Calendar` gives a naive
+    season-end — a plain `ValueError`, not a bare `TypeError` from comparing
+    across timezone-awareness deep in `assess`."""
+    try:
+        assess(_closed(), KIND, _calendar(), _policy(), datetime(2027, 6, 1))
+    except ValueError:
+        return
+    raise AssertionError("a naive `now` was compared against a boundary (crash, not refusal)")
+
+
+def test_a_naive_invalid_at_is_refused_not_crashed():
+    rec = Rec("2025-fall", created_at=FALL_END, invalid_at=datetime(2025, 12, 20))
+    try:
+        assess(rec, KIND, _calendar(), _policy(), NOW_LATER)
+    except ValueError:
+        return
+    raise AssertionError("a naive `invalid_at` was compared against a boundary (crash, not refusal)")
+
+
 # --- rule 15: a purge is dated and attributed -------------------------------
 
 
