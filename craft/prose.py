@@ -36,7 +36,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, replace
 
-from craft.checks import Finding, Report, load_intents  # noqa: F401  (re-exported)
+from craft.checks import (  # noqa: F401  (Finding/Report/load_intents re-exported)
+    Finding,
+    Report,
+    diff_declined,
+    load_intents,
+)
 
 _HEADING = re.compile(r"^(#{1,6})\s+(.*)$")
 _FENCE = re.compile(r"^\s*(```|~~~)")
@@ -460,6 +465,7 @@ def run_all(text: str, intents: dict[str, str] | None = None) -> Report:
     report = Report()
 
     if not text.strip():
+        report.unread = True
         report.unavailable.append(
             "Empty document. Returning unavailable rather than no findings "
             "(rule 13).")
@@ -467,6 +473,7 @@ def run_all(text: str, intents: dict[str, str] | None = None) -> Report:
 
     doc = parse(text)
     if not doc.prose():
+        report.unread = True
         report.unavailable.append(
             "Nothing outside code fences to read as prose. Returning "
             "unavailable rather than no findings (rule 13).")
@@ -500,9 +507,17 @@ def run_diff(before: str, after: str) -> tuple[list[Finding], list[str]]:
 
     §24 again: a revision that fixes two things and breaks one has done that,
     and a report of only the wins is flattering rather than teaching.
+
+    A draft that could not be read is not a draft with nothing wrong in it, so
+    the refusal is `checks.diff_declined` — one implementation, both skins.
     """
-    old = {(f.check, f.id): f for f in run_all(before).findings}
-    new = {(f.check, f.id): f for f in run_all(after).findings}
+    before_report, after_report = run_all(before), run_all(after)
+    declined = diff_declined(before_report, after_report)
+    if declined:
+        return [], declined
+
+    old = {(f.check, f.id): f for f in before_report.findings}
+    new = {(f.check, f.id): f for f in after_report.findings}
 
     resolved = [f for k, f in old.items() if k not in new]
     introduced = [f for k, f in new.items() if k not in old]

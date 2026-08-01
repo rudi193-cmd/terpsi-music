@@ -413,6 +413,29 @@ MUTATIONS = [
     ("records/standing.py", "return threshold is not None and at >= threshold",
      "return threshold is None or at >= threshold",
      "an unknown threshold is not a reached one", "tests/test_standing.py"),
+
+    # craft/ — the one piece of working software in the tree, and it carried no
+    # mutation at all until 2026-08-01. The rows below cover rule 13 on the
+    # checker itself: a draft that could not be read must not report as a draft
+    # with nothing in it. All five restore a defect that shipped.
+    ("craft/checks.py", "        report.unread = True", "        report.unread = False",
+     "rule 13: an unread lyric says so", "tests/test_craft.py"),
+    ("craft/checks.py", "        if report.unread:", "        if False:",
+     "rule 13: a one-sided lyric diff is refused", "tests/test_craft.py"),
+    ("craft/__main__.py", "    if report.unread:", "    if False:",
+     "rule 13: the CLI prints no false count", "tests/test_craft.py"),
+    # Two `report.unread = True` in prose.py, so the pattern carries the line
+    # after it. A bare one returns AMBIGUOUS x2, which is an error here rather
+    # than a pass — the harness's own lesson, applied on the way in.
+    ("craft/prose.py",
+     '        report.unread = True\n        report.unavailable.append(\n'
+     '            "Empty document.',
+     '        report.unread = False\n        report.unavailable.append(\n'
+     '            "Empty document.',
+     "rule 13: an unread document says so", "tests/test_prose.py"),
+    ("craft/prose.py", "    declined = diff_declined(before_report, after_report)",
+     "    declined = []",
+     "rule 13: a one-sided document diff is refused", "tests/test_prose.py"),
 ]
 
 
