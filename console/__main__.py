@@ -63,18 +63,32 @@ def main(argv) -> int:
               f"result (rule 13): {exc!r}")
         return 2
 
+    # A successful `read` commits `disclosure_log` in its own transaction, so the
+    # knock's exit half must run on **every** path out of here, not only the happy
+    # one: a narrated read with no `reconciled_session` row is §7.2 left half-done.
+    # `close` reconciles once (it is idempotent) and is fail-closed (its own
+    # UNKNOWN, no row, on a store error), so calling it in `finally` is safe on the
+    # happy path, the render-failed path, and the read-failed path alike.
+    failed = None
+    reconciliation = None
     try:
         session.read(table=table, column=column, lane_id=lane, subject_id=subject,
                      at=at, recipient=recipient)
         print(rendered(session.compose(title="Lane view", at=at), colour=colour))
+    except Exception as exc:  # noqa: BLE001 — the run did not finish; still reconcile
+        failed = exc
+        print(f"UNKNOWN — the session did not complete its read, which is not an "
+              f"empty result (rule 13): {exc!r}")
+    finally:
         reconciliation = session.close(at)
         print(exit_line(reconciliation))
-        return 0 if reconciliation.reconciled else 1
-    finally:
         try:
             session.conn.close()
         except Exception:  # noqa: BLE001
             pass
+    if failed is not None:
+        return 2
+    return 0 if reconciliation.reconciled else 1
 
 
 if __name__ == "__main__":

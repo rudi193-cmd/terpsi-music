@@ -1674,6 +1674,13 @@ MUTATIONS = [
      "tests/test_console.py"),
     ("console/session.py", "        if not self.open:", "        if False:",
      "a closed session refuses a further read", "tests/test_console.py"),
+    # The driver reconciles on EVERY exit after the door opened — a read commits
+    # disclosure_log, so a failure before close() must not leave it unreconciled
+    # (§7.2, the gap both PR #16 reviews caught). Skipping close() in the finally
+    # is what the acceptance test attempts and refuses.
+    ("console/__main__.py", "        reconciliation = session.close(at)",
+     "        reconciliation = None",
+     "the driver reconciles on every exit path (§7.2)", "tests/test_console.py"),
     # --- the drop producer core (docs/PLAN-DROP.md D-1..D-4) ----------------
     #
     # Each row restores one of the four slices' forbidden acts and points at the

@@ -175,6 +175,58 @@ def test_no_fleet_noun_reaches_the_rendered_view():
         assert noun not in line, f"{noun!r} in the exit line"
 
 
+def test_the_driver_reconciles_on_exit_even_when_render_fails():
+    """§7.2 on the driver shell, the gap both PR reviews caught (rule 19).
+
+    A successful `read` commits `disclosure_log` in its own transaction; if
+    rendering then raises, the driver must still call `close()` so the read is
+    reconciled. A narrated read with no `reconciled_session` row is the knock
+    left half-done. Driven through `console.__main__.main()` — the shell itself,
+    not `DirectorSession` in isolation — with a spy session and a rendering that
+    raises, so it is the driver's own control flow that is exercised.
+    """
+    from console import __main__ as driver
+
+    closed = []
+
+    class _DoneConn:
+        def close(self):
+            pass
+
+    class _SpySession:
+        conn = _DoneConn()
+
+        def read(self, **kw):
+            pass                        # a read that "committed" — the hazard case
+
+        def compose(self, **kw):
+            return object()
+
+        def close(self, at):
+            closed.append(at)           # the exit half that must run anyway
+            return "reconciled"
+
+    def _render_boom(*a, **kw):
+        raise RuntimeError("render failed after the read committed")
+
+    argv = ["--principal", PRINCIPAL, "--purpose", "review event 42",
+            "--event", EVENT, "--lane", LANE, "--subject", SUBJECT]
+    saved = (driver.open_session, driver.rendered, driver.exit_line)
+    try:
+        driver.open_session = lambda **kw: _SpySession()
+        driver.rendered = _render_boom
+        driver.exit_line = lambda r: "exit"
+        rc = driver.main(argv)
+    finally:
+        driver.open_session, driver.rendered, driver.exit_line = saved
+
+    assert closed, (
+        "the driver did not reconcile after a render failure: a read committed "
+        "disclosure_log but close() was skipped — §7.2's exit half missing on "
+        "the failure path")
+    assert rc == 2, f"a run that did not complete should report UNKNOWN (2), got {rc}"
+
+
 # The __main__ runner stays LAST — the harness caught that trap already.
 if __name__ == "__main__":
     failures = 0

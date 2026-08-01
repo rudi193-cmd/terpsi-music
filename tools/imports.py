@@ -253,8 +253,13 @@ def check(paths: Sequence[Path], requirements: Optional[Path] = None,
 
 
 def _default_paths() -> Tuple[Path, ...]:
-    return (ROOT / "records", ROOT / "store", ROOT / "tools", ROOT / "presentation",
-            ROOT / "surfaces", ROOT / "craft", ROOT / "tests", ROOT / "docs" / "survey",
+    # Every application package, so a new third-party import cannot slip past the
+    # gate by living in a directory the scan forgot: `console/`, `drop/` and
+    # `venue/` landed after the first version of this list and were outside it —
+    # the enforcement/audit scope mismatch PR #16's security pass named.
+    return (ROOT / "records", ROOT / "store", ROOT / "console", ROOT / "drop",
+            ROOT / "venue", ROOT / "tools", ROOT / "presentation", ROOT / "surfaces",
+            ROOT / "craft", ROOT / "tests", ROOT / "docs" / "survey",
             ROOT / "voice.py", ROOT / "personas.py")
 
 

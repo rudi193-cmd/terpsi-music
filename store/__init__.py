@@ -27,10 +27,17 @@ oversight:
   the two implementations honest. **This package still re-implements no
   predicate**: `session.py` names who is acting and the policies do the rest,
   so there is exactly one read predicate in Python and it is not here.
-* **No sealing.** `records/atrest.py`'s per-lane keys, the escrow disposition
-  and R16's fuse are S-3. Writes here land as **drafts** in the clear, which is
-  correct for the cascade and incomplete for the plan.
-* **No surface.** S-4 is the first vertical over real data.
+* **~~No sealing.~~ Landed with S-3, 2026-07-31**, as
+  `migrations/004_sealed_payloads.sql` and `writing.py`: `records/atrest.py`
+  seals the payload before the `INSERT`, `store/sealing_plan.py` derives the one
+  column of 120 that seals at rest (`lane_entry.payload`), and a clear payload is
+  refused by the tombstone trigger. The **escrow disposition and R16's fuse stay
+  open by design** — R16 remains a build-failing finding until a rehearsal is
+  dated (§11.1), which is the gate, not an oversight.
+* **~~No surface.~~ Landed with S-4, 2026-07-31**: `console/` is the first
+  vertical over real data — the knock in enforcement mode, a lane-scoped read
+  through both row-level security and the `serve()` predicate, narrated to the
+  disclosure log and reconciled on exit.
 * **No ending.** The app role holds `INSERT` and `SELECT` and nothing else, so
   setting `invalid_at` — refusal 3's only ending — is not reachable through
   this package yet. It belongs with the act that performs it and is named here
