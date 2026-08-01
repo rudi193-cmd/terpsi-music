@@ -1,7 +1,7 @@
 # Security audit — terpsi-music
 
-- **date** `2026-07-31`
-- **commit** `a2bd22c1c51380daf4c38127a898d43fe5ff03e5`
+- **date** `2026-08-01`
+- **commit** `106ec133ffec12d8981cb449938b9fddd4e0bf13`
 - **rubric** `willow-2.0/SECURITY_AUDIT.md`, fifteen checks `R1`–`R15`, adopted by ARCHITECTURE §10 as an install gate rather than a document
 - **added here** `R16` (encryption at rest, key escrowed) and `R17` (a structural no-egress test that fails when neutralised), both runnable at `tools/audit.py`
 
@@ -18,18 +18,22 @@ carrying this file — an audit cannot pin the commit it is part of.
 `tools/conform.py::check_security_audit` checks the pin for the one thing it
 decides: that this history contains it.
 
-**This is the re-run the last revision said it owed.** The prior pin
-(`d2817f2`) named a tree that predated the store, the two accepted dependencies,
-the console surface and the HTML surface — so several rows described a tree that
-no longer existed (`R14`'s *"no `requirements.txt`"* was the clearest). This
-revision re-pins to a tree that contains all of them and re-derives every row
-against it. What moved as a result is named where it moved: `R1` and `R6` were
-`NOT-APPLICABLE` and are now real `PASS`es (SQL is executed, HTML is emitted);
-`R14` closed with `TM-DEPS-01`; and `R10`/`R11` read `PASS` at this pin because
-the fixes that closed `TM-TMP-01`, `TM-RACE-01` and `TM-RACE-02` are ancestors
-of it rather than, as before, the carrying commit itself. The findings table
-below keeps those as closed history; the rubric row describes the tree the pin
-names.
+**This is a re-run owed to commits that landed after the prior pin.** That pin
+(`a2bd22c`, 2026-07-31) named a tree that predated `records/assistance.py` (the
+assistance surface), `drop/` (the producer core), and `tools/trustroot.py` —
+`TM-ROOT-01`'s committed-tree enforcement half, now wired into
+`tools/conform.py::check_trust_root_committed` and ablated. A §14
+fleet-component verification pass also landed against `docs/ARCHITECTURE.md`.
+This revision re-pins to `106ec13` and re-derives every figure against it.
+**No rubric verdict moved.** The one that would have — `R16` — did not: the new
+surfaces read, narrate and produce, but none of them drives the store's
+**record-write** path, so its escrow fuse still counts **0** non-test callers
+and it stays `FINDING`/`S2`. What moved is the figures, all larger: 200 tracked
+Python files (was 187), 466 ablation mutations (was 445), 1421 test functions
+(was 1359), 63 distinct import roots (was 60, still exactly 2 third-party). The
+prior pin's own re-run history — the `d2817f2`→`a2bd22c` move, where `R1`/`R6`
+entered scope and `R14` closed — is preserved in the findings table and the
+tally note below.
 
 **Not a clean bill.**
 *Findings: 5 recorded, 5 closed, 0 open* — every `TM-` finding raised against
@@ -49,19 +53,20 @@ is beside each one (rule 17).
 
 | Surface | Size | How counted |
 |---|---|---|
-| Tracked Python | 187 files | `git ls-files '*.py' \| wc -l` |
+| Tracked Python | 200 files | `git ls-files '*.py' \| wc -l` |
 | — of which decoys | 40 files | `git ls-files 'tests/fixtures/decoys/*.py' \| wc -l` — fixtures built to be caught, some deliberately unparseable; excluded from the scans below |
-| — of which application + tooling + suites | 147 files | the remainder, all of which parse (`ast.parse` over each, 0 failures) |
-| Records modules | 27 in `records/` | `git ls-files 'records/*.py' \| wc -l` |
+| — of which application + tooling + suites | 160 files | the remainder, all of which parse (`ast.parse` over each, 0 failures) |
+| Records modules | 28 in `records/` | `git ls-files 'records/*.py' \| wc -l` |
 | Store modules | 11 in `store/` | `git ls-files 'store/*.py' \| wc -l` — the declared exception to §6's no-egress inner ring |
 | Console surface | 4 in `console/` | `git ls-files 'console/*.py' \| wc -l` — the director TUI, a local terminal loop |
-| Checkers | 10 in `tools/` | `git ls-files 'tools/*.py' \| wc -l` |
+| Producer core | 5 in `drop/` | `git ls-files 'drop/*.py' \| wc -l` — new since the prior pin; a local render/produce path, no listener and no socket (`drop/store.py` says so and `tools/sockets.py` confirms zero) |
+| Checkers | 11 in `tools/` | `git ls-files 'tools/*.py' \| wc -l` — `tools/trustroot.py` is the addition, the committed-tree trust-root gate |
 | Prose tooling | 5 in `craft/`, plus `voice.py` and `personas.py` | `git ls-files 'craft/*.py' \| wc -l` |
 | Migrations | 4 in `migrations/` | `git ls-files 'migrations/*.sql' \| wc -l` — applied and attacked in CI |
-| Suites | 62 `test_*.py`, plus `tests/ablate.py` and `tests/ablate_store.py` | `git ls-files 'tests/test_*.py' \| wc -l` and `git ls-files 'tests/ablate*.py'` |
-| Test functions | 1359 collected | `python3 -m pytest -q --collect-only`, run at the pin |
-| Ablation mutations | 445 rows | `tools/audit.py` parses `MUTATIONS` by AST; `tests/ablate.py` prints the same figure at the end of a run |
-| Distinct top-level imports | 60 roots over the 147 non-decoy files, of which **2 are third-party** | an AST walk over every non-decoy file, roots compared against `sys.stdlib_module_names` and this repository's own packages |
+| Suites | 68 `test_*.py`, plus `tests/ablate.py` and `tests/ablate_store.py` | `git ls-files 'tests/test_*.py' \| wc -l` and `git ls-files 'tests/ablate*.py'` |
+| Test functions | 1421 collected | `python3 -m pytest -q --collect-only`, run at the pin |
+| Ablation mutations | 466 rows | `tools/audit.py` parses `MUTATIONS` by AST; `tests/ablate.py` prints the same figure at the end of a run |
+| Distinct top-level imports | 63 roots over the 160 non-decoy files, of which **2 are third-party** | an AST walk over every non-decoy file, roots compared against `sys.stdlib_module_names` and this repository's own packages |
 
 **The two third-party imports are `cryptography` and `psycopg`**, each declared
 in `requirements.txt` with an exact pin (`cryptography==41.0.7`,
@@ -104,22 +109,22 @@ Verdicts are `PASS`, `FINDING`, `NOT-APPLICABLE`, `ABSENT`, `UNKNOWN`.
 | check | what was examined | verdict | severity | evidence |
 |---|---|---|---|---|
 | `R1` | SQL construction — every `.py` in the tree, the `store/` query sites, the four files in `migrations/`, and the psql attack steps in `.github/workflows/tests.yml` | **PASS** | — | The store executes SQL now: 31 `execute`/`cursor` call sites across `store/`. Every value is parameterised (`%s` / `ANY(%s)`), and the one place dynamic identifiers are needed — `store/writing.py`'s insert — composes them through `psycopg.sql.Identifier`/`Placeholder`, never string interpolation. The two identifier-interpolations that remain are on trusted constants, not caller data: `store/migrate.py:149` interpolates the module constant `LEDGER`, and `store/roles.py:116` interpolates a caller-supplied `app_password` into `ALTER ROLE … PASSWORD` (which cannot be parameterised) only when one is passed, guarded against an embedded apostrophe. CI applies all four migrations to PostgreSQL 16 and then attacks the constraints directly — §10's *acceptance is mutation* — which is a stronger check than reading. |
-| `R2` | Shell and process spawning — `subprocess`, `os.system`, `shell=True`, `popen`, across all 187 files | **PASS** | — | 12 process-spawn call sites in application and tooling code, all in `tools/` (`conform.py` 8, `purity.py` 3, `audit.py` 1), derived by grep and confirmed list-form `subprocess.run` with `sys.executable`, `git` or `psql` as `argv[0]`. 0 matches for `grep -rnE "shell\s*=\s*True\|os\.system\|os\.popen" --include=*.py` outside the decoys. `records/`, `store/` and `console/` spawn nothing — `tools/purity.py` asserts the inner ring's silence structurally rather than by reading. |
+| `R2` | Shell and process spawning — `subprocess`, `os.system`, `shell=True`, `popen`, across all 200 files | **PASS** | — | 13 process-spawn call sites in application and tooling code, all in `tools/` (`conform.py` 8, `purity.py` 3, `audit.py` 1, `trustroot.py` 1 — a fail-closed `subprocess.run(["git", "ls-files", "-z"])`), derived by grep and confirmed list-form `subprocess.run` with `sys.executable`, `git` or `psql` as `argv[0]`. 0 matches for `grep -rnE "shell\s*=\s*True\|os\.system\|os\.popen" --include=*.py` outside the decoys. `records/`, `store/`, `console/` and `drop/` spawn nothing — `tools/purity.py` asserts the inner ring's silence structurally rather than by reading. |
 | `R3` | Path handling — every `open`, `read_text`, `write_text` and `Path` construction outside the decoys | **PASS** | — | Two paths arrive from outside the process, both on a command line an operator types: `craft/__main__.py`'s `argparse` file argument, and `console/__main__.py`'s lane/subject/column selectors (which are identifiers, not paths). There is no confinement boundary for either to escape — no upload directory, no per-user root, no served filesystem — so traversal has no meaning here yet. Every other path is derived from `__file__`. No symlink is followed deliberately and none is created. |
 | `R4` | Credentials in version control — the full tracked file list and a keyword sweep | **PASS** | — | No key, token, password or credential in any tracked file. The sweep's matches are prose, classification rules (`records/classify.py` grades key material `L5`), a field name (`records/fees.py:434` `CARD_TOKEN = "card_token"`), and — the one worth stating — `store/roles.py`, which sets **no** app-role password unless a caller supplies one at deploy time: *"a default password in a source tree is a credential in a source tree"*, so `app_password=None` leaves authentication to the cluster's `pg_hba.conf`. No `.pem`, `.key` or `secrets` file is tracked. Related closed finding at `TM-ROOT-01`: the trust root was unexcluded, not committed. |
 | `R5` | CORS — every listener and every HTTP surface | **NOT-APPLICABLE** | — | No HTTP server, no framework, no response headers. `manifest.json` declares `listeners: []` and `tools/sockets.py` scanning `records/`, `store/`, `tools/`, `console/`, `presentation/`, `surfaces/`, `voice.py` and `personas.py` finds zero listeners — the outbound scan finds only the one declared database connection (`store/connecting.py`). **Applies when** the first listener is declared — `§18` item 4, and `tools/manifest.py` fails the build if one appears undeclared. |
 | `R6` | XSS — every rendering path, including the HTML surface `presentation/markup.py` and `surfaces/web/` | **PASS** | — | An HTML surface exists now (`presentation/markup.py`, rendered by `surfaces/web/render.py`), and every interpolated value passes through stdlib `html.escape` — every field value, label, badge, heading, referent, title, note, and the reader/timestamp. `tests/test_surfaces.py::test_a_value_containing_markup_is_escaped` feeds `<script>alert(1)</script>` through the surface and asserts it emerges `&lt;script&gt;`, and `test_neither_html_surface_emits_script` asserts no surface emits a `<script>` or `javascript:` at all — the guard shown to fail, not trusted (rule 19). Nothing serves the string: `manifest.json` declares no listener, so the document is generated but not remotely reachable. |
 | `R7` | Unsigned or dynamic code execution — `eval`, `exec`, `pickle`, `marshal`, dynamic import | **PASS** | — | Zero calls to `eval`, `exec` or `__import__` in tracked source (the matches are all string literals in test banned-lists). `importlib.util` loads `tests/ablate.py` by path once so the harness can be tested without running it; `pickle` round-trips an enum member once in `tests/test_rungs.py` with no external input. The store deserialises JSON through `psycopg.types.json`, not `pickle`. Nothing is deserialised from outside the process, because nothing enters the process from outside it. Four suites assert their checkers never import what they inspect. |
 | `R8` | Authentication on tool surfaces — MCP servers, RPC, any callable exposed beyond the process | **NOT-APPLICABLE** | — | No MCP server, no `sap/` directory, no exposed tool surface. The console is a local terminal loop reading `stdin`, not a served endpoint. The fleet's live `W-MCP-01` is inherited by an install that touches `willow-2.0`'s shared servers, and §10 records it as a live condition for this design — but nothing in this tree is that surface. **Applies when** serve mode or any parent-facing path lands, which §10 names as the trigger `W-MCP-01` itself declares. |
-| `R9` | Exception handling — every `except` in the tree | **PASS** | — | Zero bare `except:` in code (the one grep match is prose in `records/inference.py` describing the anti-pattern it refuses). 17 `except Exception` outside tests, and every one is rule 13 as a handler — a failed source becomes `Source.UNKNOWN`, `Standing.UNKNOWN`, a named `*Unavailable`/`*Unknown` raise, or an `unavailable(...)` return, never an empty result. The two that end in `pass` are both `finally`-block cleanup — `store/session.py` resetting the acting-principal GUC and `console/__main__.py` closing the connection on exit — swallowing only so a cleanup failure cannot mask the caller's real exception, after the return value is already decided. |
+| `R9` | Exception handling — every `except` in the tree | **PASS** | — | Zero bare `except:` in code (the one grep match is prose in `records/inference.py` describing the anti-pattern it refuses). 19 `except Exception` outside tests, and every one is rule 13 as a handler — a failed source becomes `Source.UNKNOWN`, `Standing.UNKNOWN`, a named `*Unavailable`/`*Unknown` raise, an `unavailable(...)` return, or (`drop/producer.py`, new since the prior pin) a `Made.UNAVAILABLE` production, never an empty result. The two that end in `pass` are both `finally`-block cleanup — `store/session.py` resetting the acting-principal GUC and `console/__main__.py` closing the connection on exit — swallowing only so a cleanup failure cannot mask the caller's real exception, after the return value is already decided. |
 | `R10` | Temp files and predictable paths | **PASS** | — | `TM-TMP-01` (a fixed sidecar name under `gettempdir()`) is closed, and at this pin every temporary tree uses `tempfile.mkdtemp`/`TemporaryDirectory`, which creates `0700`. The two sidecars in the repository root (`.ablate-lock`, `.ablate-inflight.json`) are predictable by design, are `.gitignore`d, and hold repository source rather than secrets. |
 | `R11` | Races and locks — every check-then-act on a shared file | **PASS** | — | `TM-RACE-01` (the ablation lock) and `TM-RACE-02` (the conformance record's append rule) are both closed — each replaced with an atomic `O_EXCL` create. No threads, no `asyncio`, no `multiprocessing` in the tree, so concurrency reaches this code only through the filesystem, and the two filesystem races that existed are the two that were fixed. The store's own check-then-act on roles was closed by `TM-RACE`-class reasoning in S-1's `O_EXCL`-equivalent advisory-lock path, attacked in CI. |
 | `R12` | `safe_integration.py` `status()` correctness | **NOT-APPLICABLE** | — | This is not a SAFE app: there is no `safe_integration.py`. `manifest.json` exists but is this repository's own surface/outbound/write-path declaration reconciled by `tools/manifest.py`, not a SAFE-app manifest carrying a `status()` entry point. **Applies when** the repository ships as a SAFE app, which `§18` item 4 owns. |
-| `R13` | Entry point in the manifest is importable | **NOT-APPLICABLE** | — | `manifest.json` now exists and is reconciled against the tree (`tools/manifest.py`), but it declares surfaces, outbound and write-paths — not an importable entry-point module — so there is no declared entry point to import and check. The nearest decidable things hold: all 147 non-decoy Python files parse, and `tools/conform.py`'s `standalone-suites` row reports each suite carries a `__main__` runner that exits nonzero on failure. **Applies when** a manifest declares an entry point — `§18` item 4. |
-| `R14` | Dependency pinning | **PASS** | — | `TM-DEPS-01` is closed. `requirements.txt` declares exactly two dependencies, each with an exact `==` pin and a stated reason, and `tools/imports.py` fails the build on any import that is not stdlib, one of those two declared roots, or local — the set of admitted third-party roots derived from the file so the gate and the declaration cannot drift. Derived at this pin: of 60 distinct top-level import roots across the 147 non-decoy files, exactly 2 resolve to a third party and both are declared. The supply-chain risk `R14` targets is now both bounded (two pinned deps) and enforced (the gate). |
+| `R13` | Entry point in the manifest is importable | **NOT-APPLICABLE** | — | `manifest.json` now exists and is reconciled against the tree (`tools/manifest.py`), but it declares surfaces, outbound and write-paths — not an importable entry-point module — so there is no declared entry point to import and check. The nearest decidable things hold: all 160 non-decoy Python files parse, and `tools/conform.py`'s `standalone-suites` row reports each suite carries a `__main__` runner that exits nonzero on failure. **Applies when** a manifest declares an entry point — `§18` item 4. |
+| `R14` | Dependency pinning | **PASS** | — | `TM-DEPS-01` is closed. `requirements.txt` declares exactly two dependencies, each with an exact `==` pin and a stated reason, and `tools/imports.py` fails the build on any import that is not stdlib, one of those two declared roots, or local — the set of admitted third-party roots derived from the file so the gate and the declaration cannot drift. Derived at this pin: of 63 distinct top-level import roots across the 160 non-decoy files, exactly 2 resolve to a third party and both are declared. The supply-chain risk `R14` targets is now both bounded (two pinned deps) and enforced (the gate). |
 | `R15` | Hardcoded developer home paths | **PASS** | — | Zero matches for `/home/`, `/Users/`, `C:\Users` or a `~/`-prefixed path in any tracked file outside the decoys. Every root is `Path(__file__).resolve().parent.parent`. No environment variable is read for a path; the store's DSN is read from the environment at run time and carries no path. |
 | `R16` | Encryption at rest and key escrow — `records/` and `store/` scanned by AST for a sealing seam and its callers; `docs/ESCROW.md`; `store/sealing_plan.py` for which columns seal | **FINDING** | `S2` | The sealing seam exists (`records/atrest.py`) and is wired to the store (S-3: `migrations/004_sealed_payloads.sql`, `store/writing.py`). Escrow is **recorded and unrehearsed** — 3-of-5, `docs/ESCROW.md`, gate G-A — which is `UNKNOWN`, not a disposition (§5: *an untested key recovery is not escrow*). **Nothing durable is at rest**: `store/sealing_plan.py` derives exactly **1 of 120** classified columns as sealing (`lane_entry.payload`, on the record-write path), and the scan finds **0** non-test callers of that record-write path. S-4's console vertical is a caller — but of the narration/history path (`disclosure_log`, `reconciled_session`), which carries no sealed column — so it is a `narration_callers()` entry, not a `durable_callers()` one, and the fuse does not turn on it. **Becomes `S1` and fails the build** at the first non-test caller of the record-write path — the write surface after S-4 — without a dated rehearsal; §11.1's install acceptance is where the rehearsal is asserted for a deployment. See below. |
-| `R17` | A structural no-egress test that fails when neutralised — `tools/purity.py`, `tools/conform.py::check_no_egress`, the ablation registry, and the newest conformance record | **PASS** | — | 4 mutations covering 4 required egress-detection sites, read out of `tests/ablate.py` by AST and derived at this pin (445 rows in the registry), and the newest conformance record (`2026-07-31T072706Z.md`) reports `no-egress=PASS` and `ablation=PASS`. See below. |
+| `R17` | A structural no-egress test that fails when neutralised — `tools/purity.py`, `tools/conform.py::check_no_egress`, the ablation registry, and the newest conformance record | **PASS** | — | 4 mutations covering 4 required egress-detection sites, read out of `tests/ablate.py` by AST and derived at this pin (466 rows in the registry), and the newest conformance record (`2026-08-01T044808Z.md`) reports `no-egress=PASS` and `ablation=PASS`. See below. |
 
 **Tally: 12 pass, 1 finding, 4 not-applicable, 0 absent, 0 unknown, of 17
 checks** — counted from the verdict column above. (Was 7 pass / 4 findings / 6
@@ -399,7 +404,7 @@ first was ever mutated:
 | `tools/purity.py` | `_SPAWN_MODULES` | `subprocess.run(["curl", …])` is a network call with no socket import in the file |
 | `tools/conform.py` | `no-egress` | a scan of zero files must report `UNKNOWN`, not `PASS` (rule 13) |
 
-All 4 are covered by exactly one mutation each — derived by AST from the 445-row
+All 4 are covered by exactly one mutation each — derived by AST from the 466-row
 registry, not read off a label — and the newest record reports both rows `PASS`.
 `tests/test_audit.py::test_a_registry_missing_an_egress_mutation_is_a_finding`
 removes a required row and asserts the check turns `FINDING`, so the coverage
