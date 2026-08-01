@@ -938,6 +938,12 @@ NAMED_MIDDLES: Tuple[str, ...] = (
     # name, which is the distinction rule 18 asks to be said out loud.
     "test_store_differential<->serving.serve+migrations/003_row_security.sql",
     "imports.declared_roots<->requirements.txt",
+    # `craft/` ships the same checker twice — a verse skin and a prose skin —
+    # and both dropped `Report.unavailable` on the floor in `run_diff`, because
+    # the defect was in the shape of the comparison rather than in either
+    # subject. The refusal lives in `checks` and is *imported* by `prose`, and
+    # `tests/test_prose.py` asserts the two names are the same object.
+    "checks.diff_declined<->prose.run_diff",
 )
 
 UNDECIDABLE: Tuple[Callable[[], Check], ...] = (

@@ -59,7 +59,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"  {u}")
         print()
 
-    if report.findings:
+    if report.unread:
+        # Not `findings (0)`. Nothing ran, so nothing was counted, and a zero
+        # printed here is the false all-clear `voice.py` refuses by name — the
+        # tool would be saying "no findings" about a draft it never read.
+        print("=== findings (unavailable)")
+        print("  No check ran, so there is no count. Not zero — unknown.\n")
+    elif report.findings:
         print(f"=== findings ({len(report.findings)})")
         for f in sorted(report.findings, key=lambda f: (f.line or 0, f.id)):
             print(f)

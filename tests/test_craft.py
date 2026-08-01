@@ -22,13 +22,17 @@ Stdlib only. Runs under pytest or directly:
 from __future__ import annotations
 
 import ast
+import contextlib
+import io
 import re
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from craft.__main__ import main as cli  # noqa: E402
 from craft.checks import (  # noqa: E402
     Report,
     check_meter,
@@ -251,7 +255,13 @@ def test_nothing_here_scores_anything():
 
 def test_a_report_has_no_totals_field():
     r = run_all(SONG.read_text(encoding="utf-8"))
-    assert set(vars(r)) == {"findings", "declared", "notes", "unavailable"}
+    assert set(vars(r)) == {
+        "findings", "declared", "notes", "unavailable", "unread"}
+    # `unread` is a fact about whether a check ran, not a quantity about the
+    # draft. It is here so a caller can tell an empty list apart from an
+    # unlooked-at one; if it ever becomes a number this assertion is the place
+    # that should stop it.
+    assert isinstance(r.unread, bool)
 
 
 def test_the_core_cannot_reach_the_network():
@@ -347,6 +357,85 @@ def test_an_unparseable_file_is_unavailable_not_clean():
     r = run_all("just some prose with no headers at all\n")
     assert r.unavailable and not r.findings
     assert "unavailable" in r.unavailable[0]
+    assert r.unread, "no check ran, and the report has to say so"
+
+
+def test_a_partial_decline_is_not_an_unread_draft():
+    """The pair `unread` exists to separate. The song reads fine and still
+    declines the stress-dependent checks for 34 words, so `unavailable` is
+    non-empty on a draft that was fully read. A caller keying the count off
+    `unavailable` alone would print `unavailable` for every real draft and the
+    distinction would be worthless."""
+    r = run_all(SONG.read_text(encoding="utf-8"))
+    assert r.unavailable, "the song has polysyllables; something is wrong"
+    assert not r.unread
+    assert r.findings
+
+
+def test_a_revision_against_a_draft_that_could_not_be_read_is_refused():
+    """The wall is empty because nobody was hung on it, not because nobody
+    deserved to be.
+
+    A draft the checker could not read contributes no findings, and `run_diff`
+    subtracts one side's findings from the other's. Before this was refused:
+
+    * unreadable earlier draft -> `0 resolved, 9 introduced`, blaming the
+      revision for nine defects that were there all along
+    * unreadable revision      -> `9 resolved, 0 introduced`, the most
+      flattering report the tool can emit, about a draft it never read
+
+    Both are `run_diff`'s own docstring — *a tool reporting only the wins is
+    flattering rather than teaching* — arriving through the parser instead of
+    through the checks.
+    """
+    song = SONG.read_text(encoding="utf-8")
+    unreadable = "just some prose with no headers at all\n"
+
+    for before, after, side in ((unreadable, song, "the earlier draft"),
+                                (song, unreadable, "the revision")):
+        introduced, notes = run_diff(before, after)
+        joined = "\n".join(notes)
+        assert not introduced, f"{side}: a delta was reported from one draft"
+        assert "Not compared" in joined and side in joined, joined
+        assert "resolved" not in joined and "introduced," not in joined, (
+            f"{side}: a tally was printed for a comparison that did not happen"
+        )
+
+
+def test_the_cli_prints_no_count_for_a_draft_it_never_read():
+    """`voice.py` refuses the phrase *no findings* as a false all-clear, and
+    until this guard the checker's own CLI printed `findings (0)` under the
+    banner saying it had read nothing. Same rule, one surface enforcing it and
+    one surface violating it."""
+    with tempfile.TemporaryDirectory() as tmp:
+        draft = Path(tmp) / "notalyric.txt"
+        draft.write_text("just some prose with no headers at all\n",
+                         encoding="utf-8")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            cli([str(draft)])
+    printed = out.getvalue()
+    assert "unavailable" in printed
+    assert "findings (0)" not in printed, (
+        "a draft nobody could read reported a clean count"
+    )
+    assert "findings (unavailable)" in printed
+
+
+def test_the_cli_still_prints_a_count_when_it_did_read_the_draft():
+    """The other half of the pair. A refusal that fires on everything is not a
+    refusal, and `findings (0)` is the correct output for a draft that was read
+    and had nothing found in it."""
+    with tempfile.TemporaryDirectory() as tmp:
+        draft = Path(tmp) / "clean.txt"
+        draft.write_text("VERSE 1\n    Frost on the lot at six\n",
+                         encoding="utf-8")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            cli([str(draft)])
+    printed = out.getvalue()
+    assert "findings (0)" in printed, printed
+    assert "findings (unavailable)" not in printed
 
 
 if __name__ == "__main__":

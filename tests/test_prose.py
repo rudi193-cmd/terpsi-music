@@ -20,6 +20,12 @@ its middle in the same commit):
         corpora, two implementations. This pins where they agree and where
         they deliberately differ, so widening one without the other fails.
 
+    test_the_two_skins_refuse_a_comparison_through_one_middle
+        pair: checks.run_diff <-> prose.run_diff. Two comparisons over two
+        subjects, and one defect — a draft that could not be read subtracted
+        as though it were a draft with nothing in it. The middle is
+        checks.diff_declined; this asserts it is imported rather than copied.
+
 Stdlib only. Runs under pytest or directly:
 
     python3 -m pytest tests/ -q
@@ -37,6 +43,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 import voice                                    # noqa: E402
+from craft import checks as checks_module       # noqa: E402
 from craft import prose                         # noqa: E402
 from craft.checks import Report                 # noqa: E402
 from craft.prose import RULES, run_all, run_diff  # noqa: E402
@@ -236,12 +243,14 @@ def test_an_unreadable_document_is_unavailable_not_clean():
         report = run_all(text)
         assert report.unavailable, f"{text!r} came back with no findings and no reason"
         assert not report.findings
+        assert report.unread, f"{text!r}: no rule ran and the report does not say so"
 
 
 def test_a_report_has_no_totals_field():
     assert set(vars(run_all(_head("x")))) == {
-        "findings", "declared", "notes", "unavailable"}
+        "findings", "declared", "notes", "unavailable", "unread"}
     assert isinstance(run_all(_head("x")), Report)
+    assert isinstance(run_all(_head("x")).unread, bool)
 
 
 def test_nothing_in_the_skin_returns_a_number_about_quality():
@@ -282,6 +291,52 @@ def test_revision_reports_both_directions():
     introduced, notes = run_diff(before, after)
     assert any(f.check == "GATE" for f in introduced), "a new defect went unreported"
     assert any("resolved" in n for n in notes), "the fix went unreported"
+
+
+def test_a_revision_against_a_document_that_could_not_be_read_is_refused():
+    """The same defect as the lyric side and refused by the same middle. A
+    document with nothing outside its code fences yields no findings, and
+    subtracting it from a real document reports every finding as introduced —
+    or, the other way round, every finding as resolved by a revision the
+    checker never read."""
+    real = _head("It has twelve tables. The ACL blocks the call.")
+    unreadable = "```\ncode only\n```\n"
+
+    for before, after, side in ((unreadable, real, "the earlier draft"),
+                                (real, unreadable, "the revision")):
+        introduced, notes = run_diff(before, after)
+        joined = "\n".join(notes)
+        assert not introduced, f"{side}: a delta was reported from one document"
+        assert "Not compared" in joined and side in joined, joined
+        assert "resolved" not in joined, (
+            f"{side}: a tally was printed for a comparison that did not happen"
+        )
+
+
+def test_a_document_with_one_heading_is_partial_rather_than_unread():
+    """The other side of the pair. `unavailable` also carries partial declines
+    — weak ids on a document with no headings — and those documents *were*
+    read. A refusal keyed off `unavailable` alone would swallow every real
+    comparison."""
+    report = run_all("It has twelve tables. The ACL blocks the call.\n")
+    assert report.unavailable, "a heading-less document should say ids are weak"
+    assert not report.unread
+    assert report.findings
+    introduced, notes = run_diff(
+        "It has twelve tables.\n",
+        "It has twelve tables. The ACL blocks the call.\n")
+    assert any("resolved" in n for n in notes), (
+        "a comparison of two readable documents was refused"
+    )
+
+
+def test_the_two_skins_refuse_a_comparison_through_one_middle():
+    """Rule 12: the pair `checks.run_diff` <-> `prose.run_diff` gets a named
+    middle in the same commit, and this asserts it is one implementation rather
+    than two that happen to agree today."""
+    assert prose.diff_declined is checks_module.diff_declined
+    src = (ROOT / "craft" / "prose.py").read_text(encoding="utf-8")
+    assert "def diff_declined" not in src, "the middle was copied, not imported"
 
 
 def test_the_repository_documents_are_readable():

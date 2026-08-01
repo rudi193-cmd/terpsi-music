@@ -225,6 +225,78 @@ The replacement asserts against the predicate in both directions: a subject with
 no edge is refused, and a subject with one is served *and names the edge*. It can
 fail, which is the only property that was ever wanted.
 
+### Addendum, 2026-08-01 — the checker printed the sentence `voice.py` refuses
+
+Also filed here rather than in the tally, which stays a snapshot of the session
+it names.
+
+`voice.py` carries a rule called `false_all_clear`. It refuses six phrasings in
+assistant text, one of them the literal string `no findings`, with the reason
+*"a lookup that failed is unknown, not clear, and absence never renders as a
+result."* It has been in the tree since the voice module was written, it has a
+fixture, and it ablates red.
+
+`craft/__main__.py` printed this, for a file it could not parse:
+
+```
+=== unavailable
+  No song sections found. …returning unavailable rather than no findings (§6).
+
+=== findings (0)
+```
+
+The banner says the checker read nothing. The next line puts a count on it. The
+count is a result, and the thing it is a result about never happened — the same
+sentence the module two directories up refuses by name, printed by the tool
+that ships in the same package.
+
+**The diff side was worse, and it was worse in the flattering direction.**
+`run_diff` in both skins read `.findings` off each side and subtracted, ignoring
+whether either side had been read at all. So `--against` an unreadable earlier
+draft reported *"0 resolved, 9 introduced"* — every finding in the newer draft
+blamed on a revision that did not add any of them — and a revision the parser
+could not read reported
+*"9 resolved, 0 introduced"*, every finding cleared, by a comparison against
+nothing. `run_diff`'s own docstring is the accusation:
+
+> *a tool reporting only the wins is flattering rather than teaching*
+
+Four things about it worth keeping:
+
+1. **The rule was not missing. It was applied one layer too low.** `run_all`
+   gets rule 13 exactly right — `Report.unavailable` exists for this, the
+   docstrings argue for it, and `test_an_unparseable_file_is_unavailable_not_clean`
+   has guarded it since the checker was written. Both callers then dropped the
+   field on the floor. **A refusal that is not read is not a refusal**, which is
+   crossing one arriving at a new address: *a declaration with nothing behind
+   it*, where this time the declaration is a struct field and what is behind it
+   is one `if` nobody wrote.
+2. **Neither surface had a test.** `craft/__main__.py` had no test of any kind —
+   the suites imported `run_all` and `run_diff` and never the CLI — and no file
+   under `craft/` carried an ablation row. 473 mutations, none of them aimed at
+   the one piece of working software in the repository. The guards were dense
+   where the design is and absent where the code is.
+3. **`unavailable` was doing two jobs.** A draft that could not be read and a
+   draft that was read with 34 words of unknown stress both land in the same
+   list, and the song in this repo is permanently in the second state. A caller
+   keying off `if report.unavailable` would have printed *unavailable* for every
+   real lyric. That is why the fix is a second field (`Report.unread`) rather
+   than a test on the first, and why both suites now assert the partial case
+   stays comparable.
+4. **One defect, two skins, and the fix is a middle rather than two edits**
+   (§16). `checks.diff_declined` is imported by `prose.run_diff`, and
+   `test_the_two_skins_refuse_a_comparison_through_one_middle` asserts it is the
+   same object and that the string `def diff_declined` does not appear in
+   `prose.py`. The pair was already there; only the middle is new.
+
+Counts in this addendum were derived from the tree on 2026-08-02, on the branch
+this landed on rather than the one it was written on: 478 mutations in
+`tests/ablate.py` after this change, five of them the first to point at
+`craft/`. The figures in the original commit message (120 before, 125 after)
+were true of `claude/wall-emptiness-8gj70w` and were stale the moment the change
+was carried here — which is rule 17 charging a toll on a port, and the reason
+the number is re-derived rather than copied across with the code.
+
 ---
 
 ## Provenance of this file
