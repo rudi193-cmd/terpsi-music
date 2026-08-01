@@ -39,8 +39,10 @@ Consequences, as originally stated — the first is withdrawn, the others stand:
 
 - ~~**§14's table stays `P2 Cited` for every remote session.** Not as a caveat —
   as a structural fact. Anything written remotely rests on the summary.~~
-  **Withdrawn.** Rows can be verified remotely and four now have been. See
-  *Reads performed* below.
+  **Withdrawn.** Rows can be verified remotely, and the pass has since
+  completed: **41 of 41 exists-rows verified at source as of 2026-08-01** (see
+  *The pass, completed* below and §14's enforced note). The *"four"* this bullet
+  first reported was the 2026-07-30 start, not the finish.
 - ~~**`Nestor` may be unreachable even locally-authorised.** §17 flags it: it is
   the sole occupant of `Die-Namic-Systems`, and *"`add_repo` refuses cross-tier
   and a session can hold one owner's repos or another's, not both."*~~
@@ -135,7 +137,38 @@ and a record of what was observed rather than only what was concluded.
 `almanac-template`'s `catalog-entry.schema.json` is the worked solution and
 §15 says to adopt it wholesale: `status` ∈ `live · revised · moved ·
 redirected · superseded · dark · frozen`, with `observed` recording machine
-facts and `status_source` ∈ `auto · curator` recording who decided.
+facts and `status_source` ∈ `auto · curator` recording who decided. (Confirmed
+by reading the schema directly on 2026-08-01 — see below.)
+
+---
+
+## The pass, completed — 2026-08-01
+
+§18 item 0's pass is done. **41 of 41 §14 exists-rows are verified at source**,
+the figure derived and enforced by `tests/test_component_map.py` (the header note
+reads `41 of 41`). The one row naming no fleet source — scale-direction — is
+built here (`presentation/scales.py`), not a fleet claim.
+
+- **How.** Read through the GitHub API (`get_file_contents`/`search_code` at a
+  pinned sha), repositories brought into scope with `add_repo` where needed
+  (`SAFE`, `willow-config`, `willow-compose`, and the standalone app repos), and
+  the one cross-owner repo (`almanac-template`) over the public web. No local
+  `~/github/` checkout and no GitHub organisation were required — the struck
+  section at the top of this file was wrong about that, and this pass is the
+  proof.
+- **Corrections the pass forced, carried in §14 in-cell.** SAFE `HARD_STOPS`
+  carries no under-13 stop (the COPPA governance is `UTETY` ground rule 4 only);
+  `willow-compose` is not itself a family-data app (it *excludes* family data);
+  `private-ledger` is a shipped app, not a template, and its injected `ingest`
+  promotes aggregates *outward*, not a data-source bridge; `oakenscrolls-office`
+  calibrates one user's own forecasts, not judges; `ask-jeles` persists more than
+  the row claimed. Each is a `VERIFIED` row that diverged from the prose and now
+  says so.
+- **Two fleet facts worth carrying.** `willow-config` commits its `mcp_apps/`
+  manifests (only the grant subdirs are gitignored) — this app's refusal 2 is
+  stricter; and its tracked `env` sets a cloud inference fallback chain
+  (`WILLOW_INFERENCE_PROVIDER=auto`), the fail-open posture this app's refusal 1
+  inverts.
 
 ---
 
@@ -144,10 +177,14 @@ facts and `status_source` ∈ `auto · curator` recording who decided.
 Assembled by extracting every backticked repository name from
 `docs/ARCHITECTURE.md`, `docs/CAPABILITY-MAP.md` and `CLAUDE.md`, then sorting
 by what §18 blocks on. ~~**No repository in this list has been opened.**~~
-**Three have, on 2026-07-30** — `Willow`, `safe-app-store` and
-`safe-app-common-package`; see *Reads performed*. The remaining 33 have not. The
-tiering is a judgement about reading order, not a claim about contents, and the
-counts were derived from the tree on 2026-07-30.
+~~**Three have, on 2026-07-30** — `Willow`, `safe-app-store` and
+`safe-app-common-package`; see *Reads performed*. The remaining 33 have not.~~
+**The pass completed 2026-08-01: every §14 exists-row was opened at source** —
+the 2026-07-30 reads plus the 2026-08-01 waves across willow-gate, nestor,
+willow-mcp, UTETY, kartikeya, jeles, jeles-remote, the `safe-app-store` apps,
+`SAFE`, `willow-config`, `willow-compose`, and `almanac-template` over the public
+web (see *The pass, completed*). The tiering is a judgement about reading order,
+not a claim about contents, and the counts were derived from the tree.
 
 ---
 
@@ -577,7 +614,7 @@ and it fails on an undated, stateless or unpinned declaration. Recording
 `absent` passes, because recording absence is the correct outcome of having
 looked (rule 13).
 
-## `almanac-template` — genuinely unreachable, and this is the real cross-tier case
+## `almanac-template` — cross-tier for `add_repo`, but reachable over the public web (corrected 2026-08-01)
 
 `add_repo` refused: *"cross-tier adds are not supported in v1: requested
 `almanac-data/almanac-template` but session already has repos from owner(s)
@@ -589,11 +626,19 @@ is on the same account; the `almanac-data` org is the actual boundary. So the
 warning was not wrong about the *mechanism*, only about where it applies, and
 the cost of getting that wrong was deterring twelve reads that worked.
 
-**Consequence for §14's verification column.** `almanac-template`'s
-`catalog-entry.schema.json` is named as the model to adopt wholesale and cannot
-be read from this session. But `kartikeya.resolve_sandbox_config` supplies the
-same shape from a reachable repository — claim plus source, with a named
-sentinel for nothing-supplied-this — so the column is not blocked on it.
+**Consequence for §14's verification column — corrected 2026-08-01.**
+~~`almanac-template`'s `catalog-entry.schema.json` is named as the model to adopt
+wholesale and cannot be read from this session.~~ `add_repo` refuses the
+cross-owner attach, but the repository is **public**, so the constraint is on
+that one tool, not on reading: it was read over the public web
+(`raw.githubusercontent`, pinned `49f1d62`). **Row 996 is `VERIFIED`** —
+`catalog-entry.schema.json` carries both `observed` (machine facts from the last
+probe: `checked`/`reachable`/`http_status`) and `status` (a derived lifecycle
+label auditable against it), and `.github/workflows/link-check.yml` runs a daily
+`cron: "0 12 * * *"` over `scripts/check_links.py` that files a dead-link issue
+through `scripts/alert_on_dead_links.py`. The `kartikeya.resolve_sandbox_config`
+fallback was a real substitute but was not needed. "Genuinely unreachable" was
+the wrong conclusion — cross-tier for `add_repo` is not the same as unreadable.
 
 ---
 
