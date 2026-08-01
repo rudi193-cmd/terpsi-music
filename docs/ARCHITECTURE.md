@@ -913,7 +913,7 @@ Written after reading the READMEs of the components below; contents inferred fro
 > - **`UNVERIFIED`** — nobody has opened it. This is the honest state of most of
 >   the table and is not a defect; it is the thing that used to be invisible.
 >
-> **VERIFIED-COUNT: 17 of 42** (2026-08-01). `tests/test_component_map.py`
+> **VERIFIED-COUNT: 20 of 42** (2026-08-01). `tests/test_component_map.py`
 > enforces the convention — a row claiming existence with neither token fails the
 > build, as does a `VERIFIED` without a commit. It deliberately does **not**
 > assert a coverage ratio, because a test that demanded more green would be an
@@ -956,7 +956,7 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §7.4 guardianship doctrine | `Willow` `PROTECTED_AGENTS.md` Part III | **VERIFIED 2026-07-30** at `c8c96b4` — read at source, all seven clauses present and faithfully rendered in §7.4. **Exists as charter, unratified.** Seven ward clauses plus twelve invariants; this document had asserted three times there was no precedent |
 | Prohibited scopes registry | `Willow` Schedule A (SA-1…SA-5) | **Drafted, unratified.** Validated before any envelope issues; `envelopes/pre-approved.json` is the enforcement surface |
 | Stakes classification | `Willow` Schedule B (SB-1…SB-5) | **Drafted.** A music program touches four of the five classes |
-| Retirement artifact | `Willow` `PROTECTED_PERSONS.md` | **Exists as a model.** The five-part tombstone that would have prevented the dead-link tally · `UNVERIFIED` |
+| Retirement artifact | `Willow` `PROTECTED_PERSONS.md` | **Exists as a model.** The five-part tombstone that would have prevented the dead-link tally · **VERIFIED 2026-08-01** at `c8c96b4` — read at source: a genuine five-part tombstone — retired status stated first, successor named (`PROTECTED_AGENTS.md`), reason given, a clause-by-clause mapping table forward marked *"informative only"*, and the stub *"kept only so existing references … do not dangle."* This is the shape rule 20 requires |
 | Shared-edge placement | `Nestor` → `Die-Namic-Systems`, sole occupant | **Decided, and unexecuted — checked 2026-07-30.** The repository is at `rudi193-cmd/nestor`; §17's prose is future tense. The decision stands; the move has not happened, and this row read as a statement about the tree would be wrong |
 | Second shared edge | `libs/subject-consent` | **Unresolved.** Same property as Nestor, still a folder in an app store, already vendored once |
 | Per-graduate lane export (W-6) | — | **Open**, and a precondition of enrolment rather than an end-of-life feature |
@@ -972,8 +972,8 @@ Written after reading the READMEs of the components below; contents inferred fro
 | §6 kill switch | `consent.internet` | **Exists** · `UNVERIFIED` |
 | §6 three-key egress + envelope | `willow-mcp` | **VERIFIED 2026-07-30** at `3815449` — `confirm-binding` carries *"Do not wire this into an `@mcp.tool()`"*; `compute_email_basis` returns all four values and drift is surfaced, not applied. **Exists**, stronger than proposed |
 | §6 outbound scanning | the redaction funnel | **Exists for credentials.** Needs the student-identifier classes · `UNVERIFIED` |
-| §3 hardening | `WILLOW_MCP_STRICT_TRUST_ROOT`, severance | **Exists, off by default.** Mandatory here — see §6 residual · `UNVERIFIED` |
-| §4 staff remote access | `willow-mcp` serve mode (OAuth + confirmed binding) | **Exists** · `UNVERIFIED` |
+| §3 hardening | `WILLOW_MCP_STRICT_TRUST_ROOT`, severance | **Exists, off by default.** Mandatory here — see §6 residual · **VERIFIED 2026-08-01** at `ef4b7a1` — read at source: `lease.py::strict_trust_root()` reads `WILLOW_MCP_STRICT_TRUST_ROOT`, `trust_root_setup.py` carries `STRICT_ENV_KEY`, `server.py` returns `trust_root_denied` when a lease fails the strict check, and `SECURITY_AUDIT.md` states it is *"off by default."* Confirms both the switch and the default this app must invert |
+| §4 staff remote access | `willow-mcp` serve mode (OAuth + confirmed binding) | **Exists** · **VERIFIED 2026-08-01** at `ef4b7a1` — read at source: `identity_binding.py::confirm_binding` is documented *"Operator-only … Not reachable from any MCP tool"*, `server.py::_cmd_confirm_binding` is *"Local/stdio-only by design (L-AUTH-02) … never reachable as an MCP"* tool, held by `test_identity_binding.py` and `test_serve_mode_gate.py`. OAuth-plus-confirmed-binding exists, and the confirm step is deliberately kept off the tool surface |
 | §4.1 parent notification + acknowledgment (~95%) | SMS, ideally a local SIM gateway | **Open, but small.** No app, no enrollment, no inbound; constrained by carrier throughput, not cost |
 | §4.2 the transactional relay (~5%) | — | **Open.** Grove's u2u is signed, *not* confidential — reusable identity, missing confidentiality |
 | Criteria for a justified hosted component | `jeles-remote` | **Exists as precedent.** Stateless, scales to zero, corpus absent rather than gated, refuses to start unconfigured · `UNVERIFIED` |
