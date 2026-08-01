@@ -1782,6 +1782,30 @@ MUTATIONS = [
      "    return None", "two narratives cannot be ordered", "tests/test_assistance.py"),
     ("records/conflict.py", "if len(lanes) > 1:", "if False:",
      "a growth narrative reads one lane", "tests/test_assistance.py"),
+    # --- §10 season-boundary purge (records/retention.py) -------------------
+    #
+    # Each row restores one forbidden act the purge is built to refuse: an early
+    # purge, a purge of the record of a purge, a seasonless sweep, an erasure
+    # from a bare lane id with no dated record, and a horizon that is ignored so
+    # a still-retained record reads as due. All pure Python (the erasure path
+    # imports `cryptography`, which is declared), so they ablate red in control.
+    ("records/retention.py", "if standing is not Standing.DUE:", "if False:",
+     "dispose refuses a not-due record — no early purge (§10, refusal 3)",
+     "tests/test_retention.py"),
+    ("records/retention.py", "if isinstance(record, Disposition):", "if False:",
+     "the record of a purge is not itself purgeable (rule 16 / I-7)",
+     "tests/test_retention.py"),
+    ("records/retention.py", "if not season:", "if False:",
+     "a seasonless record is refused, not swept (rule 13)",
+     "tests/test_retention.py"),
+    ("records/retention.py", "if not isinstance(d, Disposition):", "if False:",
+     "purge drives only dated dispositions, never a bare lane id (rule 15)",
+     "tests/test_retention.py"),
+    ("records/retention.py",
+     "    standing = Standing.DUE if now >= retain_until else Standing.RETAINED",
+     "    standing = Standing.DUE if now >= ended else Standing.RETAINED",
+     "the retention horizon is honored, not just the season end (§10)",
+     "tests/test_retention.py"),
 ]
 
 
