@@ -913,7 +913,7 @@ Written after reading the READMEs of the components below; contents inferred fro
 > - **`UNVERIFIED`** — nobody has opened it. This is the honest state of most of
 >   the table and is not a defect; it is the thing that used to be invisible.
 >
-> **VERIFIED-COUNT: 39 of 42** (2026-08-01). `tests/test_component_map.py`
+> **VERIFIED-COUNT: 40 of 42** (2026-08-01). `tests/test_component_map.py`
 > enforces the convention — a row claiming existence with neither token fails the
 > build, as does a `VERIFIED` without a commit. It deliberately does **not**
 > assert a coverage ratio, because a test that demanded more green would be an
@@ -962,7 +962,7 @@ Written after reading the READMEs of the components below; contents inferred fro
 | Per-graduate lane export (W-6) | — | **Open**, and a precondition of enrolment rather than an end-of-life feature |
 | §10 privacy notice | `willow-2.0/TRUST.md` | **Reusable structure** — every path data can take, each with its switch |
 | Install acceptance gate | `willow-2.0/SECURITY_AUDIT.md` | **Reusable rubric**, 15 checks. W-MCP-01's trigger condition applies here |
-| Verifying the verifier | `willow-mcp` #211 | **Open.** Six apparatus defects to zero code defects across three PRs; no mutation gate exists for this app's guarantees yet · `UNVERIFIED` |
+| Verifying the verifier | `willow-mcp` #211 | ~~**Open.**~~ **Landed, and the gap it named is closed here.** Six apparatus defects to zero code defects across three PRs · **VERIFIED 2026-08-01** at `e0343a4` (willow-mcp) — PR #211 read at source: **merged 2026-07-30** into `master`, its §3 stating verbatim *"six defects were found in the verification apparatus and zero in the code under verification,"* and that nothing about a passing suite distinguishes *this guard fires correctly* from *this guard never fires*. The clause "no mutation gate exists for this app's guarantees yet" **is no longer true**: `tests/ablate.py` (466 mutations) and R17 — a structural no-egress test that fails when neutralised (`docs/SECURITY-AUDIT.md`) — are this app's verifier-verifying gate |
 | Allow-side coverage of the resolver | — | **Unknown.** Indistinguishability passes even if the predicate returns nothing to anyone; check the fixture has a principal who can see something |
 | §10 COPPA / under-13 | ~~SAFE `HARD_STOPS`~~, UTETY ground rule 4 | **Exists** as governance, above app level · **VERIFIED 2026-08-01** at `b953e84` (utety) — UTETY build-plan §0 **ground rule 4** carries it: *"Verifiable parental consent for under-13. There is no COPPA school-consent safe harbor … the age-gate is a legal dependency, not a feature."* **Correction:** the SAFE `HARD_STOPS` citation is a mis-attribution — read at source (`SAFE 7f18120`, `governance/HARD_STOPS.md`), its five stops are PSR, Military Exception, Irreducible Taint, Recursion Limit, Fair Exchange, **none** an under-13/COPPA/age stop (HS-001 names two children as a *purpose* referent, not an age gate). The under-13 governance lives only in UTETY GR4 |
 | §8.1 commentary primitive | `records/commentary.py` | ~~**Open**~~ **Built 2026-07-31** — `Remark` is a `Mark` with words on it, lane-scoped by fan-out (two entries, one referent), refusal 4 unrepresentable, machine transcripts land as unsealed drafts attributed to the machine — held by its own suite in this tree, not a fleet claim, so it carries no verification token |
