@@ -519,6 +519,13 @@ MUTATIONS = [
      "        out.append(Reach(kind, module, line, root, detail, root in allowed))",
      "        out.append(Reach(kind, module, line, root, detail, True))",
      "an undeclared import is a finding", "tests/test_imports.py"),
+    # TM-ROOT-01's committed-tree half: a path with a trust-root component is a
+    # finding. Neutering the component match lets `mcp_apps/` and a bare gitlink
+    # slip, which the acceptance tests attempt (refusal 2, §6).
+    ("tools/trustroot.py",
+     "    if any(part in _TRUST_ROOT_DIRS for part in parts):",
+     "    if False:",
+     "a committed trust-root path is a finding", "tests/test_trustroot.py"),
     # tools/providers.py — the tripwire. Its mutations are the fail-open
     # direction first: a checker that clears everything is silent in exactly
     # the direction nobody notices.

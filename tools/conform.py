@@ -365,6 +365,27 @@ def check_stdlib_only() -> Check:
                  "the two declared roots are cryptography and psycopg")
 
 
+def check_trust_root_committed() -> Check:
+    """Refusal 2 (`TM-ROOT-01`): the trust root is never *committed*, checked over
+    the tree git tracks rather than the staged set. `.githooks/pre-commit` gates a
+    commit on an installed clone; `tools/trustroot.py` catches a trust-root path
+    that reached a commit through an uninstalled one, so the two enforcements
+    compose — and this row is what makes the committed-tree half a gate the
+    conformance record carries rather than a suite-only check (rule 18). A tree
+    git cannot list is `UNKNOWN`, never clean (rule 13), which is also what the
+    acceptance sweep sees when `conform.ROOT` points at a tree that is not there.
+    """
+    from trustroot import Verdict as _TRV, scan as _tr_scan  # noqa: E402
+
+    r = _tr_scan(where=ROOT)
+    what = "the trust root is never committed (TM-ROOT-01, refusal 2, §6)"
+    if r.verdict is _TRV.UNKNOWN:
+        return Check("trust-root", what, State.UNKNOWN, r.detail)
+    if r.verdict is _TRV.FINDINGS:
+        return Check("trust-root", what, State.FAIL, r.detail)
+    return Check("trust-root", what, State.PASS, r.detail)
+
+
 def check_local_inference(where: Optional[Path] = None) -> Check:
     """Refusal 1 (§6): nothing reaches a model except through the guard.
 
@@ -948,7 +969,8 @@ CHECKS: Tuple[Callable[[], Check], ...] = (
     check_component_map, check_classification_registry,
     check_row_security_differential, check_knock_enforcing,
     check_declared_sockets, check_manifest, check_key_escrow,
-    check_security_audit, check_stdlib_only, check_local_inference,
+    check_security_audit, check_stdlib_only, check_trust_root_committed,
+    check_local_inference,
     check_anchor_payload, check_anchor_published, check_receipt_attribution,
     check_deposit_procedure,
 ) + UNDECIDABLE
