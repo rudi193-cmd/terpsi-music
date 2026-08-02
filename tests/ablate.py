@@ -1920,6 +1920,19 @@ MUTATIONS = [
      'SCANNED_ROOTS = ("console", "craft", "drop", "presentation",',
      "rule 13 sweep: a scan that shrank is not a clean tree",
      "tests/test_rule13_acceptance.py"),
+    # craft/text.py — the phonetics, which carried no mutation before these.
+    # The table covers predicates that refuse something, on the reasoning that
+    # a rhyme heuristic denies no one anything. That held
+    # until the heuristic was wrong in the loose direction: it invented a rhyme
+    # scheme, and a writer regularising a verse against an invented scheme
+    # revises lines that were already right. Both rows below restore a defect
+    # that shipped, and both are no-ops on the surface — the vowel class is the
+    # only thing that moves.
+    ("craft/text.py", '    if magic_e and len(coda) == 1 and coda != "r":',
+     "    if False:", "magic e lengthens the vowel", "tests/test_craft.py"),
+    ("craft/text.py", 'w = re.sub(r"(?<![aeiou])igh", "uy", w)',
+     'w = re.sub(r"(?<![aeiou])igh", "igh", w)',
+     "igh survives the silent-letter rule", "tests/test_craft.py"),
 ]
 
 

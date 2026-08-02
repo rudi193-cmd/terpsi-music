@@ -108,6 +108,55 @@ def test_rhyme_pairs_the_loose_version_got_wrong():
     assert rhymes("keys", "yet") == "none", "long e and short e are different vowels"
 
 
+def test_magic_e_lengthens_the_vowel_it_silences():
+    """Regression, and the same defect as "keys"/"yet" above wearing a
+    different spelling.
+
+    `rhyme_key` dropped a silent final e without recording that it had, so
+    every vowel-consonant-e word landed in its *short* vowel's class. The
+    checker called all of these perfect rhymes, which is the loosest error the
+    tool can make: it does not merely miss a scheme, it invents one, and a
+    writer regularising a verse against it changes lines that were fine.
+
+    Found by using the tool rather than by reading it — two lines of
+    `lyrics/same-white-line.txt` were revised to break collisions that were
+    not there ("grade"/"glass", "grade"/"pane").
+    """
+    for a, b in (("time", "him"), ("mine", "in"), ("hate", "hat"),
+                 ("pane", "pan"), ("grade", "glad"), ("note", "not"),
+                 ("cape", "cap"), ("rise", "hiss")):
+        assert rhymes(a, b) == "none", f"{a}/{b} differ in vowel length"
+
+    # The lengthening is the point, so the long pairs still have to hold.
+    for a, b in (("time", "crime"), ("made", "grade"), ("mine", "line")):
+        assert rhymes(a, b) == "perfect", f"{a}/{b} is a rhyme"
+
+    # Two places the rule does not apply. Silent-e after r leaves the vowel
+    # r-controlled rather than long, and a closed list of common words takes
+    # a final e without lengthening at all.
+    assert rhymes("more", "for") == "perfect", "r controls the vowel"
+    assert rhymes("come", "some") == "perfect", "neither one is long-o"
+    assert rhymes("come", "home") == "none", "and they do not rhyme with one"
+
+
+def test_igh_survives_the_silent_letter_rule():
+    """Regression, and the reason the fix above is two changes rather than one.
+
+    ("ght" -> "t") ran before anything classified the vowel, so "tight" reached
+    the table as "tit" — short i. That agreed with "white" only because "white"
+    was being flattened to "wit" by the same bug, so the pair looked correct
+    for as long as both halves were wrong.
+    """
+    assert rhymes("tight", "white") == "perfect"
+    assert rhymes("night", "right") == "perfect"
+    assert rhymes("high", "sigh") == "perfect"
+    assert rhymes("tight", "wit") == "none", "long i is not short i"
+    # "eigh" and "aigh" end in the same three letters and are not long i.
+    assert rhymes("eight", "wait") == "perfect"
+    assert rhymes("straight", "wait") == "perfect"
+    assert rhymes("eight", "night") == "none"
+
+
 def test_clusters_are_phonetic_not_orthographic():
     """Regression. "ght" is three letters and one sound; the letter-counting
     version flagged brought, right and tight as unsingable."""
