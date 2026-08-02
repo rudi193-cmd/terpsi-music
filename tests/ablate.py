@@ -413,9 +413,9 @@ MUTATIONS = [
     ("records/standing.py", "return threshold is not None and at >= threshold",
      "return threshold is None or at >= threshold",
      "an unknown threshold is not a reached one", "tests/test_standing.py"),
-    # craft/text.py — the first rows outside records/ and tools/. The table
-    # covered every predicate that refuses something and none of the phonetics,
-    # on the reasoning that a rhyme heuristic denies no one anything. That held
+    # craft/text.py — the phonetics, which carried no mutation before these.
+    # The table covers predicates that refuse something, on the reasoning that
+    # a rhyme heuristic denies no one anything. That held
     # until the heuristic was wrong in the loose direction: it invented a rhyme
     # scheme, and a writer regularising a verse against an invented scheme
     # revises lines that were already right. Both rows below restore a defect
