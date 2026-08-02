@@ -64,6 +64,17 @@ class Artifact:
         return hashlib.sha256(self.text.encode("utf-8")).hexdigest()
 
 
+def _served(transfer) -> list:
+    """The rows entries.csv carries: everything except the never-rendered L5.
+
+    One definition, because `bundle()` and `_readme()` both need it and two
+    copies of *which rung never leaves* is the pair rule 12 exists to forbid —
+    and, concretely, two identical lines made the ablation that targets this
+    filter match two sites.
+    """
+    return [e for e in transfer.entries if getattr(e, "rung", None) is not NEVER_SERVED]
+
+
 def _rows(entries: Sequence) -> Tuple[Tuple[str, ...], Tuple[Tuple[str, ...], ...]]:
     """Flatten whatever the lane held into a table with a stable header.
 
@@ -102,7 +113,7 @@ def _readme(transfer) -> str:
     # withheld record fails its own check — the CSV legitimately has fewer rows
     # than the total, and a recipient told "fewer than the total means missing"
     # reads a correct export as a truncated one.
-    served = [e for e in transfer.entries if getattr(e, "rung", None) is not NEVER_SERVED]
+    served = _served(transfer)
     lines = [
         "YOUR RECORD",
         "===========",
@@ -208,7 +219,7 @@ def bundle(transfer) -> Tuple[Artifact, ...]:
             "an incomplete transfer has nothing to export; W-6 requires the "
             "record and the written exit terms"
         )
-    served = [e for e in transfer.entries if getattr(e, "rung", None) is not NEVER_SERVED]
+    served = _served(transfer)
     header, rows = _rows(served)
     body = (
         Artifact("README.txt", "text/plain", _readme(transfer)),
