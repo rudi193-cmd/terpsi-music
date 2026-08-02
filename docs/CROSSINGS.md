@@ -297,6 +297,65 @@ were true of `claude/wall-emptiness-8gj70w` and were stale the moment the change
 was carried here — which is rule 17 charging a toll on a port, and the reason
 the number is re-derived rather than copied across with the code.
 
+### Addendum, 2026-08-02 — the inventory was the authority on its own completeness
+
+`tests/test_rule13_acceptance.py` is the sweep: it enumerates every seam this
+repository consults and breaks each one for real. Its docstring states the
+property it is for:
+
+> *so that a seam added later without an unknown state is caught by a test
+> nobody had to remember to write*
+
+It names its own middle, which is what §16 asks. The middle is
+`test_every_seam_in_the_inventory_has_a_test`, and it walks `SEAMS` and asserts
+a test exists for each row.
+
+**It only ran one way.** Walking the list and finding a test for each row proves
+the tests are complete *against the list*. Nothing walked the tree and asserted
+a row for each seam, so the list was the only authority on whether the list was
+complete — and the case the docstring promises to catch, a module consulting a
+fallible source with **no** unknown state, is exactly the case that leaves no
+trace in the list. The promise was kept for seams somebody had already
+remembered, which is the set that needed no promise.
+
+Three things worth keeping from the fix:
+
+1. **Half a middle passes for a whole one, because it is green.** A pair with
+   one reconciler in one direction looks identical, in a test run, to a pair
+   with a reconciler. This is crossing four — a declaration with an enforcement
+   attached to it — arriving in the one file in the tree written to catch it,
+   and it survived a review and a merge.
+2. **The obvious mark was the wrong mark, and measuring said so.** The tempting
+   definition of *consults a fallible source* is *"the module has an
+   `UNKNOWN`-shaped enum member or an `unavailable` field."* Measured against
+   this tree it flags 27 modules, 18 of them absent from `SEAMS` — but the fatal
+   objection is not the noise. It can only see modules that **already** have an
+   unknown state, so by construction it can never reach the case the docstring
+   is about. It would have been a green check pointed away from its own subject.
+   The mark that shipped is *a function takes the source as a parameter*, which
+   is independent of whether an unknown state exists.
+3. **It found eight on its first run.** `drop/preparing.py`,
+   `drop/producer.py`, `records/assistance.py`, `records/attendance.py`,
+   `records/commentary.py`, `records/fees.py`, `records/inference.py`,
+   `store/narration.py`. Six of the eight were already honoured and already
+   tested in their own suites — which is not a defence, it is this file's
+   subject: a seam covered only where it lives is a seam the sweep cannot report
+   on, and the sweep is what a reviewer reads. Seven are rows now; the eighth is
+   exempt with a reason and a debt, because breaking it needs a cluster.
+
+And the residual, said out loud rather than rounded off: the mark does not reach
+`craft/`, whose fallible source is its own parser over caller-supplied text.
+`craft/` is inventoried because a person put it there, one addendum above, after
+it shipped the defect. `KNOWN_BLIND` names that shape and asserts the mark still
+misses it, so the day somebody widens the mark, the list of published misses
+goes red rather than quietly becoming a lie. That is `voice.KNOWN_MISSES`'s
+discipline applied to a check's own blind spot.
+
+Counts derived from the tree on 2026-08-02: `SEAMS` 43 rows, `CANNOT_DISTINGUISH`
+3, `EXEMPT` 1, `KNOWN_BLIND` 2, and 483 mutations in `tests/ablate.py` — five of
+them aimed at the completeness check itself, because a check that finds nothing
+today and cannot be shown to fail is a ledger (rule 18).
+
 ---
 
 ## Provenance of this file

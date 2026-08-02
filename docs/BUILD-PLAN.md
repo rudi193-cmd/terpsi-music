@@ -105,13 +105,28 @@ tools/         conform, sockets, purity, providers, discipline — checkers
    that could not be reached read as one that answered *nothing*:
    `voice.check()` with no rules loaded, `sockets.declared_from` on a manifest
    with no `listeners` key, and `purity.egress` dropping the unparseable file
-   that `purity.writes` reports. All three fixed and ablated. Seven more seams
+   that `purity.writes` reports. All three fixed and ablated. Three more seams
    fail **closed** and cannot say *why* — listed in that file's
    `CANNOT_DISTINGUISH`, each with a test that goes red when it is fixed. The
    sharpest — `Ledger.log_for` answering for a lane it has never heard of —
    **was decided strict 2026-07-31 and is §18 item 16**: an unknown lane
    raises, the write path alone still opens one (W-1), and the finding's
    tests flipped to hold the fix.
+
+   **The list's own completeness, 2026-08-02.** The file's middle walked
+   `SEAMS` and asserted a test for each row; nothing walked the tree and
+   asserted a row for each seam, so the inventory was the authority on whether
+   it was complete — and its docstring promises *"a seam added later without an
+   unknown state is caught by a test nobody had to remember to write."* The
+   other half now exists:
+   `test_the_inventory_lists_every_injected_source_in_the_tree` reads the tree
+   for functions taking a source as a parameter and fails when one is absent
+   from `SEAMS`. It found eight on its first run — seven are rows with tests,
+   one (`store/narration.py`) is in `EXEMPT` with a reason and a debt, because
+   breaking it needs a cluster. `craft/` is inventoried at the same time and
+   arrived by hand: the mark does not reach its shape, which `KNOWN_BLIND`
+   says out loud. Counts derived from the tree on 2026-08-02: `SEAMS` 43 rows,
+   `CANNOT_DISTINGUISH` 3, `EXEMPT` 1, `KNOWN_BLIND` 2.
 6. **Then §9's list in its existing order** — noting foundations 1 and 2 are
    **to build**, not built; the spike retired and nothing was inherited.
 

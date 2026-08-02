@@ -16,6 +16,20 @@ is that enumeration and `test_every_seam_in_the_inventory_has_a_test` is the
 middle rule 12 asks for — the list and the tests are a pair, and a list nothing
 checks is the declaration-without-enforcement §16 keeps finding.
 
+**The middle runs both ways, since 2026-08-02.** It did not, and the half that
+was missing was the half the sentence above promises. Walking `SEAMS` and
+asserting a test per row proves the *tests* are complete against the list; it
+says nothing about the *list*, and a module that consults a fallible source and
+has no unknown state is invisible to it — which is precisely the seam "nobody
+had to remember" was written about. So
+`test_the_inventory_lists_every_injected_source_in_the_tree` goes the other
+way: it reads the tree, decides mechanically which modules take a source from
+their caller, and fails when one of them is absent from `SEAMS`. It found eight
+on its first run, in a list that had been reviewed and merged. The mark it uses,
+what it deliberately cannot decide, and the one module exempted from it are
+documented at `EXEMPT` and `KNOWN_BLIND` below — and it is a **gate**, not a
+ledger (rule 18): `tests/ablate.py` carries five rows that turn it red.
+
 **Breakage is real, never skipped.** Sources are made unreachable by pointing a
 checker at a directory that does not exist, by handing a predicate a callable
 that raises, or by emptying a registry the way a failed load would leave it.
@@ -39,9 +53,12 @@ Stdlib only. Runs under pytest or directly:
 
 from __future__ import annotations
 
+import ast
 import inspect
+import io
 import sys
 import tempfile
+from contextlib import redirect_stdout
 from datetime import datetime, timedelta, timezone
 from importlib import import_module
 from pathlib import Path
@@ -70,12 +87,23 @@ import sockets  # noqa: E402
 #: prefers the attribute). `import_module` reads `sys.modules` and gets the
 #: module, which is what a test that patches module state needs.
 classify_mod = import_module("records.classify")  # noqa: E402
-from records import consent, crossing, disclosure, export, marking  # noqa: E402
+from records import assistance, attendance, commentary, consent, crossing  # noqa: E402
+from records import disclosure, export, fees, inference, marking  # noqa: E402
 from records import practice, receipts, rungs, sending, serving  # noqa: E402
 from records import standing as standing_mod  # noqa: E402
 from records import witness  # noqa: E402
 from records import exit as exit_mod  # noqa: E402
 from records.dispatch import dispatch  # noqa: E402
+
+from drop import preparing, producer  # noqa: E402
+
+#: `craft/` is the one piece of working software in this tree and had no row in
+#: `SEAMS` until 2026-08-02, while `voice.py` had three. It is imported here for
+#: the same reason everything else above is: the sweep breaks the seam itself
+#: rather than trusting `tests/test_craft.py` to have done it.
+from craft import __main__ as craft_cli  # noqa: E402
+from craft import checks as craft_checks  # noqa: E402
+from craft import prose as craft_prose  # noqa: E402
 
 BEN = "student-ben"
 LANE = "lane-ben"
@@ -159,6 +187,61 @@ SEAMS = (
      "there are no rows to aggregate or transfer", "raises, never a zero"),
     ("score_position", "records/marking.py",
      "no score position is attached", "UNALIGNED — see CANNOT_DISTINGUISH"),
+
+    # --- 2026-08-02: seven rows the tree named and this list did not --------
+    #
+    # Every one of these was produced by
+    # `test_the_inventory_lists_every_injected_source_in_the_tree` below, on the
+    # first run, before a person read the tree. That is the whole argument for
+    # the check: the list above was assembled by hand and was seven short, and
+    # nothing in the file could say so.
+    #
+    # Six of the seven were already honoured and already tested in their own
+    # suites — `test_fees.py` hands `assess()` a raiser, `test_drop_producer.py`
+    # hands `produce()` one, `test_commentary.py` has `raising()`. That is not
+    # an argument for leaving them out. It is this file's opening paragraph:
+    # *individual modules honour rule 13 and their own suites say so; what did
+    # not exist here is the sweep.* A seam covered only where it lives is a seam
+    # the sweep cannot report on, and the sweep is what a reviewer reads.
+    ("assistance_call", "records/assistance.py",
+     "the assistance call raises, and separately returns a bare string",
+     "InferenceRefused, never a draft and never an empty one"),
+    ("attendance_notify", "records/attendance.py",
+     "notify() over a raising restriction source",
+     "RuntimeError, nothing on the carrier"),
+    ("commentary_call", "records/commentary.py",
+     "the transcription call raises", "LocalModelUnavailable, no transcript"),
+    ("fee_source", "records/fees.py",
+     "the membership source raises; and separately the charge and payment "
+     "sources raise", "UNKNOWN, never a zero balance and never a fee band"),
+    ("inference_call", "records/inference.py",
+     "the local model does not answer",
+     "LocalModelUnavailable, never an empty answer (refusal 1)"),
+    ("drop_key_source", "drop/producer.py",
+     "the lane key source raises; and separately the sealing primitive is "
+     "unusable", "Made.UNAVAILABLE, nothing landed, never plaintext"),
+    ("drop_prepare", "drop/preparing.py",
+     "the restriction source raises under prepare()",
+     "UNKNOWN carried up, seal_for never reached"),
+
+    # --- 2026-08-02: three rows the check above cannot reach ----------------
+    #
+    # `craft/` consults a source this file's mark does not see: its own parser,
+    # over text the caller supplied. Nothing is injected, so nothing is flagged,
+    # and these three rows are here because a person put them here — which is
+    # the residual the check reduces and does not remove. `KNOWN_BLIND` below
+    # names the shape and asserts the mark still misses it, so the day somebody
+    # widens the mark, that assertion goes red and this comment is what has to
+    # be edited.
+    ("craft_unread", "craft/checks.py, craft/prose.py",
+     "the draft holds nothing the parser can read",
+     "Report.unread, never findings (0)"),
+    ("craft_diff", "craft/checks.py, craft/prose.py",
+     "one side of a draft-to-draft comparison could not be read",
+     "the comparison is refused, never '0 introduced' or '9 resolved'"),
+    ("craft_cli", "craft/__main__.py",
+     "the CLI is handed a draft it cannot read",
+     "findings (unavailable), never findings (0)"),
 )
 
 #: Seams that fail **closed** but cannot say *which* closed answer this is: the
@@ -969,6 +1052,605 @@ def test_fixed_the_ledger_no_longer_answers_for_a_lane_it_has_never_heard_of():
 def test_finding_an_unaligned_mark_is_usable_whether_or_not_a_store_answered():
     got = marking.drift(marking.Mark("run-3", 91_400, "GE2", provenance="P1"))
     assert got.usable
+
+
+# --- records/inference.py: the local model that did not answer -------------
+#
+# Refusal 1's seam, and the loudest one in the tree: a stopped Ollama must fail
+# loudly and never degrade to a third party or to an empty answer a surface
+# could render as "no findings".
+
+
+HERE = "http://localhost:11434"
+LOCAL_PROVIDER = inference.LOCAL
+
+
+def test_inference_call_that_raises_is_unavailable_and_never_an_empty_answer():
+    try:
+        inference.through(unreachable(), classes=["HEALTH"], endpoint=HERE)
+    except inference.LocalModelUnavailable as exc:
+        assert "ConnectionError" in str(exc)
+    else:
+        raise AssertionError(
+            "a stopped local model returned rather than raised; refusal 1 says "
+            "it fails loudly, and the caller here got something to render"
+        )
+
+
+def test_inference_call_unavailable_is_not_the_same_as_a_short_answer():
+    """The dangerous mirror at the inference seam. A model that answered
+    tersely and a model that is not running must not arrive alike."""
+    answered = inference.through(lambda: ("an answer", LOCAL_PROVIDER),
+                                 classes=["HEALTH"], endpoint=HERE)
+    assert answered.text == "an answer"
+
+
+# --- records/assistance.py, records/commentary.py: the same call, two skins -
+
+
+def a_grounding():
+    fld = serving.Field(lane_id=LANE, subject_id=BEN, name="attendance",
+                        rung=rungs.Rung.L3, payload="present 40/42")
+    return assistance.from_entitlement(
+        fld, serving.Serving(serving.Outcome.PAYLOAD, "present 40/42",
+                             rungs.Rung.L3, "served"))
+
+
+def test_assistance_call_that_raises_lands_no_draft():
+    """§8.2: a machine answer is a draft until a named human seals it — and a
+    machine that did not answer produces no draft at all, rather than an empty
+    one somebody could seal."""
+    try:
+        assistance.growth_narrative(unreachable(), groundings=[a_grounding()],
+                                    endpoint=HERE)
+    except inference.InferenceRefused:
+        pass
+    else:
+        raise AssertionError("an unreachable model produced an assistance draft")
+
+
+def test_assistance_call_returning_nothing_is_refused_rather_than_drafted():
+    try:
+        assistance.growth_narrative(lambda: ("   ", LOCAL_PROVIDER),
+                                    groundings=[a_grounding()], endpoint=HERE)
+    except inference.InferenceRefused:
+        pass
+    else:
+        raise AssertionError("a blank answer landed as a draft a human could seal")
+
+
+def test_commentary_call_that_raises_produces_no_transcript():
+    """The transcript seam §8.2 names by name. Adjudication commentary that the
+    machine did not produce must not exist as a draft."""
+    anchor = marking.Mark("show-2026-10-12@94500", 94_500, "press-box-4",
+                          LANE, BEN)
+    try:
+        commentary.transcribe(unreachable(), anchor, endpoint=HERE,
+                              by_machine="whisper-local")
+    except inference.InferenceRefused:
+        pass
+    else:
+        raise AssertionError("a transcript exists for audio nobody transcribed")
+
+
+# --- records/fees.py: the money sources -------------------------------------
+
+
+def test_fee_source_that_raises_is_unknown_and_not_a_band():
+    """A membership source that is down must not fall back to a standard fee.
+    There is no standard fee — the fallback is the disclosure."""
+    groups = (fees.FeeGroup("band-a", "marching-season", 34000, "2026"),)
+    got = fees.assess(BEN, LANE, "marching-season", groups, unreachable(),
+                      AT, season="2026")
+    assert got.state is fees.Source.UNKNOWN
+    assert "membership source failed" in got.reason
+    try:
+        got.charge
+    except RuntimeError as exc:
+        assert "not the standard fee" in str(exc)
+    else:
+        raise AssertionError(
+            "an unresolved fee produced a charge; the fallback band is the "
+            "disclosure this module exists to make unavailable"
+        )
+
+
+def test_fee_source_down_is_not_the_same_answer_as_a_settled_balance():
+    """`Source.UNKNOWN` and a balance of zero are different sentences to send a
+    guardian. A caller comparing `cents == 0` must not be able to confuse
+    *"you owe nothing"* with *"we could not read your payments."*"""
+    down = fees.balance(unreachable(), [], AT, lane_id=LANE)
+    settled = fees.balance([], [], AT, lane_id=LANE)
+    assert down.state is fees.Source.UNKNOWN
+    assert down.state is not settled.state
+    assert "charge source failed" in down.reason
+
+
+def test_fee_source_names_which_side_failed():
+    """*"We could not read your charges"* and *"we could not read your
+    payments"* are different apologies, and the module says which."""
+    payments_down = fees.balance([], unreachable(), AT, lane_id=LANE)
+    assert payments_down.state is fees.Source.UNKNOWN
+    assert "payment source failed" in payments_down.reason
+
+
+# --- records/attendance.py: the carrier, one call earlier than deliver() ----
+
+
+def test_attendance_notify_over_a_broken_restriction_source_sends_nothing():
+    """`send_path` above guards `deliver()`. `notify()` is the call the rest of
+    the application actually makes, and a guard the application routes around
+    is a ledger (rule 18)."""
+    sent = []
+    sig = attendance.signal(
+        attendance.Referent("ref-1", "Rehearsal", "Tuesday rehearsal", AT,
+                            "2026", created_at=AT),
+        attendance.SignalKind.TIME)
+    try:
+        attendance.notify(sig, BEN, at=AT, edges=[mother()],
+                          restrictions=unreachable(),
+                          transport=lambda who, body: sent.append(who))
+    except RuntimeError:
+        assert sent == [], f"a signal went out under an unknown send list: {sent}"
+    else:
+        raise AssertionError("notify() proceeded with an undetermined recipient set")
+
+
+# --- drop/: the sealed guardian view ---------------------------------------
+
+
+def test_drop_key_source_that_raises_lands_nothing_rather_than_plaintext():
+    """Fail-closed at the strongest place in the tree: a producer without key
+    material must land nothing. An empty payload here would be a plaintext one
+    (§4.3)."""
+    from presentation.ir import Row, cell, view
+    c = cell(serving.Serving(serving.Outcome.PAYLOAD, "First chair, trumpet",
+                             rungs.Rung.L2, "entitled for this guardian"),
+             label="placement")
+    v = view("Ben — guardian view",
+             [Row(heading="lane ben", cells=(c,), referent=BEN, lane_id=LANE)],
+             read_by="g-mother", at=AT)
+    prod = producer.produce(v, lane_key_source=unreachable(), at=AT)
+    assert prod.state is producer.Made.UNAVAILABLE
+    assert not prod.landed and prod.sealed is None
+    assert "could not be obtained" in prod.reason
+
+
+def test_drop_key_source_unavailable_primitive_also_lands_nothing():
+    """The other half of the same seam: the box cannot seal at all. Checked
+    before a view is even looked at, so the refusal cannot depend on the
+    payload."""
+    from presentation.ir import Row, cell, view
+    c = cell(serving.Serving(serving.Outcome.PAYLOAD, "First chair, trumpet",
+                             rungs.Rung.L2, "entitled"), label="placement")
+    v = view("Ben — guardian view",
+             [Row(heading="lane ben", cells=(c,), referent=BEN, lane_id=LANE)],
+             read_by="g-mother", at=AT)
+    prod = producer.produce(v, lane_key_source=unreachable(), at=AT,
+                            available=lambda: False)
+    assert prod.state is producer.Made.UNAVAILABLE and not prod.landed
+
+
+def test_drop_prepare_over_a_broken_restriction_source_never_reaches_seal_for():
+    """The producer cannot be handed a restricted recipient, and it cannot be
+    handed *any* recipient when the predicate could not be derived. `seal_for`
+    counts its own calls, so 'nothing was prepared' is asserted rather than
+    inferred from an empty tuple."""
+    reached = []
+
+    def seal_for(guardian_id):
+        reached.append(guardian_id)
+        return object()
+
+    prepared = preparing.prepare(BEN, [mother()], unreachable(), AT,
+                                 seal_for=seal_for)
+    assert prepared.state is sending.Standing.UNKNOWN
+    assert reached == [], f"seal_for ran under an unknown send list: {reached}"
+    assert prepared.drops == ()
+
+
+# --- craft/: the checker that printed the sentence voice.py refuses ---------
+
+
+UNREADABLE = "just some prose\nwith no headers\n"
+READABLE_PROSE = (
+    "# A heading\n\nA paragraph that the prose skin can actually read, so the "
+    "control below is a control.\n"
+)
+
+
+def test_craft_unread_lyric_says_so_rather_than_reporting_nothing_wrong():
+    report = craft_checks.run_all(UNREADABLE)
+    assert report.unread, (
+        "a lyric the parser could not read reported as read; the count printed "
+        "beneath it would be the false all-clear voice.py refuses by name"
+    )
+    assert report.findings == []
+
+
+def test_craft_unread_is_not_the_same_state_as_read_with_a_declined_check():
+    """The dangerous mirror, and the reason `unread` is a second field rather
+    than a test on `unavailable`: the song in this repository is permanently
+    `unavailable` for 34 words of unknown stress and is entirely readable. A
+    caller keying off `unavailable` alone would refuse every real draft."""
+    song = (ROOT / "lyrics" / "get-ready.txt").read_text(encoding="utf-8")
+    read = craft_checks.run_all(song)
+    assert read.unavailable and not read.unread
+    assert read.findings, "the control found nothing; this seam proves nothing"
+
+
+def test_craft_unread_document_says_so_in_the_prose_skin_too():
+    assert craft_prose.run_all("").unread
+    assert craft_prose.run_all("```\ncode only\n```").unread
+    assert not craft_prose.run_all(READABLE_PROSE).unread
+
+
+def test_craft_diff_against_an_unreadable_draft_is_refused_not_flattering():
+    song = (ROOT / "lyrics" / "get-ready.txt").read_text(encoding="utf-8")
+    findings, notes = craft_checks.run_diff(UNREADABLE, song)
+    assert findings == [] and any("could not be read" in n for n in notes)
+    findings, notes = craft_checks.run_diff(song, UNREADABLE)
+    assert findings == [] and any("could not be read" in n for n in notes)
+    joined = " ".join(notes)
+    assert "resolved" not in joined, (
+        "the refusal still reported wins: every finding cleared by a "
+        "comparison against a draft nobody read"
+    )
+
+
+def test_craft_diff_refusal_is_one_middle_and_both_skins_import_it():
+    """Rule 12 at this seam. One defect, two skins; the reconciler is named and
+    imported rather than copied."""
+    assert craft_prose.diff_declined is craft_checks.diff_declined
+    findings, notes = craft_prose.run_diff("", READABLE_PROSE)
+    assert findings == [] and any("could not be read" in n for n in notes)
+
+
+def test_craft_cli_prints_no_count_for_a_draft_it_never_read():
+    """The seam as a reader meets it. `findings (0)` under an `unavailable`
+    banner is the literal string `voice.py` refuses, printed by a tool shipped
+    in the same package."""
+    scratch = Path(tempfile.mkdtemp(prefix="terpsi-craft-seam-"))
+    unreadable = written(scratch, "unreadable.txt", UNREADABLE)
+    out = io.StringIO()
+    with redirect_stdout(out):
+        craft_cli.main([str(unreadable)])
+    printed = out.getvalue()
+    assert "findings (unavailable)" in printed
+    assert "findings (0)" not in printed, printed
+
+
+def test_craft_cli_still_prints_a_count_when_it_did_read_the_draft():
+    """A refusal that fires on everything is not a refusal (rule 19's other
+    half). The clean draft must still report a zero it earned."""
+    scratch = Path(tempfile.mkdtemp(prefix="terpsi-craft-seam-"))
+    clean = written(scratch, "clean.txt", READABLE_PROSE)
+    out = io.StringIO()
+    with redirect_stdout(out):
+        craft_cli.main([str(clean), "--prose"])
+    printed = out.getvalue()
+    assert "findings (unavailable)" not in printed, printed
+
+
+# --- the other half of the middle: does the inventory list every seam? ------
+#
+# `test_every_seam_in_the_inventory_has_a_test` walks `SEAMS` and asserts a test
+# exists for each row. It proves the tests are complete against the list. It
+# says nothing about the list, and the list is the thing this file's opening
+# paragraph makes a promise about:
+#
+#     *so that a seam added later without an unknown state is caught by a test
+#     nobody had to remember to write*
+#
+# A module that consults a fallible source and has no unknown state is exactly
+# the thing that promise is about, and until 2026-08-02 it was invisible unless
+# somebody remembered — which is the memory the sentence says is not needed. So
+# the walk below goes the other way: it reads the tree, and fails when something
+# the tree says is a seam is absent from `SEAMS`.
+
+
+#: What **"consults a fallible source"** means here, said mechanically so it can
+#: be decided rather than argued:
+#:
+#:     *a function takes the source as a parameter* — some parameter is either
+#:     annotated with `Callable` anywhere in its annotation, or is invoked as
+#:     `name(...)` somewhere in the function body.
+#:
+#: This is the shape this repository chose deliberately and repeatedly.
+#: `sending.recipients(restrictions=…)`, `serving.serve(edges=…)`,
+#: `producer.produce(lane_key_source=…)`, `fees.balance(charges, payments)` and
+#: `inference.through(call=…)` are all one decision: **the source is handed in,
+#: so the callee cannot know it is up, so the callee must have an answer for it
+#: being down.** `sending.recipients`' own docstring says so — *"returning an
+#: empty list on error is the failure this signature exists to make
+#: impossible"* — and a parameter is where that promise is made.
+#:
+#: **Why this mark and not the obvious one.** The tempting definition is *"the
+#: module has an UNKNOWN-shaped enum member or an `unavailable` field."* It was
+#: measured: it flags 27 modules, 18 of them absent from `SEAMS`. Worse, it is
+#: pointed the wrong way. It can only find modules that *already* have an
+#: unknown state, so by construction it can never find the one case the
+#: docstring promises to catch — the seam with no unknown state at all. A check
+#: that cannot fail in the direction it was built for is a ledger (rule 18).
+#: This mark is independent of whether an unknown state exists, so it can.
+#:
+#: **What it does not decide, said out loud:**
+#:
+#: * A source read from module scope rather than a parameter — a registry a
+#:   failed load would leave empty, like `consent.HOLDS`. Undecidable here: a
+#:   loaded registry and a constant are the same `frozenset` literal in this
+#:   tree, so the mark would flag every module with a constant in it.
+#: * A source the module opens itself — the filesystem, a subprocess. Measured
+#:   too: 22 modules, mostly `tools/`, and the resulting exemption list would be
+#:   longer than the inventory.
+#: * A subject the module parses rather than a source it calls. That is
+#:   `craft/`'s shape and `KNOWN_BLIND` names it.
+#:
+#: Those three are misses, not passes. They are published here for the reason
+#: `voice.KNOWN_MISSES` and `CANNOT_DISTINGUISH` are published: a coverage claim
+#: with an unstated boundary is worse than a smaller honest one.
+
+
+#: Where the walk looks. Named rather than globbed from the root, so a directory
+#: that disappears is a failure and not a smaller scan — a sweep that quietly
+#: read nothing is this file's subject matter (rule 13).
+SCANNED_ROOTS = ("console", "craft", "drop", "presentation", "records",
+                 "store", "surfaces", "tools", "venue")
+
+#: Single modules at the tree root. `tests/` is out because a test is not a
+#: seam, and `docs/` is out because `docs/survey/trigger_mutation_demo.py` is a
+#: worked example of a mutation, not shipped code.
+SCANNED_FILES = ("voice.py", "personas.py")
+
+
+#: Modules the mark flags that are deliberately **not** in `SEAMS`, each with
+#: the exact parameters exempted. The parameters are listed rather than the
+#: module, so the exemption cannot silently widen: a new injected source in an
+#: exempt module is not covered by the row that exempts the old one, and the
+#: check fails until somebody decides about it.
+EXEMPT = (
+    ("store/narration.py", ("serve_field(decide)",),
+     "the injected source is the caller's read predicate and it is reached only "
+     "inside an open transaction, so breaking it needs a live cluster. This "
+     "sweep imports `store/reading.py` by directory precisely to avoid pulling "
+     "a driver in, and a suite that needs a cluster turns the no-database CI "
+     "job red. Cluster-bound guards live in `tests/ablate_store.py`; this seam "
+     "is broken in `tests/test_store_narration.py`, which is a per-module suite "
+     "and therefore exactly the half-measure this file exists to supersede — so "
+     "this row is a debt, not an acquittal",
+     "tests/test_store_narration.py"),
+)
+
+
+#: Shapes the mark is known to miss, with a module that has the shape. Each is
+#: asserted below to be **still** missed, so the list cannot rot into a claim
+#: about a mark that was since widened — the pattern `CANNOT_DISTINGUISH` uses,
+#: for the same reason.
+KNOWN_BLIND = (
+    ("craft/checks.py",
+     "the fallible source is the module's own parser over caller-supplied text. "
+     "Nothing is injected, so nothing is flagged. `craft/` is in `SEAMS` because "
+     "a person put it there on 2026-08-02, after it shipped the exact rule-13 "
+     "defect this sweep exists to prevent — which is the residual this check "
+     "reduces and does not remove"),
+    ("records/consent.py",
+     "the fallible source is `HOLDS`/`EXERCISES` at module scope, which a failed "
+     "load leaves empty. Indistinguishable from a constant in this tree"),
+)
+
+
+class MarkUndecidable(Exception):
+    """The walk could not read a file, so it cannot say whether it is a seam.
+
+    Raised rather than swallowed. A scan that skipped what it could not parse
+    would report a clean tree for a tree it did not read, which is the sentence
+    this whole file is about.
+    """
+
+
+def injected_sources(source: str) -> tuple[str, ...]:
+    """Parameters this module takes that are a source the caller supplies.
+
+    Returns `("fn(param)", …)`, empty when there are none. Raises
+    :class:`MarkUndecidable` when the module will not parse: *unreadable* and
+    *no sources* are not the same answer and must not be returned alike.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError as exc:
+        raise MarkUndecidable(f"will not parse: {exc}") from exc
+
+    found = []
+    for fn in ast.walk(tree):
+        if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        args = fn.args
+        params = args.posonlyargs + args.args + args.kwonlyargs
+        called = {n.func.id for n in ast.walk(fn)
+                  if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+        for p in params:
+            annotation = ast.unparse(p.annotation) if p.annotation else ""
+            if "Callable" in annotation or p.arg in called:
+                found.append(f"{fn.name}({p.arg})")
+    return tuple(sorted(set(found)))
+
+
+def flagged(files) -> tuple[tuple[str, tuple[str, ...]], ...]:
+    """`(module, sources)` for every file in `files` the mark reaches.
+
+    `files` is a sequence of `(name, source_text)` rather than a directory, so
+    the check can be pointed at a tree that is not this one — which is how the
+    two failure demonstrations below plant a module without writing into the
+    repository.
+    """
+    out = []
+    for name, source in files:
+        got = injected_sources(source)
+        if got:
+            out.append((name, got))
+    return tuple(out)
+
+
+def unlisted(files, inventory=None, exempt=EXEMPT):
+    """Modules the mark flags that neither `SEAMS` nor `EXEMPT` accounts for.
+
+    The gate. Returns `((module, sources, why), …)`; empty means every seam the
+    tree names is inventoried, which is a claim about the list rather than about
+    the tests.
+    """
+    inventory = SEAMS if inventory is None else inventory
+    listed = {m.strip() for _, modules, *_ in inventory for m in modules.split(",")}
+    excused = {module: set(params) for module, params, *_ in exempt}
+
+    missing = []
+    for module, sources in flagged(files):
+        if module in listed:
+            continue
+        uncovered = set(sources) - excused.get(module, set())
+        if not uncovered:
+            continue
+        why = ("not in SEAMS and not exempt"
+               if module not in excused
+               else "exempt for other sources, but these are new: "
+                    + ", ".join(sorted(uncovered)))
+        missing.append((module, tuple(sorted(uncovered)), why))
+    return tuple(missing)
+
+
+def tree_sources():
+    """Every shipped module, as `(path, text)`. Loud when a root has moved."""
+    files = []
+    for root in SCANNED_ROOTS:
+        directory = ROOT / root
+        assert directory.is_dir(), (
+            f"{root}/ is not there. The sweep would have scanned a smaller tree "
+            f"and reported it clean, which is rule 13 at the sweep's own seam"
+        )
+        for path in sorted(directory.rglob("*.py")):
+            files.append((path.relative_to(ROOT).as_posix(),
+                          path.read_text(encoding="utf-8")))
+    for name in SCANNED_FILES:
+        path = ROOT / name
+        assert path.is_file(), f"{name} is not there; the scan is short"
+        files.append((name, path.read_text(encoding="utf-8")))
+    return tuple(files)
+
+
+def test_the_inventory_lists_every_injected_source_in_the_tree():
+    """**The half that was missing.** The tree is the authority on what is a
+    seam; `SEAMS` is a claim about the tree, and this is where the claim is
+    checked.
+
+    On the first run this failed with eight modules the mark flagged and the
+    inventory did not name: `drop/preparing.py`, `drop/producer.py`,
+    `records/assistance.py`, `records/attendance.py`, `records/commentary.py`,
+    `records/fees.py`, `records/inference.py` and `store/narration.py`. Seven
+    became rows above with tests that break them; the eighth is in `EXEMPT`
+    with a reason and a debt, because breaking it needs a cluster.
+    """
+    missing = unlisted(tree_sources())
+    assert not missing, (
+        "the tree names seams the inventory does not:\n"
+        + "\n".join(f"  {module}: {', '.join(sources)} — {why}"
+                    for module, sources, why in missing)
+        + "\n\nAdd a row to SEAMS with a test that breaks it, or a row to "
+          "EXEMPT with a reason a reviewer can check."
+    )
+
+
+def test_the_completeness_check_catches_a_planted_seam():
+    """Rule 19 on the check itself. A guard that cannot be shown to fail has
+    not been shown to work, and this one currently finds nothing — so without
+    this test it would be indistinguishable from a walk that reads no files.
+
+    The plant is the dangerous shape by construction: a module that takes an
+    injected source and has **no** unknown state anywhere in it, which is what
+    the mark exists to reach and what the enum-shaped mark could not.
+    """
+    planted = ("records/rehearsals.py", (
+        "def slots(subject_id, roster_source):\n"
+        "    return tuple(roster_source())\n"
+    ))
+    assert injected_sources(planted[1]) == ("slots(roster_source)",)
+    missing = unlisted([planted])
+    assert len(missing) == 1 and missing[0][0] == "records/rehearsals.py", missing
+
+
+def test_the_completeness_check_catches_a_seam_removed_from_the_inventory():
+    """The other direction, and the likelier accident: the module is real and
+    the row is deleted. `records/sending.py` is the file this whole sweep opens
+    with; with its row gone the tree still says it is a seam."""
+    without = tuple(row for row in SEAMS if row[1] != "records/sending.py")
+    assert len(without) == len(SEAMS) - 2, "SEAMS no longer has the two sending rows"
+    source = (ROOT / "records" / "sending.py").read_text(encoding="utf-8")
+    missing = unlisted([("records/sending.py", source)], inventory=without)
+    assert len(missing) == 1
+    assert "recipients(restrictions)" in missing[0][1]
+
+
+def test_the_completeness_check_says_unknown_rather_than_clean_for_a_file_it_cannot_read():
+    """Rule 13 at the checker's own seam. A scan that skipped unparseable files
+    would report a clean tree for a tree it did not read — and would report it
+    with the same value it uses for a tree with no seams in it."""
+    try:
+        injected_sources("def broken(:\n")
+    except MarkUndecidable as exc:
+        assert "will not parse" in str(exc)
+    else:
+        raise AssertionError(
+            "an unparseable module was scanned to a clean answer; the walk "
+            "returned 'no sources' for a file it never read"
+        )
+
+
+def test_the_completeness_check_is_not_broken_shut():
+    """A gate that flags nothing has nothing to say, and a gate that flags
+    everything gets routed around. The control: the mark reaches the tree, and
+    the modules it reaches are the ones whose signatures take a source."""
+    reached = flagged(tree_sources())
+    assert reached, (
+        "the mark flagged no module in the whole tree; the walk read nothing "
+        "and the empty result would have passed as a complete inventory"
+    )
+    reached_names = {module for module, _ in reached}
+    for expected in ("records/sending.py", "records/serving.py",
+                     "records/inference.py", "drop/producer.py"):
+        assert expected in reached_names, f"{expected} is a seam and was not flagged"
+    assert len(reached) < len(tree_sources()) // 2, (
+        "the mark flagged most of the tree; a mark that fires on everything "
+        "carries no information and the exemption list becomes the real check"
+    )
+
+
+def test_the_exemptions_are_still_true():
+    """A stale honesty list is worse than none. Each exemption names a suite,
+    and the suite has to be there; each names the exact parameters excused, and
+    those have to be the ones the tree still shows."""
+    for module, params, why, suite in EXEMPT:
+        assert why.strip(), f"{module} is exempt for no stated reason"
+        assert (ROOT / suite).is_file(), (
+            f"{module} is exempt because {suite} covers it, and {suite} is gone"
+        )
+        source = (ROOT / module).read_text(encoding="utf-8")
+        assert injected_sources(source) == tuple(sorted(params)), (
+            f"{module}'s injected sources have changed since it was exempted: "
+            f"{injected_sources(source)} against the excused {tuple(sorted(params))}. "
+            f"Decide about the new one rather than inheriting the old excuse."
+        )
+
+
+def test_the_known_blind_spots_are_still_blind():
+    """Each row names a module whose shape the mark cannot see. If one of them
+    starts being flagged, the mark grew and this list is the thing that is now
+    wrong — which is the fix landing, not a regression."""
+    for module, why in KNOWN_BLIND:
+        assert why.strip(), f"{module} is listed blind with no reason"
+        source = (ROOT / module).read_text(encoding="utf-8")
+        assert injected_sources(source) == (), (
+            f"{module} is flagged by the mark now, so it is no longer a blind "
+            f"spot. Delete the row rather than leaving a published miss that "
+            f"stopped being one."
+        )
 
 
 # --- the list and the tests are a pair, so this is the middle (rule 12) ----

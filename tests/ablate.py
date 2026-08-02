@@ -1879,6 +1879,38 @@ MUTATIONS = [
     ("craft/prose.py", "    declined = diff_declined(before_report, after_report)",
      "    declined = []",
      "rule 13: a one-sided document diff is refused", "tests/test_prose.py"),
+
+    # The rule-13 sweep's *other* half, added 2026-08-02. The middle that was
+    # there walked SEAMS and asserted a test for each row; nothing walked the
+    # tree and asserted a row for each seam, so the list was the authority on
+    # its own completeness. These five aim at the walk rather than at what it
+    # walks — the guard is in a test file because the inventory is, and
+    # `tests/ablate.py` already carries rows against itself for the same reason.
+    ("tests/test_rule13_acceptance.py",
+     "        missing.append((module, tuple(sorted(uncovered)), why))",
+     "        pass",
+     "rule 13 sweep: an uninventoried seam is reported",
+     "tests/test_rule13_acceptance.py"),
+    ("tests/test_rule13_acceptance.py",
+     "        raise MarkUndecidable(f\"will not parse: {exc}\") from exc",
+     "        return ()",
+     "rule 13 sweep: a module the walk cannot read is unknown, not clean",
+     "tests/test_rule13_acceptance.py"),
+    ("tests/test_rule13_acceptance.py",
+     '    ("store/narration.py", ("serve_field(decide)",),',
+     '    ("store/narration.py", ("serve_field(decide)", "serve_field(ghost)"),',
+     "rule 13 sweep: an exemption cannot excuse a source the tree lacks",
+     "tests/test_rule13_acceptance.py"),
+    ("tests/test_rule13_acceptance.py",
+     'KNOWN_BLIND = (\n    ("craft/checks.py",',
+     'KNOWN_BLIND = (\n    ("records/sending.py",',
+     "rule 13 sweep: a published miss that stopped being one goes red",
+     "tests/test_rule13_acceptance.py"),
+    ("tests/test_rule13_acceptance.py",
+     'SCANNED_ROOTS = ("console", "craft", "drop", "presentation", "records",',
+     'SCANNED_ROOTS = ("console", "craft", "drop", "presentation",',
+     "rule 13 sweep: a scan that shrank is not a clean tree",
+     "tests/test_rule13_acceptance.py"),
 ]
 
 
