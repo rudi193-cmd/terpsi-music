@@ -59,12 +59,50 @@ META_SCHEMA = "store_meta"
 
 @dataclass(frozen=True)
 class RoleState:
-    """What the cluster looks like after `ensure_roles`. Reported, not assumed."""
+    """What the cluster looks like after `ensure_roles`. Reported, not assumed.
+
+    `created` earns that second sentence: it is `after - before`, both halves
+    read from `pg_roles` around the DDL, so it reports what this call changed
+    rather than what this call intended.
+
+    **Retired 2026-08-02: `app_privileges`.** Superseded by `held_by_app` below,
+    which is now the only answer this module gives to *what may the app role
+    do*.
+
+    It was a fourth field filled with the module constant `APP_HOLDS`, and it
+    was not merely assumed — it was false at the point it was built.
+    `store/migrate.py`'s `run()` orders `ensure_roles` → `apply_all` →
+    `apply_grants`, so at the moment the field was constructed there was no
+    table to hold a privilege on and no grant had been issued: the app role held
+    nothing and the field said `("SELECT", "INSERT")`. The sentence *reported,
+    not assumed* sat one line above it.
+
+    **Its contents map forward to `held_by_app(conn, table)`, and the mapping is
+    not an equivalence.** The retired field answered *what we mean to grant*,
+    blind to cluster and to table; `held_by_app` answers *what this cluster has
+    granted on this table*. A caller that genuinely wants the intention wants
+    `APP_HOLDS` and should name it — `tests/test_store_roles.py` reads both and
+    compares them, which is exactly the comparison a field that answered with
+    one while claiming to be the other made impossible.
+
+    **No stub is left, and that is the point rather than an oversight.** Nothing
+    in the tree read the field, so there is nothing to forward, and a deprecated
+    attribute would only be a second spelling for `held_by_app` to drift from
+    (rule 12). Removing the field removes the *ability* to report a privilege
+    nobody read — `docs/CROSSINGS.md` crossing one's prescription, make the
+    violation inexpressible rather than forbid it — and that survives a careless
+    edit in a way a comment above the field does not.
+
+    **What this does not carry.** No privilege list, no grant, and no claim
+    about any table. There is no honest privilege answer at the moment this
+    value is built, and rule 13 says an absence surfaces as `unknown` rather
+    than as a result; the honest shape is to decline the question here and make
+    the caller ask the cluster.
+    """
 
     owner: str
     app: str
     created: Tuple[str, ...]      # roles that did not exist before this call
-    app_privileges: Tuple[str, ...]
 
 
 def _create_role(role: str, *, login: bool) -> str:
@@ -153,6 +191,12 @@ def ensure_roles(conn, *, app_password: Optional[str] = None) -> RoleState:
     The connection must be one that may create roles — the bootstrap identity,
     used once at install and by the runner. It is deliberately **not**
     `owner_dsn()`'s role: the migrator owns tables, not roles.
+
+    **It reports no privilege, deliberately.** This runs before `apply_all` and
+    before `apply_grants` (see `store/migrate.py`'s `run()`), so there is not
+    yet a table to hold a privilege on; anything said here about what the app
+    role may do would be a statement about a later step. `held_by_app` is the
+    question's home, and it asks the cluster.
     """
     before = _existing(conn)
     with conn.cursor() as cur:
@@ -160,8 +204,7 @@ def ensure_roles(conn, *, app_password: Optional[str] = None) -> RoleState:
             cur.execute(sql)
     conn.commit()
     after = _existing(conn)
-    return RoleState(OWNER_ROLE, APP_ROLE,
-                     tuple(sorted(after - before)), APP_HOLDS)
+    return RoleState(OWNER_ROLE, APP_ROLE, tuple(sorted(after - before)))
 
 
 def apply_grants(conn) -> Tuple[str, ...]:

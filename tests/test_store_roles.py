@@ -26,6 +26,7 @@ exit — never a skip.
 
 from __future__ import annotations
 
+import dataclasses
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -40,6 +41,7 @@ from cluster import (ClusterUnknown, Custody, Database,  # noqa: E402
 
 from records.atrest import seal_bytes  # noqa: E402
 
+from store.connecting import APP_ROLE, OWNER_ROLE  # noqa: E402
 from store.roles import APP_HOLDS, APP_LACKS, META_SCHEMA, held_by_app  # noqa: E402
 from store.session import acting  # noqa: E402
 
@@ -126,6 +128,56 @@ def test_two_roles_exist_and_the_app_holds_exactly_two_privileges():
                     "store/roles.py revokes it")
         finally:
             app.close()
+            owner.close()
+
+
+def test_the_role_state_claims_no_privilege_it_did_not_read():
+    """`RoleState` says *reported, not assumed*. This is the assertion behind it.
+
+    Taken at the one moment that can tell the two apart: **after `ensure_roles`
+    and before `apply_all` and `apply_grants`.** `store/migrate.py`'s `run()`
+    puts them in that order, so at this point there is no table to hold a
+    privilege on and no grant has been issued — the app role holds nothing, and
+    the cluster is asked here to say so rather than being taken on trust.
+
+    Any privilege name appearing anywhere in the returned value at this moment
+    is therefore an assumption by construction: it cannot have been read,
+    because there is nothing yet to read it from. The retired `app_privileges`
+    field was exactly that and said `("SELECT", "INSERT")`.
+
+    Asserted over the field **values**, not the field names, so this does not
+    reduce to *the old field is gone*: a field re-added under any name and
+    filled honestly from the cluster would pass, and one filled from
+    `APP_HOLDS` would not. What is enforced is the docstring's claim, not the
+    shape of the dataclass.
+
+    The premise is asserted rather than assumed, and it is **not** `created`:
+    roles are cluster-wide while `Database` is one throwaway *database*, so a
+    second run on the same cluster finds both roles already there and `created`
+    is legitimately `()`. What establishes the moment is the cluster reporting
+    no privilege held — the schema has not been applied in this database, so
+    there is no `lane_entry` for a grant to be on.
+    """
+    from store.roles import _existing, ensure_roles
+
+    with Database() as db:
+        owner = db.connect()
+        try:
+            state = ensure_roles(owner)
+            assert _existing(owner) == frozenset({OWNER_ROLE, APP_ROLE}), (
+                "ensure_roles did not leave both roles behind; there is no "
+                "role state to make a claim about and this proves nothing")
+            assert held_by_app(owner, "lane_entry") == (), (
+                "the app role already holds something on lane_entry; the grants "
+                "have run and this test can no longer tell reported from assumed")
+            for fld in dataclasses.fields(state):
+                shown = repr(getattr(state, fld.name))
+                for privilege in tuple(APP_HOLDS) + tuple(APP_LACKS):
+                    assert privilege not in shown, (
+                        f"RoleState.{fld.name} claims {privilege} before any "
+                        f"grant has run: {shown}. The cluster says the app role "
+                        "holds nothing here; ask held_by_app, do not assert")
+        finally:
             owner.close()
 
 

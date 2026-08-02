@@ -65,6 +65,11 @@ INFLIGHT = ROOT / ".ablate-store-inflight.json"
 
 DIFFERENTIAL = "tests/test_store_differential.py"
 ROWSECURITY = "tests/test_store_rowsecurity.py"
+#: G-D's own suite. Here rather than in `tests/ablate.py` for that table's
+#: stated reason — it needs a cluster, and `tests/ablate.py` derives its control
+#: list from its mutations, so a row pointing here would turn the whole
+#: no-database guards job red rather than ablate anything.
+ROLES = "tests/test_store_roles.py"
 
 #: (file, pattern, replacement, label, suite that must catch it, expected)
 #:
@@ -170,6 +175,25 @@ MUTATIONS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
      "        if not env.live_at(at):",
      "        if False:",
      "permits() stops checking the expiry", DIFFERENTIAL, "caught"),
+
+    # --- G-D: what the role state reports, against what it read --------------
+    #
+    # The retired `app_privileges`, restored at the one site that brings it
+    # back. A field with this default is not a caricature of the defect, it is
+    # the defect: the value was `APP_HOLDS` and it was constructed by
+    # `ensure_roles`, which `store/migrate.py`'s `run()` calls *before*
+    # `apply_all` and `apply_grants` — so the app role held neither privilege at
+    # the moment the field claimed both.
+    #
+    # It has to be ablated against a cluster because that is what makes the row
+    # a lie rather than merely an assumption: the assertion is that the cluster
+    # reports nothing held while the value reports two, and only a cluster can
+    # be asked the first half.
+    ("store/roles.py",
+     "    created: Tuple[str, ...]      # roles that did not exist before this call",
+     "    created: Tuple[str, ...]      # roles that did not exist before this call\n"
+     '    app_privileges: Tuple[str, ...] = ("SELECT", "INSERT")',
+     "the role state asserts a privilege nobody read", ROLES, "caught"),
 )
 
 
@@ -249,7 +273,7 @@ def main() -> int:
         print(f"  recovered {recovered} — a previous run was killed mid-mutation")
 
     print("  control".ljust(56), end="", flush=True)
-    healthy = all(run(s)[0] for s in (DIFFERENTIAL, ROWSECURITY))
+    healthy = all(run(s)[0] for s in (DIFFERENTIAL, ROWSECURITY, ROLES))
     print("green" if healthy else "RED — every result below is meaningless")
     if not healthy:
         return 1
