@@ -225,6 +225,52 @@ The replacement asserts against the predicate in both directions: a subject with
 no edge is refused, and a subject with one is served *and names the edge*. It can
 fail, which is the only property that was ever wanted.
 
+### Addendum, 2026-08-02 — four more specimens, and one the running code refuted
+
+Crossing six's sentence kept producing specimens. Four more were found and
+fixed this session, each the same way: take the guard, point it at the exact
+mutation its own name or docstring claims to catch, and watch it stay green.
+
+- **`tests/test_sensitivity_ladder.py`** — the §6 class list was a hand-typed
+  tuple, so the completeness check compared `SENSITIVITY.md` against a *copy* of
+  §6 rather than against §6 itself. A ninth class added to §6 and never mapped
+  passed a green suite — the `KeyError`-in-a-migration the file's docstring
+  names. Now read from the tree, and checked both directions.
+- **`tools/conform.py`** — `check_declared_sockets` and `check_component_map`
+  took no argument, so unlike their four siblings (`check_no_egress`,
+  `check_write_paths`, `check_revocation_is_dated`, `check_suite_runs_standalone`,
+  each of which takes `where` precisely so a test can point it at a decoy) their
+  FAIL branches could only ever be reached by the real tree — which has no
+  listeners and a component-map that exits zero. Their refusal paths had never
+  run. A FAIL branch that has only ever been skipped is a deleted one nobody can
+  tell from a live one.
+- **`tests/test_craft.py`** — a closing-stop guard asserted `len(tails) <= 1`.
+  Zero satisfied it, so deleting the rule left it green; `== 1` now tells *fired
+  once* from *did not fire*.
+- **`personas.py` / `tests/test_voice.py`** — the far-side "can-fail" decoy
+  re-implemented the check inline and so proved a hand-copy could fail, not the
+  check. One named middle now (`far_side_problems`), called by both the guard
+  and the decoy, so the pair cannot disagree with itself (rule 12).
+
+All four are one shape, and it is crossing six's: *a guard that has only ever
+succeeded is indistinguishable from one that cannot fail.* And as the addendum
+above warned, `tests/ablate.py` could not have caught any of them — it mutates
+the predicates in `records/` and `tools/`, and these are defects in assertions,
+bounds, wiring and mirrors, not in predicates. The blind spot named there is
+exactly where all four lived.
+
+**The one that was not real, recorded because the method killed it.** A fifth
+candidate read cleanly and was nearly written up: *the ablation sweep never runs
+in CI.* `.github/workflows/tests.yml` does not glob `tests/ablate.py`, which is
+true and looks damning. But `tools/conform.py`'s `check_ablation` shells out to
+the whole sweep, and `tests/test_conform.py`'s
+`test_the_real_ablation_check_is_wired_and_passes` drives it, so every
+`for f in tests/test_*.py` run executes it. The claim was a reading of the
+workflow file that the code had already moved past — crossing five and rule 17
+arriving on the person checking, and killed by *running* `test_conform.py`
+rather than by reading it. A near-miss the discipline caught is as much the
+point of this file as the four it fixed.
+
 ---
 
 ## Provenance of this file
