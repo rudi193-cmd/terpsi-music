@@ -24,7 +24,7 @@ leaves is only what a key opened. A reader afterwards learns *this was purged,
 by whom, when, and why*, which is the difference between an erasure and a loss —
 the §5 test `atrest.py` is built around.
 
-**Three refusals are structural, and each has a test that attempts the act.**
+**Four refusals are structural, and each has a test that attempts the act.**
 
 1. **A record inside its retention is not due, and forcing it raises** — you
    cannot purge early. `due()` returns only records a boundary has carried past
@@ -39,6 +39,30 @@ the §5 test `atrest.py` is built around.
    raises rather than being swept; a record kind with no policy raises rather
    than defaulting to *keep forever* or *purge now*. A missing calendar or a
    missing policy fails closed — nothing is due when the rule cannot be read.
+4. **A record-scoped decision never drives a student-scoped erasure** (rule 8:
+   one lane is one student). `purge()` will not erase a lane it has not been
+   shown to hold *nothing but* due records: the caller hands it the lane's full
+   record set, every entry must assess `DUE`, and a lane the caller cannot
+   enumerate is `UNKNOWN` — refused, never assumed empty (rule 13).
+
+**Why refusal 4 exists, stated plainly: the two layers are not scoped alike.**
+`assess()`/`due()`/`dispose()` decide about *one record* — a season, a kind, a
+horizon. `atrest.destroy` acts on *one lane*, dropping every wrapping under it
+in every generation; it filters on `lane_id` alone, so key rotation does not
+narrow it. `purge()` used to join the two directly, which made a `Disposition`
+scoped to one aged-out attendance record destroy the key opening that student's
+every sealed payload, in every season, of every kind — including ones `assess()`
+had just called `LIVE`. **Refusal 3 was never violated by this**: nothing was
+deleted, the rows stayed, the `Erasure` outlived what it erased. That is exactly
+why nothing caught it — the isolation test compared one lane against another,
+and the forbidden act was *within* a lane.
+
+**This is the conservative half of the fix and the deeper half is open.** The
+repair here gives `purge()` the fact it was missing and refuses without it. The
+repair it does not attempt is sealing per `(lane, season)`, so a season's
+erasure has a key of its own and `destroy` takes a season — a change to the key
+hierarchy, the migrations and the sealing plan, carried as §18 item 19 rather
+than taken quietly here.
 
 **No retention period is invented here.** Like §9 item 10's refusal to ship a
 default `k`, this module carries the *mechanism* and takes the *durations* from
@@ -47,8 +71,11 @@ kind is kept past that. What the law requires is a decision the maintainer
 makes; encoding a guess as a constant would be the fiction rule 17 forbids.
 
 The named middle (rule 12): `records/atrest.py` owns erasure and this owns the
-schedule; `purge()` is the only place they meet, and `test_retention.py` asserts
-`purge()` calls `destroy()` for exactly the lanes `due()` named and no others.
+schedule; `purge()` is the only place they meet, and it is where the difference
+in scope between them is reconciled rather than assumed away.
+`test_retention.py` asserts both halves — that `purge()` calls `destroy()` for
+exactly the lanes `due()` named and no others, and that a lane holding one
+not-due record is refused whole rather than erased around.
 
 Stdlib only. No network, no writes, no deletes.
 """
@@ -85,6 +112,33 @@ class NotDue(Exception):
 class Indelible(Exception):
     """The record of a purge cannot itself be purged (rule 16 / I-7). A role's
     authority to erase does not reach the dated record of its having erased."""
+
+
+class LaneNotDue(Exception):
+    """A lane still holding a record that is not `DUE` is not erased, whatever
+    the disposition in hand says about one record inside it (rule 8: a lane is
+    one student).
+
+    `atrest.destroy` is lane-scoped and a `Disposition` is record-scoped, so the
+    record a boundary correctly carried past its horizon and the one correctly
+    still `LIVE` are sealed under the same key. This is the refusal that stops
+    the narrower decision from authorising the wider act. It is not a permission
+    somebody may hold: `purge()` has no parameter that overrides it, because
+    removing the *ability* survives a careless edit and removing the
+    *permission* does not (`docs/CROSSINGS.md`, crossing one)."""
+
+
+class UnknownLane(Exception):
+    """A purge was asked for a lane whose records the caller did not enumerate,
+    or enumerated as holding nothing (rule 13).
+
+    An unenumerable lane is *unknown*, not empty, and unknown fails closed: a
+    caller who cannot say what a lane holds must not be answered as though it
+    holds nothing, when the act being authorised covers everything in it. The
+    empty enumeration is refused for the same reason rather than as a
+    formality — a missing key and an empty sequence are the two cheapest ways
+    past `LaneNotDue`, and a lane a `Disposition` was just written against holds
+    at least the record that disposition names."""
 
 
 @runtime_checkable
@@ -272,7 +326,60 @@ def dispose(record: Retainable, kind: str, *, lane_id: str, calendar: Calendar,
                        at=now, by=by, reason=reason, key_ids=tuple(key_ids))
 
 
-def purge(keyring, dispositions: Sequence[Disposition]):
+def _holdings(lane_id: str,
+              lane_records: Mapping[str, Sequence[Tuple[Retainable, str]]],
+              ) -> Tuple[Tuple[Retainable, str], ...]:
+    """What the caller says the lane holds — never `None`, never `()`.
+
+    Two refusals, not one, because the two absences are different mistakes and
+    both fail closed to the same place (`UnknownLane`, rule 13): a lane absent
+    from the mapping is one the caller did not enumerate, and a lane present
+    with nothing in it is one the caller enumerated wrongly, since a lane a
+    `Disposition` was just written against holds at least that record."""
+    held = lane_records.get(lane_id)
+    if held is None:
+        raise UnknownLane(
+            f"lane {lane_id!r} was not enumerated for this purge; a lane whose "
+            "records cannot be listed is unknown, not empty, and the erasure "
+            "being authorised covers every record in it (rule 13)")
+    held = tuple(held)
+    if not held:
+        raise UnknownLane(
+            f"lane {lane_id!r} was enumerated as holding nothing, and a lane a "
+            "disposition names holds at least that record; an empty listing is "
+            "a caller that cannot see the lane, not a lane with nothing in it")
+    return held
+
+
+def _refuse_unless_wholly_due(dispositions: Sequence[Disposition], *,
+                              lane_records: Mapping[str, Sequence[Tuple[Retainable, str]]],
+                              calendar: Calendar, policy: Policy,
+                              now: datetime) -> None:
+    """Every lane a disposition names must hold nothing but due records.
+
+    Raises `UnknownLane` for a lane the caller could not enumerate and
+    `LaneNotDue` for one still holding a record that is `LIVE`, `RETAINED` or
+    `UNKNOWN`. Anything `assess()` refuses outright — a seasonless record, a
+    kind with no horizon, an earlier purge's `Disposition` handed back in —
+    raises from there, in the same direction: a lane that cannot be assessed
+    whole is not erased. It answers no question and returns nothing; the only
+    thing it does is refuse."""
+    for lane_id in dict.fromkeys(d.lane_id for d in dispositions):
+        for record, kind in _holdings(lane_id, lane_records):
+            assessed = assess(record, kind, calendar, policy, now)
+            if assessed.standing is not Standing.DUE:
+                raise LaneNotDue(
+                    f"lane {lane_id!r} holds a {kind!r} record from season "
+                    f"{assessed.season!r} that is {assessed.standing.value}; "
+                    "destroying the lane's key would take that record too, and "
+                    "one record's disposition does not reach a whole student "
+                    "(rule 8). Purge the lane when all of it is due, or seal "
+                    "the season apart (§18 item 19)")
+
+
+def purge(keyring, dispositions: Sequence[Disposition], *,
+          lane_records: Mapping[str, Sequence[Tuple[Retainable, str]]],
+          calendar: Calendar, policy: Policy, now: datetime):
     """Drive `atrest.destroy` for each disposition and return the new keyring
     with the same dispositions (the tombstones that survive).
 
@@ -281,14 +388,34 @@ def purge(keyring, dispositions: Sequence[Disposition]):
     drops key wrappings and leaves an `Erasure` — and it re-drives nothing it was
     not handed a `Disposition` for, so `due()` remains the sole authority on
     *what* is purged. Import is local so this module carries no hard dependency
-    on the one that needs `cryptography`."""
+    on the one that needs `cryptography`.
+
+    **`lane_records` is required, keyword-only, and has no default, and that is
+    the fix rather than a signature preference.** The erasure this drives is
+    lane-scoped while every decision above it is record-scoped, so a `purge()`
+    that took only dispositions could not tell whether the lane it was about to
+    make unreadable held anything else — and it always did, because a lane is a
+    student and a student has more than one record. The missing fact is now an
+    argument the caller cannot omit: a caller that cannot enumerate the lane
+    gets `UnknownLane`, and one whose lane holds a record that is not `DUE` gets
+    `LaneNotDue`. Neither is overridable here (`docs/CROSSINGS.md`, crossing
+    one). `lane_records` maps a lane id to the `(record, kind)` pairs that lane
+    holds — the same shape `due()` takes, per lane.
+
+    The refusals run over every disposition before any key is destroyed. The
+    keyring is immutable, so a raise partway could not have handed back a
+    half-purged one either; the separate pass is so that the order of the
+    dispositions is not part of what the refusal means."""
     from . import atrest
-    live = keyring
     for d in dispositions:
         if not isinstance(d, Disposition):
             raise TypeError(
                 "purge() drives only dated dispositions; a bare lane id would "
                 "erase without a record of why (rule 15)")
+    _refuse_unless_wholly_due(dispositions, lane_records=lane_records,
+                              calendar=calendar, policy=policy, now=now)
+    live = keyring
+    for d in dispositions:
         live = atrest.destroy(live, lane_id=d.lane_id, at=d.at, by=d.by,
                               reason=d.reason)
     return live

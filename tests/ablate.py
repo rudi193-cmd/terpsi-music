@@ -1831,6 +1831,31 @@ MUTATIONS = [
     ("records/retention.py", "    if dt.tzinfo is None:", "    if False:",
      "a naive now/invalid_at is refused, not compared (clean, not a crash)",
      "tests/test_retention.py"),
+    # The three above the line are all record-scoped, and every one of them held
+    # while `purge()` erased a whole student: `atrest.destroy` drops every
+    # wrapping for a lane, so a `Disposition` about one aged-out attendance
+    # record took the key opening that student's live medical note with it. The
+    # rows below point at the lane-scoped guard that closes it. Two of the three
+    # are about *absence* rather than about a not-due record, because a missing
+    # or empty enumeration is the way past the third that costs a caller nothing
+    # to write (rule 13).
+    ("records/retention.py", "if assessed.standing is not Standing.DUE:",
+     "if False:",
+     "a lane is erased only when every record in it is due (rule 8)",
+     "tests/test_retention.py"),
+    ("records/retention.py", "if held is None:", "if False:",
+     "an unenumerated lane is unknown, not empty (rule 13)",
+     "tests/test_retention.py"),
+    ("records/retention.py", "if not held:", "if False:",
+     "a lane listed as holding nothing is not a lane with nothing in it",
+     "tests/test_retention.py"),
+    # Rule 12's middle for §18 item 19 <-> records/retention.py, and the
+    # mutation lives on the **document** for the reason item 6 records: the
+    # first attempt at the VERIFIED-COUNT row mutated the test and asked the
+    # same test to notice, which the harness correctly reported as SURVIVES.
+    ("docs/ARCHITECTURE.md", "`LaneNotDue`", "`LaneNotYetDue`",
+     "§18 item 19 names the refusals records/retention.py raises",
+     "tests/test_retention.py"),
 ]
 
 
