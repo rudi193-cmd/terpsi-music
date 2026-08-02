@@ -25,8 +25,19 @@ mcp_apps/
 _net_leases/
 *.grant
 *.lease
+# tests/ablate.py's lock and recovery sidecar.
 .ablate-lock
 .ablate-inflight.json
+# tests/ablate_store.py's, which are separate files under separate names. The
+# two lines above were written for the one harness that existed at the time and
+# the store registry arrived later with its own; until this line the store
+# sidecar showed up as an *untracked* file mid-run, so `git add -A` swept it in.
+# It carries a full copy of the unmutated target as a JSON string — a 30 KB
+# `migrations/003_row_security.sql` was the observed case — so committing it
+# publishes the recovery record for a mutation still in flight, beside the
+# mutated file itself. A glob rather than two names, so a third registry does
+# not repeat this (§16 rule 5: the middle is the thing that rots).
+.ablate-*
 
 # Agent-session working copies — harness state, never project content.
 .claude/worktrees/
