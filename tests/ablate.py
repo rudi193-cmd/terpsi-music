@@ -1087,6 +1087,8 @@ MUTATIONS = [
      "    if False:", "a rotation that has not landed", "tests/test_atrest.py"),
     ("records/atrest.py", "    if was.key_id == now.key_id:", "    if False:",
      "a rotation needs a new name", "tests/test_atrest.py"),
+    ("records/atrest.py", "    if rotated == 0:", "    if False:",
+     "a rewrap rotating nothing is a silent no-op", "tests/test_atrest.py"),
     ("records/atrest.py", "    if not keyring.keys_for(lane_id):", "    if False:",
      "rotation does not mint a first key", "tests/test_atrest.py"),
     ("records/atrest.py", "    if from_key.lane_id != to_key.lane_id:", "    if False:",

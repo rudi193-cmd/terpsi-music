@@ -223,6 +223,43 @@ def test_rotating_a_master_onto_its_own_id_is_refused():
     raise AssertionError("a rotation that cannot be told from its predecessor")
 
 
+def test_rewrap_that_matches_no_wrapping_is_refused_not_a_silent_no_op():
+    """The change-nothing act, refused — the guard `destroy()` and
+    `rotate_lane_key()` already carry and `rewrap()` was missing.
+
+    `rewrap` only re-wraps wrappings held under `was`; any other is passed
+    through. So a `was` that matches nothing rotates nothing and returns a
+    keyring identical to the input — and does it looking like success. The
+    scenario that makes it a defect rather than a curiosity is a rotation *off*
+    a compromised master: an operator who offers the wrong `was` (a stale
+    variable, the wrong key file) reads the returned keyring as rotated, then
+    either destroys the old master (silent data loss) or keeps trusting a
+    revocation that never happened. Neither branch raises without this.
+
+    The offered master is real and well-formed — same shape as a right one —
+    so the refusal is about *what it matched*, not about a malformed key.
+    """
+    master, keyring, keys = hierarchy()
+    s = seal_bytes(BODY, lane_key=keys[LB], at=T0)
+    stranger = new_master(key_id="master-never-used")  # valid, matches no wrapping
+    target = new_master(key_id="master-2")
+    try:
+        rewrap(keyring, was=stranger, now=target, at=T1)
+    except ValueError as exc:
+        assert "rotate nothing" in str(exc)
+    else:
+        raise AssertionError(
+            "rewrap rotated nothing and did not say so; the old master still "
+            "opens every record and the caller cannot tell the rotation was a "
+            "no-op")
+
+    # And the guard does not fire on a legitimate rotation, including the
+    # incremental case where the keyring is split across two masters: as long as
+    # one wrapping is under `was`, the rotation lands.
+    rotated = rewrap(keyring, was=master, now=target, at=T1)
+    assert unseal(s, keyring=rotated, master=target).plaintext == BODY
+
+
 def test_lane_key_rotation_is_forward_only():
     """§5: *a graduated senior's parent legitimately saw last season's data.*"""
     master, keyring, keys = hierarchy()

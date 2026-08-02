@@ -836,12 +836,30 @@ def rewrap(keyring: Keyring, *, was: MasterKey, now: MasterKey,
             "rotating a master onto its own id leaves nothing able to tell the "
             "two apart; a rotation needs a new name")
     out = []
+    rotated = 0
     for w in keyring.wrappings:
         if w.under_master != was.key_id:
             out.append(w)
             continue
         lane_key = unwrap(keyring, key_id=w.key_id, master=was)
         out.append(_wrap(now, lane_key, at))
+        rotated += 1
+    # A rewrap that matched no wrapping is a silent no-op: it returns a keyring
+    # still wrapped under whatever it already was, having moved nothing to `now`.
+    # An operator rotating off a compromised master who offered the wrong `was`
+    # (a stale variable, the wrong key file) would read that as success, then
+    # either destroy the old master — silent data loss — or keep trusting a
+    # revocation that never happened. So it refuses, exactly as destroy() and
+    # rotate_lane_key() refuse an act that would change nothing. The legitimate
+    # incremental case (a keyring split across masters) still rotates, because it
+    # has at least one wrapping under `was`; only the change-nothing call raises.
+    if rotated == 0:
+        raise ValueError(
+            f"no wrapping is held under master {was.key_id!r}, so this rewrap "
+            "would rotate nothing and hand back a keyring still wrapped under "
+            "whatever it already was. Offer the master the wrappings are "
+            "actually under; a rotation that changes nothing is the silent no-op "
+            "destroy() and rotate_lane_key() both refuse")
     return Keyring(tuple(out), keyring.erasures, keyring.escrow)
 
 
