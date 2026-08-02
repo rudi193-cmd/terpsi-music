@@ -413,6 +413,19 @@ MUTATIONS = [
     ("records/standing.py", "return threshold is not None and at >= threshold",
      "return threshold is None or at >= threshold",
      "an unknown threshold is not a reached one", "tests/test_standing.py"),
+    # craft/text.py — the first rows outside records/ and tools/. The table
+    # covered every predicate that refuses something and none of the phonetics,
+    # on the reasoning that a rhyme heuristic denies no one anything. That held
+    # until the heuristic was wrong in the loose direction: it invented a rhyme
+    # scheme, and a writer regularising a verse against an invented scheme
+    # revises lines that were already right. Both rows below restore a defect
+    # that shipped, and both are no-ops on the surface — the vowel class is the
+    # only thing that moves.
+    ("craft/text.py", '    if magic_e and len(coda) == 1 and coda != "r":',
+     "    if False:", "magic e lengthens the vowel", "tests/test_craft.py"),
+    ("craft/text.py", 'w = re.sub(r"(?<![aeiou])igh", "uy", w)',
+     'w = re.sub(r"(?<![aeiou])igh", "igh", w)',
+     "igh survives the silent-letter rule", "tests/test_craft.py"),
 ]
 
 

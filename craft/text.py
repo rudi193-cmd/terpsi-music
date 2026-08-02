@@ -259,9 +259,29 @@ _VOWEL_CLASS = {
 }
 
 
+# Long vowels that the silent-letter and magic-e rules below would otherwise
+# flatten into their short class. Both entries exist because the fix applied to
+# long and short E above was never applied to the other four vowels.
+_LONG = {"A": "AY", "E": "EE", "I": "IE", "O": "OH", "U": "OO"}
+
+# Where a final e does not lengthen the vowel before it. Closed and short on
+# purpose: every entry is a word the rule is wrong about, not a dictionary.
+# "live" is here for the verb; the adjective is long and this gets it wrong.
+_SHORT_FINAL_E = frozenset("""
+come become some done none one gone love above glove dove shove
+give given live have
+""".split())
+
+
 def _collapse(word: str) -> str:
     """Spelling reduced toward sound: silent letters out, digraphs to one."""
     w = re.sub(r"[^a-z]", "", word.lower())
+    # "igh" spells long i — tight, night, high. It has to be rewritten to a
+    # long-i spelling the vowel table already knows before ("ght" -> "t")
+    # below deletes the evidence, which is what put "tight" in the class of
+    # "wit". Not after a vowel: the "igh" in "eight" and "straight" is the
+    # tail of "eigh"/"aigh" and those are AY.
+    w = re.sub(r"(?<![aeiou])igh", "uy", w)
     for a, b in _SILENT:
         w = re.sub(a, b, w) if a.endswith("$") else w.replace(a, b)
     for a, b in _DIGRAPHS:
@@ -279,8 +299,10 @@ def rhyme_key(word: str) -> tuple[str, str] | None:
     w = _collapse(raw)
     if not w:
         return None
+    magic_e = False
     if w.endswith("e") and len(w) > 2 and not re.search(r"[^aeiouy]le$", w):
         w = w[:-1]
+        magic_e = raw not in _SHORT_FINAL_E
 
     groups = list(_VOWELS.finditer(w))
     if not groups:
@@ -293,6 +315,12 @@ def rhyme_key(word: str) -> tuple[str, str] | None:
         cls = "IE" if len(groups) == 1 else "EE"
     else:
         cls = _VOWEL_CLASS.get(vowel, vowel[:1].upper())
+    # Vowel-consonant-e: the e is silent *and* it lengthens. Dropping it
+    # without saying so left "time" in the class of "him" and "hate" in the
+    # class of "hat". One consonant only, and not r — r controls the vowel
+    # rather than leaving it long, so "more" and "fire" keep what they had.
+    if magic_e and len(coda) == 1 and coda != "r":
+        cls = _LONG.get(cls, cls)
     return (cls, coda)
 
 
