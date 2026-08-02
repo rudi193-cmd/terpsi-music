@@ -149,6 +149,48 @@
 -- BYPASSRLS is a permanent hole in exchange for one function's convenience.
 --
 -- ===========================================================================
+-- WHY EVERY DEFINER FUNCTION QUALIFIES ITS TABLES AND PINS search_path
+-- ===========================================================================
+--
+-- A SECURITY DEFINER function runs the definer's privileges against the
+-- *caller's* `search_path` unless it sets its own. The five functions below
+-- read `edge`, `lane` and `crossing_envelope`, and `pg_temp` is searched first
+-- by default -- so a caller who can create a temporary object (`terpsi_app`
+-- holds the default `TEMPORARY` privilege) could plant `pg_temp.edge` and have
+-- an unqualified reference resolve to it instead of the real table. That is the
+-- standard SECURITY DEFINER escalation, and RLS turns it into a lane crossing:
+-- a principal who shadows `edge` with a row granting themselves an edge into a
+-- lane reads that lane. **Demonstrated against a live cluster** -- a `pg_temp`
+-- shadow, and a `helper` schema the definer could read -- the second leaking a
+-- sealed lane out of an unentitled session.
+--
+-- Two mechanisms, because they answer different halves and one is not enough:
+--
+--   1. **Every table reference is schema-qualified** -- `public.edge`,
+--      `public.lane`, `public.crossing_envelope` -- and so is every call from
+--      one of these functions to another (`public.ward_lane`, and so on). A
+--      qualified name does not consult `search_path`, so no schema a caller
+--      controls can mask a table these functions read. This is the half that
+--      actually stops the shadow, and it is per-reference: it does not depend on
+--      an outer function's pin reaching an inner one.
+--   2. **Each function pins `search_path = pg_catalog, pg_temp`** -- no `public`,
+--      `pg_temp` named last. Qualification handles the tables; this handles the
+--      rest -- the operators and `now()` these functions use resolve from
+--      `pg_catalog` and cannot be shadowed by a `pg_temp` function the caller
+--      defined. `public` is deliberately absent so an unqualified table
+--      reference fails loudly at migration time rather than resolving by luck.
+--
+-- Without both, the seal holds only by an accident of the grant map -- the
+-- definer role reads only three tables today, so a `pg_temp` shadow it cannot
+-- read raises rather than leaking -- and that accident is one `GRANT USAGE`
+-- away from gone, with no guard going red. The guard is
+-- `tests/test_store_rowsecurity.py::test_a_pg_temp_shadow_does_not_unseal_a_lane`,
+-- ablated in `tests/ablate_store.py` by de-qualifying `public.edge` in
+-- `holds_live_edge` and requiring the read to land -- which it can, per
+-- reference, because qualification is not masked by the entry function's pin the
+-- way a bare `SET search_path` would be.
+--
+-- ===========================================================================
 -- WHAT THIS FILE DOES NOT DO
 -- ===========================================================================
 --
@@ -247,10 +289,11 @@ $$;
 -- `lane.subject_id` is UNIQUE, so a principal is the subject of at most one
 -- lane and the LIMIT 1 is the shape of the data rather than a truncation.
 CREATE FUNCTION ward_lane(principal uuid) RETURNS uuid
-    LANGUAGE sql STABLE SECURITY DEFINER AS $$
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path = pg_catalog, pg_temp AS $$
     SELECT e.target_lane_id
-      FROM edge e
-      JOIN lane l ON l.lane_id = e.target_lane_id
+      FROM public.edge e
+      JOIN public.lane l ON l.lane_id = e.target_lane_id
      WHERE principal IS NOT NULL
        AND e.kind = 'self'
        AND e.holder_id = principal
@@ -264,8 +307,9 @@ $$;
 -- lookup and not a choice. NULL for a person with no lane -- a staff member
 -- nobody opened one for -- and NULL propagates to "unreachable".
 CREATE FUNCTION lane_of_subject(subject uuid) RETURNS uuid
-    LANGUAGE sql STABLE SECURITY DEFINER AS $$
-    SELECT l.lane_id FROM lane l WHERE l.subject_id = subject
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path = pg_catalog, pg_temp AS $$
+    SELECT l.lane_id FROM public.lane l WHERE l.subject_id = subject
 $$;
 
 -- `records/serving.py::_entitling_edge`, at the granularity a row has: does
@@ -276,10 +320,11 @@ $$;
 -- is correct and is the fail-closed direction: "Nguyen is staff of the
 -- drumline" is true and entitles nothing about any particular student's lane.
 CREATE FUNCTION holds_live_edge(principal uuid, target uuid) RETURNS boolean
-    LANGUAGE sql STABLE SECURITY DEFINER AS $$
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path = pg_catalog, pg_temp AS $$
     SELECT EXISTS (
         SELECT 1
-          FROM edge e
+          FROM public.edge e
          WHERE principal IS NOT NULL
            AND target IS NOT NULL
            AND e.holder_id = principal
@@ -287,7 +332,7 @@ CREATE FUNCTION holds_live_edge(principal uuid, target uuid) RETURNS boolean
            AND e.valid_at <= now()
            AND (e.invalid_at IS NULL OR e.invalid_at > now())
            AND (e.kind <> 'self' OR EXISTS (
-                   SELECT 1 FROM lane l
+                   SELECT 1 FROM public.lane l
                     WHERE l.lane_id = e.target_lane_id
                       AND l.subject_id = e.holder_id)))
 $$;
@@ -312,10 +357,11 @@ $$;
 --     `signed_at`; this checks it at `now()`, and they are deliberately
 --     different questions.
 CREATE FUNCTION envelope_permits(origin uuid, target uuid) RETURNS boolean
-    LANGUAGE sql STABLE SECURITY DEFINER AS $$
+    LANGUAGE sql STABLE SECURITY DEFINER
+    SET search_path = pg_catalog, pg_temp AS $$
     SELECT EXISTS (
         SELECT 1
-          FROM crossing_envelope ce
+          FROM public.crossing_envelope ce
          WHERE origin IS NOT NULL
            AND target IS NOT NULL
            AND ce.from_lane_id = origin
@@ -324,7 +370,7 @@ CREATE FUNCTION envelope_permits(origin uuid, target uuid) RETURNS boolean
            AND ce.expires_at > now()
            AND (ce.invalid_at IS NULL OR ce.invalid_at > now())
            AND EXISTS (
-                   SELECT 1 FROM edge g
+                   SELECT 1 FROM public.edge g
                     WHERE g.kind = 'guardian_of'
                       AND g.holder_id = ce.signed_by
                       AND g.target_lane_id = ce.to_lane_id
@@ -339,21 +385,22 @@ $$;
 -- `serve()`'s behaviour exactly -- the seal sits above the entitlement check in
 -- that function, and it sits above it here.
 CREATE FUNCTION reaches_lane(principal uuid, target uuid) RETURNS boolean
-    LANGUAGE plpgsql STABLE SECURITY DEFINER AS $$
+    LANGUAGE plpgsql STABLE SECURITY DEFINER
+    SET search_path = pg_catalog, pg_temp AS $$
 DECLARE
     own uuid;
 BEGIN
     IF principal IS NULL OR target IS NULL THEN
         RETURN false;                 -- an unnamed reader reaches nothing
     END IF;
-    own := ward_lane(principal);
-    IF own IS NOT NULL AND own <> target AND NOT envelope_permits(own, target) THEN
+    own := public.ward_lane(principal);
+    IF own IS NOT NULL AND own <> target AND NOT public.envelope_permits(own, target) THEN
         RETURN false;                 -- W-3(b): between wards, default deny
     END IF;
     -- `own = target` falls through: the subject's own lane is reached by the
     -- self edge, which `holds_live_edge` finds. There is no separate branch,
     -- so there is no second spelling of "the subject reaches their own lane".
-    RETURN holds_live_edge(principal, target);
+    RETURN public.holds_live_edge(principal, target);
 END
 $$;
 

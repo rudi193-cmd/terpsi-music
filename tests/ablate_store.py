@@ -89,7 +89,7 @@ MUTATIONS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
      "CREATE POLICY lane_entry_lane_seal ON lane_entry FOR SELECT USING (true);",
      "…and the two layers stop agreeing about it", DIFFERENTIAL, "caught"),
     ("migrations/003_row_security.sql",
-     "    IF own IS NOT NULL AND own <> target AND NOT envelope_permits(own, target) THEN\n"
+     "    IF own IS NOT NULL AND own <> target AND NOT public.envelope_permits(own, target) THEN\n"
      "        RETURN false;                 -- W-3(b): between wards, default deny\n"
      "    END IF;",
      "    IF false THEN\n        RETURN false;\n    END IF;",
@@ -100,7 +100,7 @@ MUTATIONS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
      "ward_lane stops checking is_self_edge", DIFFERENTIAL, "caught"),
     ("migrations/003_row_security.sql",
      "           AND (e.kind <> 'self' OR EXISTS (\n"
-     "                   SELECT 1 FROM lane l\n"
+     "                   SELECT 1 FROM public.lane l\n"
      "                    WHERE l.lane_id = e.target_lane_id\n"
      "                      AND l.subject_id = e.holder_id)))",
      "           AND (true))",
@@ -145,6 +145,24 @@ MUTATIONS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
      "GRANT EXECUTE ON FUNCTION reaches_lane(uuid, uuid)     TO terpsi_app, terpsi_migrator;",
      "GRANT EXECUTE ON FUNCTION reaches_lane(uuid, uuid) TO PUBLIC;",
      "the reach helper becomes a public oracle", ROWSECURITY, "caught"),
+    # The schema qualification, dropped from the one `edge` reference on the
+    # entitlement path. De-qualified, `edge` resolves through the function's own
+    # `pg_catalog, pg_temp` path, finds a caller's `pg_temp.edge` shadow, and the
+    # seal rests on the grant map rather than on the reference —
+    # `test_a_pg_temp_shadow_does_not_unseal_a_lane` is what must notice. This is
+    # a single-reference mutation on purpose: qualification is per-reference, so
+    # unlike a bare `SET search_path` pin it is not masked by the entry
+    # function's own pin, and the guard can be shown to fail one reference at a
+    # time (rule 19). The attacker in that test is a non-ward, so `holds_live_edge`
+    # is the seal actually under test rather than `ward_lane`.
+    ("migrations/003_row_security.sql",
+     "          FROM public.edge e\n"
+     "         WHERE principal IS NOT NULL\n"
+     "           AND target IS NOT NULL",
+     "          FROM edge e\n"
+     "         WHERE principal IS NOT NULL\n"
+     "           AND target IS NOT NULL",
+     "holds_live_edge stops qualifying the edge table", ROWSECURITY, "caught"),
 
     # --- the Python half: records/, ablated against the same middle ----------
     ("records/serving.py",

@@ -354,6 +354,157 @@ def test_the_compiled_envelope_is_directional():
             owner.close()
 
 
+# --- the SECURITY DEFINER search_path pin ------------------------------------
+
+
+#: A principal with no edge into any lane — the attacker for the shadow test.
+#: Not a `person` row and does not need to be: the GUC is a bare uuid the
+#: policies cast and compare, and "someone the store has never entitled" is
+#: exactly who a forged edge is for.
+OUTSIDER = uuid.UUID("99999999-9999-9999-9999-999999999999")
+
+
+def test_a_pg_temp_shadow_does_not_unseal_a_lane():
+    """The reach helpers are SECURITY DEFINER, so they run the definer's rights
+    against the *caller's* `search_path` unless they pin their own. They read
+    `edge`, `lane` and `crossing_envelope` unqualified, and `pg_temp` is searched
+    first by default — so a caller who can create a temporary table (the app role
+    holds the default `TEMPORARY` privilege) can plant `pg_temp.edge` with a row
+    granting themselves an edge into a lane, and RLS turns that shadow into a
+    read.
+
+    The attacker is `OUTSIDER`: no edge into any lane, so the seal that should
+    stop them is `holds_live_edge` — clause (a), the entitlement check — and a
+    forged edge is the whole of the attack. (A ward is the wrong attacker here:
+    `ward_lane` finds their *real* self edge and W-3(b) stops them before
+    `holds_live_edge` is reached, so a ward would pass even with the entitlement
+    helper de-qualified, and the test would prove nothing.)
+
+    **The migration schema-qualifies every table reference in the five reach
+    functions (`public.edge`, …) and pins each to `search_path = pg_catalog,
+    pg_temp`, and that qualification is what this asserts.** Two attacks, and the
+    second is the one that shows why the reference and not the grant map is what
+    should hold:
+
+    * **(A) the pg_temp shadow** — available to anyone who can name a principal,
+      needs no grant. `OUTSIDER` plants `pg_temp.edge` claiming a live edge into
+      Ben's lane and fronts it in `search_path`. De-qualified, `holds_live_edge`
+      resolves `edge` to the temp table; qualified, `public.edge` reads the real
+      one and finds nothing.
+
+    * **(B) a definer-readable shadow, i.e. the grant map one migration wider.**
+      Without qualification, (A) fails *closed but by accident*: the definer role reads
+      only the three real tables, so a `pg_temp` shadow it cannot read raises
+      rather than leaking. The safety is a property of the grant map, not of the
+      seal — a later `GRANT USAGE` on a schema the app can write into removes it
+      silently, with no guard going red. Part B simulates exactly that (a
+      `helper` schema the app writes and the reach role reads) and asserts the
+      qualification holds anyway. It is the case that *did* leak before the fix,
+      confirmed against a live cluster.
+
+    Attributed three ways like every refusal in this file: (1) the read returns
+    zero rows, (2) an entitled principal (Ann, Ben's guardian) still reads the
+    same lane, so a zero is the seal and not an empty table, and (3) the shadow
+    really was in front of the real table. Ablated in `tests/ablate_store.py` by
+    de-qualifying `public.edge` in `holds_live_edge`, which is required to make
+    the read land.
+    """
+    forged_temp = (
+        "INSERT INTO edge VALUES (gen_random_uuid(), 'staff_of', %s, %s, NULL, "
+        "'forged', now() - interval '1 day', now() - interval '1 day', NULL)")
+    shadow_cols = (
+        "(edge_id uuid, kind text, holder_id uuid, target_lane_id uuid, "
+        "target_scope_id uuid, source text, created_at timestamptz, "
+        "valid_at timestamptz, invalid_at timestamptz)")
+    with Database() as db:
+        owner, app = installed(db)
+        seed(owner)
+        try:
+            # Attribution (2): the lane is real and readable by someone entitled,
+            # so a zero below is the seal working rather than an empty table.
+            entitled = rows_seen_as(app, ANN,
+                                    "SELECT count(*) FROM lane_entry WHERE lane_id = %s",
+                                    (LBEN,))
+            assert entitled == 1, (
+                f"Ben's guardian reads {entitled} of his lane; the fixture is "
+                "wrong and the refusals below would prove nothing")
+
+            # (A) pg_temp shadow. One transaction: the LOCAL search_path and the
+            # LOCAL principal GUC both die with the rollback that follows.
+            app.rollback()
+            with app.cursor() as cur:
+                cur.execute("CREATE TEMP TABLE edge " + shadow_cols)
+                cur.execute(forged_temp, (OUTSIDER, LBEN))
+                cur.execute("SELECT set_config('search_path', 'pg_temp, public', true)")
+                cur.execute("SELECT set_config(%s, %s, true)", (GUC, str(OUTSIDER)))
+                # Attribution (3): the shadow really is in front of the real table.
+                assert cur.execute(
+                    "SELECT to_regclass('edge') = to_regclass('pg_temp.edge')"
+                ).fetchone()[0] is True, (
+                    "the attack did not front a shadow, so an empty read below "
+                    "proves nothing — fix the attack, not the code")
+                # The read is schema-qualified so only `edge` is shadowed, not the
+                # table under attack. Unpinned, `holds_live_edge` resolves `edge`
+                # to the temp table and — the definer cannot read it — raises
+                # `permission denied`: the pin missing, the seal on the grant map.
+                # Named so the ablation reads as this guard, not a bare DB error.
+                try:
+                    seen = cur.execute(
+                        "SELECT kind FROM public.lane_entry WHERE lane_id = %s",
+                        (LBEN,)).fetchall()
+                except Exception as exc:  # noqa: BLE001
+                    first = str(exc).splitlines()[0]
+                    if "edge" in first:
+                        raise AssertionError(
+                            "the reach helper resolved `edge` to the caller's "
+                            f"pg_temp shadow ({first}); SET search_path is not "
+                            "pinned on the definer functions") from None
+                    raise
+            app.rollback()
+            assert seen == [], (
+                f"a pg_temp.edge shadow unsealed Ben's lane: read {seen} "
+                "(the reach helper resolved edge to the caller's temp table)")
+
+            # (B) the grant map one migration wider: a schema the app writes and
+            # the reach role reads. This is the shape that leaked before the pin.
+            with owner.cursor() as cur:
+                cur.execute("CREATE SCHEMA IF NOT EXISTS helper")
+                cur.execute("GRANT USAGE, CREATE ON SCHEMA helper TO " + APP_ROLE)
+                cur.execute("GRANT USAGE ON SCHEMA helper TO " + REACH_ROLE)
+                cur.execute(
+                    "ALTER DEFAULT PRIVILEGES FOR ROLE " + APP_ROLE +
+                    " IN SCHEMA helper GRANT SELECT ON TABLES TO " + REACH_ROLE)
+            owner.commit()
+            app.rollback()
+            with app.cursor() as cur:
+                cur.execute("CREATE TABLE helper.edge " + shadow_cols)
+                cur.execute(
+                    "INSERT INTO helper.edge VALUES (gen_random_uuid(), "
+                    "'staff_of', %s, %s, NULL, 'forged', now() - interval "
+                    "'1 day', now() - interval '1 day', NULL)", (OUTSIDER, LBEN))
+                cur.execute("SELECT set_config('search_path', 'helper, public', true)")
+                cur.execute("SELECT set_config(%s, %s, true)", (GUC, str(OUTSIDER)))
+                readable = cur.execute(
+                    "SELECT has_table_privilege(%s, 'helper.edge', 'SELECT')",
+                    (REACH_ROLE,)).fetchone()[0]
+                leaked = cur.execute(
+                    "SELECT kind FROM public.lane_entry WHERE lane_id = %s",
+                    (LBEN,)).fetchall()
+            app.rollback()
+            assert readable is True, (
+                "the definer role cannot read the shadow, so part B is testing "
+                "the grant-map accident rather than the pin — the point of B is "
+                "a shadow the definer CAN read")
+            assert leaked == [], (
+                f"a definer-readable shadow unsealed Ben's lane: read {leaked}. "
+                "The pin is not holding; the seal rests on the grant map again")
+        finally:
+            app.rollback()
+            owner.rollback()
+            app.close()
+            owner.close()
+
+
 # --- FORCE, and the owner bypass ---------------------------------------------
 
 
