@@ -44,7 +44,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Sequence, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -222,18 +222,28 @@ def check_exit_line() -> Check:
                  f"docs/EXIT.md, {len(text.splitlines())} lines")
 
 
-def check_declared_sockets() -> Check:
+def check_declared_sockets(where: Optional[Sequence[Path]] = None,
+                           manifest: Optional[Path] = None) -> Check:
     """§18 item 4 note (ii): every listener the source opens must be declared.
 
     **Built before the manifest, on purpose.** §4.3's worked failure is a
     declaration that shipped first with nothing pointed at it. A `VACUOUS`
     result — no manifest, no listeners — reports `UNKNOWN` rather than `PASS`,
     because a check with nothing to check has not checked anything.
+
+    `where`/`manifest` default to the real tree and the real manifest; they are
+    parameters so the FAIL branch can be pointed at a decoy (rule 19), exactly
+    as `check_no_egress` and its siblings take `where`. This was the one such
+    check that took no argument, so its refusal path had never run — today's
+    listener-free tree only ever drives it to UNKNOWN — and a FAIL branch
+    quietly dropped in a refactor would have gone unseen, the ledger this file
+    exists to prevent.
     """
     from sockets import Verdict, check as scan_check  # noqa: E402
 
-    r = scan_check([ROOT / "records", ROOT / "tools", ROOT / "voice.py",
-                    ROOT / "personas.py"])
+    targets = list(where) if where is not None else [
+        ROOT / "records", ROOT / "tools", ROOT / "voice.py", ROOT / "personas.py"]
+    r = scan_check(targets, manifest)
     what = "listening sockets are declared (§4.3, item 4 note ii)"
     if r.verdict is Verdict.VACUOUS:
         return Check("declared-sockets", what, State.UNKNOWN,
@@ -247,9 +257,16 @@ def check_declared_sockets() -> Check:
                  f"{len(r.listeners)} listener(s), all declared; 0 outbound")
 
 
-def check_component_map() -> Check:
-    """Item 0: an unverified table and a verified one must not look identical."""
-    r = subprocess.run([sys.executable, str(ROOT / "tests" / "test_component_map.py")],
+def check_component_map(script: Optional[Path] = None) -> Check:
+    """Item 0: an unverified table and a verified one must not look identical.
+
+    `script` defaults to the real check and is a parameter so the FAIL
+    conversion — a nonzero exit becoming `State.FAIL` — can be shown to fire
+    (rule 19). On the real tree the subprocess exits zero every run, so only the
+    PASS side of this wrapper had ever executed.
+    """
+    target = script if script is not None else ROOT / "tests" / "test_component_map.py"
+    r = subprocess.run([sys.executable, str(target)],
                        capture_output=True, text=True, cwd=ROOT)
     line = next((l for l in (r.stdout or "").splitlines() if l.startswith("§14:")), "")
     return Check("component-map", "§14 says whether anyone looked (item 0)",

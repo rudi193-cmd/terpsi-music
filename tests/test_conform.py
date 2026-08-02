@@ -83,6 +83,35 @@ def test_the_real_core_passes_it():
     assert got.state is State.PASS, f"records/ reaches the network: {got.evidence}"
 
 
+def test_the_declared_sockets_check_can_be_shown_to_fail():
+    """Rule 19. The PASS and UNKNOWN paths run on today's listener-free tree;
+    the FAIL branch never did, because the check took no argument to point at a
+    decoy — the one sibling of `check_no_egress` that could not be. A module
+    binding an all-interface listener with no manifest to declare it must FAIL,
+    and a listener-free module must read UNKNOWN, never PASS."""
+    decoys = conform.ROOT / "tests" / "fixtures" / "decoys"
+    no_manifest = Path("/nonexistent/manifest.json")
+    bad = conform.check_declared_sockets(where=[decoys / "all_interfaces.py"],
+                                         manifest=no_manifest)
+    assert bad.state is State.FAIL, bad
+    vacuous = conform.check_declared_sockets(where=[decoys / "clean.py"],
+                                             manifest=no_manifest)
+    assert vacuous.state is State.UNKNOWN, vacuous
+
+
+def test_the_component_map_check_can_be_shown_to_fail():
+    """Rule 19. The wrapper turns the subprocess exit into PASS or FAIL, and on
+    the real tree the exit is always zero — so only the PASS side had run. Point
+    it at a script that exits nonzero and the FAIL side must fire."""
+    with tempfile.TemporaryDirectory() as d:
+        one = Path(d) / "exits_one.py"
+        one.write_text("import sys; sys.exit(1)\n")
+        assert conform.check_component_map(script=one).state is State.FAIL
+        zero = Path(d) / "exits_zero.py"
+        zero.write_text("print('§14: decoy ok')\n")
+        assert conform.check_component_map(script=zero).state is State.PASS
+
+
 # --- the record -----------------------------------------------------------
 
 
