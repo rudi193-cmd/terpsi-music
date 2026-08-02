@@ -12,6 +12,7 @@ Stdlib only. Runs under pytest or directly.
 from __future__ import annotations
 
 import csv
+import dataclasses
 import io
 import sys
 from datetime import datetime
@@ -630,6 +631,39 @@ def test_no_lane_id_or_student_id_reaches_an_artifact():
     for art in rel.artifacts:
         assert "lane-" not in art.text, f"{art.name} names a lane"
         assert "student-" not in art.text, f"{art.name} names a student"
+
+
+def test_no_lane_id_or_student_id_reaches_a_cell_result():
+    """The value the artifacts are rendered *from*, not only the text they came out as.
+
+    `_render` builds every file in the bundle out of the cell tuple, so an
+    identifier that reaches a `CellResult` is one format string away from a
+    published file. The text scan above cannot stand in for this and the gap is
+    not hypothetical: `why` is rendered only for an *incomplete* cell, so a lane
+    id sitting in the `why` of a released table passes that scan untouched and
+    is still an identifier in the value a booster board's report is built from.
+
+    Asserted over the field **values** rather than the field names, so a field
+    added later under some other name is caught too. The retired `contributors`
+    is the case that proves the name is not the invariant: it held exactly this
+    and no test named it, because no test knew it was there.
+    """
+    unreadable = Reading("lane-x", "student-x", "drums", Rung.L4,
+                         state=Read.UNREADABLE, why="the lane's key is unavailable")
+    blind = Reading("lane-y", "student-y", None, Rung.L4,
+                    state=Read.UNREADABLE, why="the lane could not be reached")
+    for rel in (made(auto_injector()),
+                made(rows("trumpet", 6) + rows("flute", 7) + [unreadable]),
+                made(rows("trumpet", 6) + rows("flute", 7) + [blind])):
+        for cell in rel.cells:
+            for fld in dataclasses.fields(cell):
+                shown = repr(getattr(cell, fld.name))
+                assert "lane-" not in shown, (
+                    f"CellResult.{fld.name} names a lane on cell {cell.key!r}: "
+                    f"{shown}")
+                assert "student-" not in shown, (
+                    f"CellResult.{fld.name} names a student on cell "
+                    f"{cell.key!r}: {shown}")
 
 
 def test_no_fleet_noun_reaches_a_surface_a_booster_board_reads():

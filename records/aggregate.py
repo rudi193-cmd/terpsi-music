@@ -429,9 +429,38 @@ class CellState(Enum):
 class CellResult:
     """One cell, its disposition, and the rung the classifier derived for it.
 
-    `contributors` is lane ids. It is what the announcement is written from and
-    it never reaches an artifact; `tests/test_aggregate.py` asserts no lane id
-    appears in any rendered text.
+    **No field here holds a lane id or a subject id, and that is structural
+    rather than a convention.** This is the value every artifact is rendered
+    from — `_render` hands the cell tuple to `_table`, `_readme` and `_manifest`
+    and gives them nothing else about the people behind it — so an identifier
+    that reaches a `CellResult` is one format string away from a published file.
+
+    **Retired 2026-08-02: `contributors`.** Superseded by `_announce`'s own loop
+    over `readings`, which had always been the real mechanism.
+
+    It was a sixth field carrying the lane ids behind the cell, and its docstring
+    said *"it is what the announcement is written from."* It was not.
+    `_announce` walks `readings` directly and takes `lane_id` and `subject_id`
+    off each `Reading`, because it writes one entry per reading into that lane's
+    own chain (W-1) — a per-cell set of lane ids carries no subject and cannot
+    record one lane twice for two cells, so this field could not have been the
+    source and never was. It was no better a source for `Release.lanes`: that
+    comes from `_many_lanes`, which is gated and derives its own set.
+
+    **Nothing is newly authoritative, because the field never was.** It was
+    populated positionally at both construction sites in `_cells` and read by no
+    line in the tree — a declaration with nothing behind it, `docs/CROSSINGS.md`
+    crossing one's pattern, in the module whose whole subject is that
+    identifiers do not leak.
+
+    **No stub is left.** A default of `()` would keep the hazard while providing
+    nothing: the field exists, so a later edit fills it. Crossing one's
+    prescription is to remove the ability rather than forbid the act, and with
+    the field gone there is nowhere on this value for an identifier to sit.
+    `tests/test_aggregate.py` holds both halves — the artifact text is still
+    scanned for lane and student ids, and the cell values are now scanned too,
+    because `why` is rendered only for an incomplete cell and a lane id sitting
+    in the `why` of a released table would pass a scan of the text alone.
     """
 
     key: str
@@ -439,7 +468,6 @@ class CellResult:
     count: Optional[int]
     rung: Optional[Rung]
     why: str
-    contributors: Tuple[str, ...] = ()
 
     @property
     def suppressed(self) -> bool:
@@ -607,8 +635,7 @@ def _cells(readings: Sequence[Reading], gate: Gate) -> Tuple[
                if blind else "no reading names a cell")
         rungs = tuple(r.rung for r in readings)
         rung, _ = _rung_for("*", rungs, False)
-        return ((CellResult("*", CellState.INCOMPLETE, None, rung, why,
-                            tuple(sorted({r.lane_id for r in readings}))),),
+        return ((CellResult("*", CellState.INCOMPLETE, None, rung, why),),
                 Aggregate.UNKNOWN)
 
     spoiled = {(r.cell or "").strip(): r for r in lost}
@@ -635,7 +662,7 @@ def _cells(readings: Sequence[Reading], gate: Gate) -> Tuple[
         out.append(CellResult(
             key, cell_state,
             counts[key] if cell_state is CellState.RELEASED else None,
-            rung, why, tuple(sorted({r.lane_id for r in rows}))))
+            rung, why))
 
     if not settled:
         return tuple(out), Aggregate.UNRELEASABLE

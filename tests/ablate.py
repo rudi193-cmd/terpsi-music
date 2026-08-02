@@ -1646,6 +1646,28 @@ MUTATIONS = [
     ("records/aggregate.py", '        shown = "suppressed" if c.suppressed else c.state.value',
      "        shown = c.state.value",
      "which suppression applied is not attributed", "tests/test_aggregate.py"),
+    # An identifier on a `CellResult`, which is the value every artifact is
+    # rendered from. The retired `contributors` field held exactly this and was
+    # read by nothing, so no mutation could reach it; the field is gone and the
+    # act is ablated instead, through the one field a careless author would
+    # actually reach for.
+    #
+    # **It is aimed past the artifact scan on purpose.** `why` renders only for
+    # an *incomplete* cell — `_manifest`'s UNAVAILABLE GROUPS block is its only
+    # appearance — so on a released table this mutation puts three lane ids in
+    # the value the booster board's report is built from and leaves every
+    # rendered byte unchanged. `test_no_lane_id_or_student_id_reaches_an_artifact`
+    # cannot see it. That is the gap `..._reaches_a_cell_result` was added to
+    # close, and this row is the evidence the gap was real.
+    ("records/aggregate.py",
+     "        why = reason if cell_state is not CellState.INCOMPLETE else (\n"
+     "            spoiled[key].why if key in spoiled\n"
+     '            else "another cell in this table has an input that could not be read")',
+     "        why = (reason if cell_state is not CellState.INCOMPLETE else (\n"
+     "            spoiled[key].why if key in spoiled\n"
+     '            else "another cell in this table has an input that could not be read")\n'
+     "            ) + f\" [lanes: {', '.join(sorted(r.lane_id for r in rows))}]\"",
+     "no lane id rides into the artifact layer on a cell", "tests/test_aggregate.py"),
     ("records/aggregate.py", "        if self.k < 2:", "        if False:",
      "a threshold that cannot suppress", "tests/test_aggregate.py"),
     ("records/aggregate.py", '            if not (getattr(self, name) or "").strip():',
