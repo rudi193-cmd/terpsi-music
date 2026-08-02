@@ -11,6 +11,8 @@ Nothing in this card is shown to a student, guardian or judge. It carries no
 fleet nouns for the same reason the modules take plain domain nouns.
 """
 
+import re
+
 #: The pair, and its middle (rule 12). This card was drafted in the
 #: `quick-stupids` playground and rebuilt here against this repo's conventions
 #: — five scales prefixed, no fleet nouns, the gate separated from the card,
@@ -48,6 +50,43 @@ PROVENANCE = {
         "note": "no band/persona.py; no Python in the repository; no tombstone",
     },
 }
+
+_FAR_SIDE_STATES = ("present", "absent", "unknown")
+_ISO_DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+def far_side_problems(far):
+    """What is wrong with a ``far_side`` record, empty when it is well-formed.
+
+    The **one** place the shape is enforced, so the guard that reads it and the
+    decoy that proves the guard can fail route through the same check rather
+    than two hand-copies of it — the named middle of rule 12, applied to the
+    pair that is PROVENANCE and its own verification. Before this existed the
+    decoy deep-copied PROVENANCE, threw the copy away, and re-asserted the four
+    conditions inline; a check proven to fail against a copy of itself has not
+    been proven to fail.
+
+    A cross-repo far side cannot be verified from this repo's CI — there is no
+    far side in the tree to open — so the honest requirement is not *it passed*
+    but *somebody looked, and said when and where*: a state, an ISO date, and a
+    repo@commit citation. An ``absent`` state is a pass, because recording
+    absence is the correct outcome of having looked (rule 13).
+    """
+    if not isinstance(far, dict) or not far:
+        return ["far_side is missing; the pair names a far side with no record "
+                "of anyone checking it"]
+    bad = []
+    if far.get("state") not in _FAR_SIDE_STATES:
+        bad.append(
+            f"far_side.state must be present/absent/unknown, got {far.get('state')!r}"
+        )
+    if not _ISO_DATE.fullmatch(str(far.get("checked", ""))):
+        bad.append("far_side.checked must be an ISO date — an undated check "
+                   "decays silently (§15)")
+    if "@" not in str(far.get("at", "")):
+        bad.append("far_side.at must pin repo@commit; 'I looked once' is not a citation")
+    return bad
+
 
 STUDENT, STAFF, GUARDIAN, DIRECTOR = "student", "staff", "guardian", "director"
 

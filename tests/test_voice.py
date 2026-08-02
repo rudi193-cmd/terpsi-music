@@ -233,36 +233,29 @@ def test_the_far_side_of_the_pair_carries_a_dated_check():
     recording `absent` passes, because recording absence is the correct outcome
     of having looked (rule 13).
     """
-    far = personas.PROVENANCE.get("far_side")
-    assert far, "the pair names a far side with no record of anyone checking it"
-    assert far.get("state") in {"present", "absent", "unknown"}, (
-        f"far_side.state must be present/absent/unknown, got {far.get('state')!r}"
-    )
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", far.get("checked", "")), (
-        "far_side.checked must be an ISO date — an undated check decays silently (§15)"
-    )
-    assert "@" in far.get("at", ""), (
-        "far_side.at must pin repo@commit; 'I looked once' is not a citation"
-    )
+    problems = personas.far_side_problems(personas.PROVENANCE.get("far_side"))
+    assert not problems, "; ".join(problems)
 
 
 def test_the_far_side_check_can_fail():
-    """Rule 19. A declaration that forgot its check must be seen to fail."""
-    import copy
+    """Rule 19, and it must exercise the real check, not a copy of it.
 
-    for broken in ({}, {"state": "present"}, {"state": "nope", "checked": "2026-07-30", "at": "x@y"}):
-        p = copy.deepcopy(personas.PROVENANCE)
-        p["far_side"] = broken
-        failed = False
-        try:
-            far = p["far_side"]
-            assert far
-            assert far.get("state") in {"present", "absent", "unknown"}
-            assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", far.get("checked", ""))
-            assert "@" in far.get("at", "")
-        except AssertionError:
-            failed = True
-        assert failed, f"a far_side of {broken!r} passed the check"
+    This used to deep-copy PROVENANCE, immediately overwrite `far_side`, and
+    re-assert the four conditions inline — a hand-copy of the guard that could
+    drift from the real one and go on "passing" while proving nothing about it.
+    It now drives `personas.far_side_problems` directly, the same function the
+    guard above trusts, so the pair has one middle and the decoy cannot disagree
+    with the enforcement it stands in for."""
+    for broken in ({}, {"state": "present"},
+                   {"state": "nope", "checked": "2026-07-30", "at": "x@y"}):
+        assert personas.far_side_problems(broken), (
+            f"a far_side of {broken!r} passed the check"
+        )
+    # The mirror: a well-formed record must produce no problems, or the check is
+    # one that merely complains at everything and proves nothing by refusing.
+    assert not personas.far_side_problems(
+        {"state": "absent", "checked": "2026-07-30", "at": "quick-stupids@a92389c"}
+    )
 
 
 def test_there_is_a_register_for_every_audience_the_card_serves():
