@@ -1,0 +1,209 @@
+"Back Up Against the Wall" — excerpt
+Written by Buddy Buie and J.R. Cobb.
+Title track of Atlanta Rhythm Section's second album (1973).
+
+    I was dealing up and down the highway
+    'Til they caught me with a heavy load
+    They sentenced me to hard labor
+    Working on the side of the road
+
+Attribution established by search, not from memory — writers, album and year
+were looked up because `docs/CROSSINGS.md` records this directory's one
+previous rights defect, and a confident guess is how that one happened.
+
+Quoted excerpt only, retained for the branch it named. Not licensed for
+redistribution.
+
+
+---
+
+"Same White Line" — machine-generated. No copyright claimed by anyone.
+
+PROVENANCE
+    Written by Claude, an AI assistant, in a Claude Code session on
+    2026-08-02. The human contribution to this text was eight lines of
+    someone else's song, pasted with no instruction attached. Subject
+    matter, structure, images, and every line were selected by the model;
+    the repository owner neither wrote nor revised any part of it, and
+    does not claim to have.
+
+    It is a companion to `lyrics/get-ready.txt` and was written to be one.
+    That song has a father who waits in the bus lot, watches through the
+    fence, and cannot be phoned from where he is. This is his side, in the
+    register the excerpt above is written in: first person, plain, guilty
+    without self-pity. Nothing in the earlier song required a reason for
+    the father to be parked rather than in the stands, and nothing here
+    obliges the earlier song to accept this one.
+
+RIGHTS
+    None subsist and none are claimed. `lyrics/get-ready.txt` states the
+    reasoning once — no human author, so no copyright — and is canonical
+    for it. It is not restated here, because a second copy of a rights
+    note is exactly the vendored pair §16 exists to prevent.
+
+    Treat as public domain. Not legal advice.
+
+
+v2. The checker was run after the draft was finished and not during it,
+which is the order §24 argues for — a checker consulted mid-line writes the
+line. It reported three findings, and fixing one introduced a fourth.
+
+Two of those four were real:
+
+    - VERSE 3 opened on "rise" and closed on "tight", and "rise"/"white"
+      is assonance, so the verse read AABA where its siblings read ABCB.
+      Audible once pointed at and not before. → "Now the buses top the
+      grade".
+    - "Hat pulled tight" was three syllables against four in the last line
+      of both other verses. → "Hat pulled down tight".
+
+**Two were the checker being wrong**, and both of them turned on "grade":
+`rhyme_key` dropped a silent final e without recording that it had, so
+every vowel-consonant-e word was filed under its *short* vowel. "grade"
+sat in the class of "glad", which made it rhyme with "glass" and with
+"all". Two lines here were revised to break collisions that do not exist.
+
+That is the loosest error the tool can make — it does not miss a scheme,
+it invents one, and a writer regularising a verse against an invented
+scheme rewrites lines that were already right. Fixed in `craft/text.py`,
+with the guard at `tests/test_craft.py` and the mutation row in
+`tests/ablate.py`; "time"/"him" and "hate"/"hat" were perfect rhymes
+before it and are not now.
+
+Both lines stayed changed anyway, which is a judgement and not a result:
+
+    - "Plume bent flat on the glass" → "flat to the roof". A shako on a
+      school bus does bend against the ceiling. A window does not require
+      the plume to be bent at all, so the original image was decorative
+      and did not know it.
+    - "Low brass coming up the grade" → "and a mile of road". The verse
+      now says "top the grade" and the pre no longer needs to; and "a long
+      way", which this replaced, was the only abstraction in the song.
+
+The checker has nothing left to say about this draft. That is not the same
+as the draft being finished, and after this session it is specifically not
+the same, because for two of four findings it was the thing that was wrong.
+
+
+VERSE 1
+    Frost on the rail at seven
+    A bag in my left hand
+    Deputy reads the roll
+    Nine of us stand
+
+VERSE 2
+    I knew what was in the truck
+    I ran it into town
+    I told the judge I knew
+    He wrote it down
+
+PRE
+    I hear it before I can see it at all
+    Low brass and a mile of road
+
+CHORUS
+    I work the shoulder, you work the field
+    Same cold morning, same white line
+    I set the bag down when the bus goes past
+    That much of the day is mine
+
+VERSE 3
+    Now the buses top the grade
+    Windows all fogged and white
+    Plume bent flat to the roof
+    Hat pulled down tight
+
+PRE
+    I hear it before I can see it at all
+    and I know what day this is
+
+CHORUS
+    I work the shoulder, you work the field
+    Same cold morning, same white line
+    I set the bag down when the bus goes past
+    That much of the day is mine
+
+BRIDGE
+    Ninety days for eleven minutes
+    Ninety days for eleven minutes
+    That is a trade I would take
+
+    I come off this road in November
+    I will stand at the fence with the rest
+    You do not have to look over
+
+CHORUS (out)
+    I work the shoulder, you work the field
+    Same cold morning, same white line
+    I set the bag down when the bus goes past
+    The rest of the day is mine
+
+TAG
+    I will be at the fence
+    I will be at the fence
+    Go on
+
+
+ARRANGEMENT
+
+The one idea everything follows from, and it is the companion piece's idea
+inverted: `get-ready.txt` withholds the band until the end and then lets it
+arrive. Here the band never arrives. It is heard at a distance for the whole
+song, it crosses the frame twice, and it does not get closer either time.
+The man singing is a mile of road away from it and stays there.
+
+    D major, 88 BPM, straight. Not a minor key and not slow: he is not
+    asking to be pitied and the arrangement must not do it for him. The
+    only sad thing in the song is where he is standing.
+
+    The band is a real ensemble recorded outdoors at two hundred yards,
+    off-axis, on one microphone. It must not be a sample played quietly.
+    Distance takes the high end off brass and leaves the bass drum, and no
+    reverb added to a close recording does that. It should also be very
+    slightly sharp against the track and never corrected -- a cold band
+    warming up is not at A440 and the mismatch is the fence.
+
+VERSE 1     Acoustic guitar, thumb and two fingers. Upright bass on one
+            and three. No drums at all, ever -- see NOT IN IT.
+
+VERSE 2     Nothing added. The admission is the plainest thing in the
+            song and gets the plainest setting in it. Resisting an
+            instrument here is the arrangement.
+
+PRE         The distant band enters underneath, low brass only, and the
+            listener should not be certain it is there. First pass.
+
+CHORUS      Pedal steel, one held note under the whole thing, no fills.
+            Guitar stays where it was. Voice does not lift.
+
+VERSE 3     The band is closest here and still far. Bass drum audible for
+            the first time. It passes across the stereo field left to
+            right over the four lines and is gone by the last one, which
+            is what a bus does.
+
+BRIDGE      Guitar out. Bass and voice. On "I come off this road in
+            November" the pedal steel moves for the first time in the
+            song, one step up, and holds again.
+
+CHORUS OUT  Everything that has played comes back. Nothing new arrives,
+            because nothing new has happened to him -- one word changed
+            in the last line and that is the whole event.
+
+TAG         Voice and nothing. On "Go on" the singer stops.
+
+            The band does not. It carries on at its distance for another
+            fifteen seconds and fades out mid-figure, unresolved, still a
+            mile off. `get-ready.txt` ends with the whole band hitting
+            once together and stopping dead; this one is the same moment
+            from the shoulder of the road, where it does not stop, it
+            just gets further away.
+
+NOT IN IT   Any drum in the room. A kit dates it, and a marching battery
+            close-miked would put him at the show. He is not at the show.
+            No fiddle -- it would make the sound of the man's feelings,
+            and the point of the song is that he does not express them.
+
+VOICE       A man in his forties who has told this story before and is
+            not enjoying telling it again. No vibrato. Slightly behind
+            the beat and never dragging: the difference is whether he
+            sounds tired or sounds reluctant, and he sounds reluctant.
