@@ -248,12 +248,19 @@ def test_the_song_in_the_repo_has_consistent_verse_schemes():
 
 
 def test_sing_flags_the_last_note_only_once():
-    """Applied per section it fires on most of English. Only the final note of
-    the song is likely to be held long enough to matter."""
+    """Exactly one closing-stop finding, and on the song's last note.
+
+    `<= 1` was the bug: it also passed on zero, so deleting the closing-stop
+    rule entirely — or never reaching it — left this green, a guard that could
+    not tell "fired once" from "did not fire." The fixture ends *both* its
+    sections on a plosive, so the three outcomes are distinct: a per-section
+    rule flags two, a deleted rule flags none, and only the real rule — firing
+    on the final note alone — flags one."""
     text = "VERSE 1\n    ends on a stop\nCHORUS\n    also ends on a cut\n"
     lyric, _ = parse(text)
     tails = [f for f in check_sing(lyric) if f.id.endswith(":tail")]
-    assert len(tails) <= 1, tails
+    assert len(tails) == 1, tails
+    assert tails[0].where.endswith("last line of the song"), tails[0].where
 
 
 # --- the constraints --------------------------------------------------------
