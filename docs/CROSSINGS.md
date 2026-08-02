@@ -273,9 +273,10 @@ Four things about it worth keeping:
    is one `if` nobody wrote.
 2. **Neither surface had a test.** `craft/__main__.py` had no test of any kind —
    the suites imported `run_all` and `run_diff` and never the CLI — and no file
-   under `craft/` carried an ablation row. 473 mutations, none of them aimed at
-   the one piece of working software in the repository. The guards were dense
-   where the design is and absent where the code is.
+   under `craft/` carried an ablation row. 477 mutations on this branch at the
+   moment these five landed, none of them aimed at the one piece of working
+   software in the repository. The guards were dense where the design is and
+   absent where the code is.
 3. **`unavailable` was doing two jobs.** A draft that could not be read and a
    draft that was read with 34 words of unknown stress both land in the same
    list, and the song in this repo is permanently in the second state. A caller
@@ -290,7 +291,7 @@ Four things about it worth keeping:
    `prose.py`. The pair was already there; only the middle is new.
 
 Counts in this addendum were derived from the tree on 2026-08-02, on the branch
-this landed on rather than the one it was written on: 478 mutations in
+this landed on rather than the one it was written on: 482 mutations in
 `tests/ablate.py` after this change, five of them the first to point at
 `craft/`. The figures in the original commit message (120 before, 125 after)
 were true of `claude/wall-emptiness-8gj70w` and were stale the moment the change
@@ -352,9 +353,115 @@ goes red rather than quietly becoming a lie. That is `voice.KNOWN_MISSES`'s
 discipline applied to a check's own blind spot.
 
 Counts derived from the tree on 2026-08-02: `SEAMS` 43 rows, `CANNOT_DISTINGUISH`
-3, `EXEMPT` 1, `KNOWN_BLIND` 2, and 483 mutations in `tests/ablate.py` — five of
+3, `EXEMPT` 1, `KNOWN_BLIND` 2, and 487 mutations in `tests/ablate.py` — five of
 them aimed at the completeness check itself, because a check that finds nothing
 today and cannot be shown to fail is a ledger (rule 18).
+
+*The three mutation figures in the two addenda above were each written on a
+branch that did not yet carry the other's rows — 473, 478 and 483 — and every
+one was stale at the merge. Corrected here to the merged tree: 487. That is
+crossing five arriving twice in one session, in the file that predicts it, and
+the mechanism is worth naming because it is not carelessness: a count derived
+correctly from the tree you are standing on is still a claim about a tree that
+is about to change under you. Parallel branches make rule 17 a merge-time
+obligation, not only a writing-time one.*
+
+### Addendum, 2026-08-02 — a refusal whose scope was not the scope of the act
+
+The sharpest defect of the session, and the one nothing in the tree could see.
+
+`records/retention.py` refuses carefully. `assess()` places a record on four
+standings, `due()` returns only `DUE`, and `dispose()` raises `NotDue` for
+anything else — `LIVE`, `RETAINED` and `UNKNOWN` are all kept, which is the
+fail-closed direction. Five mutations covered that ladder and every one went red.
+
+Then `purge()` handed the decision to `atrest.destroy(lane_id=…)`, which drops
+**every** wrapping under the lane:
+
+```python
+kept = tuple(w for w in keyring.wrappings if w.lane_id != lane)
+```
+
+A lane is one student (rule 8). So a `Disposition` scoped to one season and one
+kind destroyed the key opening that student's every sealed payload, in every
+season, of every kind. Run against `lane_entry` with every migration in the
+tree today applied: a live medical note reading `epi-pen in the case` came back
+`key_destroyed` after purging an unrelated aged-out attendance record.
+`assess()` had just called it `live`, `due()` had excluded it, and `dispose()`
+would have raised on it.
+
+**Refusal 3 held throughout, and saying so precisely is the point.** Nothing was
+deleted. Both rows stayed. The `Erasure` was dated, attributed, and outlived
+what it erased. Every property the module was built to guarantee was intact.
+What failed was that a record-scoped refusal governed a student-scoped act — and
+because the act was correct and the refusal was correct, the defect existed only
+in the *join* between them, where neither module's tests look.
+
+**Why the mutation harness could not have caught it, again.** The 2026-07-30
+addendum says ablation proves a guard is load-bearing and says nothing about an
+assertion not attached to one. This is the sibling case: the assertion existed
+and was attached to a real guard, but its *scope* was wrong.
+`test_purge_destroys_only_the_lanes_it_was_given` compares `lane-a` against
+`lane-b` and passes honestly. The forbidden act was inside a lane, and no
+mutation of a correct predicate can reach a test that never asks the question.
+**Ablation proves a guard fires. It cannot tell you the guard is aimed at the
+right thing.**
+
+The fix is crossing one's, applied at the join: `purge()` now requires the
+lane's full record set and refuses unless every record in it is due, with a lane
+the caller cannot enumerate refused as unknown rather than read as empty. The
+key-model fix that would make the refusal unnecessary — seal per `(lane,
+season)` — is recorded as §18 item 19 rather than chosen quietly, because a
+conservative fix that goes unnamed reads afterwards as the design.
+
+One thing found on the way that belongs here: **there is no `season` column
+anywhere in `migrations/`.** The word appears in two SQL comments and nowhere
+else. The axis the whole retention predicate turns on is carried by the record
+types in `records/` and by nothing durable.
+
+### Addendum, 2026-08-02 — two more declarations with nothing behind them
+
+Both are crossing one, and both are recorded because the pattern is the useful
+part, not the two small fixes.
+
+`store/roles.py`'s `RoleState` was documented *"What the cluster looks like
+after `ensure_roles`. **Reported, not assumed.**"* Its `created` field earned
+that — `after - before`, both halves read from `pg_roles`. Its `app_privileges`
+field was the module constant `APP_HOLDS`, and it was not merely assumed:
+`store/migrate.py` orders `ensure_roles` → `apply_all` → `apply_grants`, so at
+the moment the value was constructed there was no table to hold a privilege on
+and no grant had been issued. The field said `("SELECT", "INSERT")` about a role
+that held nothing, one line under a sentence promising it did not do that.
+`held_by_app()` — further down the same module, asking `information_schema` —
+was already the
+honest answer and already what the tests used.
+
+`records/aggregate.py`'s `CellResult.contributors` was documented as *"what the
+announcement is written from."* The announcement is written by `_announce`,
+which walks `readings` directly, and could not have been written from a per-cell
+set of lane ids that carries no subject.
+
+**Both were removed rather than corrected, and the reason is the same one this
+file has recorded five times:** a field with nothing behind it is not inert, it
+is an invitation. `docs/CROSSINGS.md` crossing one — remove the ability, not the
+permission.
+
+**The audit that found the second one got it wrong in a way worth keeping.** It
+reported `contributors` as never populated. It was populated, at both
+construction sites, **positionally** — which is why `grep -rn contributors`
+returns two hits and why an AST sweep counting attribute reads and keyword
+arguments classified it as dead. So the field was not a dormant default: every
+release carried lane ids on the value `_render` hands to `_readme`, `_table` and
+`_manifest`, in the module whose entire purpose is that identifiers do not reach
+a booster board. Nothing read it, which is the only reason it leaked nothing.
+
+The generalisation is the one this file exists for: **a sweep that looks for a
+name cannot see a value passed without one.** The mechanised never-read check
+that found most of this session's findings had a blind spot of exactly the shape it
+was built to detect, and it took a second reader to see it. The replacement
+guard asserts over *field values* rather than field names, so a field re-added
+under any other name is caught — the retired `contributors` being the case that
+proves the name was never the invariant.
 
 ---
 
