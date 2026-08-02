@@ -460,6 +460,13 @@ MUTATIONS = [
      "a missing file fails verification", "tests/test_export.py"),
     ("records/export.py", "if not transfer.complete:", "if False:",
      "an incomplete transfer exports nothing", "tests/test_export.py"),
+    # The README's truncation self-check counts the served rows, not the total.
+    # Reverting it to len(transfer.entries) makes a bundle with any withheld
+    # record tell the recipient to expect more rows than entries.csv holds.
+    ("records/export.py",
+     'f"entries.csv has {len(served)} record(s), one per row. If it has fewer",',
+     'f"entries.csv has {len(transfer.entries)} record(s), one per row. If it has fewer",',
+     "the exit count is the served rows, not the total", "tests/test_export.py"),
     # records/inference.py — refusal 1, enforced on what answered. Every clause
     # here has a mutation, because this is the one guard in the tree whose
     # subject is a disclosure that has *already happened* by the time it runs:

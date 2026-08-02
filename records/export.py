@@ -96,6 +96,13 @@ def _csv(header: Sequence[str], rows: Sequence[Sequence[str]]) -> str:
 
 def _readme(transfer) -> str:
     withheld = [e for e in transfer.entries if getattr(e, "rung", None) is NEVER_SERVED]
+    # entries.csv holds the *served* rows, not every entry: the withheld ones are
+    # named in MANIFEST.txt and never rendered. The truncation self-check has to
+    # count against what the file actually contains, or a bundle with any
+    # withheld record fails its own check — the CSV legitimately has fewer rows
+    # than the total, and a recipient told "fewer than the total means missing"
+    # reads a correct export as a truncated one.
+    served = [e for e in transfer.entries if getattr(e, "rung", None) is not NEVER_SERVED]
     lines = [
         "YOUR RECORD",
         "===========",
@@ -119,10 +126,17 @@ def _readme(transfer) -> str:
         "                so you can tell whether anything went missing.",
         "  README.txt    this file.",
         "",
-        f"There are {len(transfer.entries)} records. If entries.csv has fewer rows",
-        "than that, you did not receive all of it.",
+        f"entries.csv has {len(served)} record(s), one per row. If it has fewer",
+        "rows than that, some were lost after the bundle was made, and",
+        "MANIFEST.txt's checksums are how you tell which.",
         "",
     ]
+    if withheld:
+        lines += [
+            f"({len(served)} shown here plus {len(withheld)} withheld below is "
+            f"{len(transfer.entries)} on record in total.)",
+            "",
+        ]
     if withheld:
         lines += [
             "WITHHELD",
