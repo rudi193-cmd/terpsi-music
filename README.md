@@ -25,6 +25,7 @@ block a first commit and two of them are decisions rather than documents — §1
 
 | | |
 |---|---|
+| `docs/WEB_PRESENCE.md` | Squarespace + custom domain (marketing); hub stays on-prem |
 | `docs/ARCHITECTURE.md` | Canonical. 18 sections. **Read §18 first** — the open list — then §14 for what exists versus what is proposed |
 | `docs/CAPABILITY-MAP.md` | The domain surface. §24 is the craft-feedback capability, the only one not already built somewhere |
 | `docs/SENSITIVITY.md` | The `L1`–`L5` rungs, the class-to-rung mapping, the sensitivity→trust crossing |
