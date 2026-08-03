@@ -1435,7 +1435,8 @@ at both sites. That is a stronger correction than item 0's pass would have
 produced, and it arrived by asking the maintainer rather than by reading source.
 
 **The five-part tombstone cannot be written from here.** `marching-arts` lives
-in `safe-app-store`, which no remote session can reach (`FLEET-READS.md`). What
+in `safe-app-store` — a repository this session can *read* but has no scope to
+*write* (the §14 pass read apps there over the API; `FLEET-READS.md`). What
 is recorded here is the disposition; the stub is an act in that repository, and
 when it is written it needs: status first, `terpsi-music` named as successor,
 spike-completed as the reason, its findings mapped forward and marked
