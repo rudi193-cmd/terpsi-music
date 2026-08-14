@@ -23,6 +23,8 @@ from .standing import (SELF, SELF_CAP, LogAccess, OwnLog, Widening, is_self_edge
                        own_log, past_threshold, self_edge, widens)
 from .rungs import DERIVE_AT, NEVER_SERVED, Rung, at_least, compose, outranks, parse
 from .sealing import Record, State, draft, redraft, reject, seal
+from .seal_ledger import (ChainTampered, Entry as SealEntry, Ledger as SealLedger,
+                          Log as SealLog, attested, enforced_servable, unverifiable)
 from .sending import ContactRestriction, Payload, SendList, Standing, deliver, recipients, who_could_see
 from .serving import Edge, Field, Outcome, Principal, Serving, serve
 
@@ -35,6 +37,8 @@ __all__ = [
     "Log", "Ledger", "Entry", "verify_against",
     "GuardianReceipt", "issue", "authentic", "held_by", "gaps", "contradictions",
     "Record", "State", "draft", "seal", "reject", "redraft",
+    "SealLog", "SealLedger", "SealEntry", "ChainTampered",
+    "attested", "enforced_servable", "unverifiable",
     "Request", "Disposition", "ask", "answer", "state_at", "extend",
     "Escalation", "NotComputable", "Stake", "halt", "refuse_to_rank",
     "Governance", "Model", "governs",
