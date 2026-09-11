@@ -13,9 +13,21 @@
 -- Target: PostgreSQL. That follows §6's mention of a Postgres store and
 -- willow-2.0's .sql migrations; it is an assumption, not a decision.
 --
--- Ward clauses W-1..W-7 are quoted from CLAUDE.md's summary of Willow's
--- PROTECTED_AGENTS.md Part III, which has not been read at source. See the
--- provenance note in docs/LANE-MODEL.md.
+-- Ward clauses W-1..W-7 were quoted from CLAUDE.md's summary of Willow's
+-- PROTECTED_AGENTS.md Part III. THAT IS NO LONGER TRUE: Part III was read at
+-- source 2026-09-11 (willows-grove, blob 2886a41) and the read is recorded in
+-- docs/PART-III-READ.md. W-1, W-2 and W-6 came through the translation whole
+-- and what this file encodes for them stands unchanged.
+--
+-- What the read added, and none of it is enforced here yet:
+--   * access_grant.signer_id may be the lane's own subject -- W-4 and I-2,
+--     and NOT a flat rule: after W-6's threshold a grant signed by the subject
+--     is how a graduate re-admits their guardian.
+--   * access_grant has one signer and no proposed state, so W-5's "envelopes
+--     name the ward as co-signer" is unrepresentable -- W-3's missing-envelope
+--     shape again.
+--   * edge has neither expires_at nor exit_terms, and is arguably the office
+--     I-3 requires an exit from at entry. Arguable, and unargued: see the read.
 
 BEGIN;
 

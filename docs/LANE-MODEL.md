@@ -268,7 +268,22 @@ registers is not yet a clause."* A schema encoding the human-register gloss of
 a machine-register clause is exactly the translation failure that sentence
 warns about.
 
-**So: open `PROTECTED_AGENTS.md` Part III before this becomes
-`migrations/001_lanes.sql`.** Not before reviewing it, not before arguing with
-it — before promoting it. The DDL is cheap to revise now and a data migration
-across every table referencing a student once it has run.
+~~**So: open `PROTECTED_AGENTS.md` Part III before this becomes
+`migrations/001_lanes.sql`.**~~ **Done 2026-09-11 — `docs/PART-III-READ.md`.**
+Not before reviewing it, not before arguing with it — before promoting it. The
+DDL is cheap to revise now and a data migration across every table referencing a
+student once it has run.
+
+**What the read returned, in one line each.** W-1, W-2 and W-6 survived the
+translation whole, so the structural encodings above stand. W-3, W-5 and W-7
+each carry a **second, constructive half** — the sanctioned path through the
+prohibition — and all three lost it in compression; this document caught W-3's
+in 2026-07-30 and *predicted* W-5 would go the same way, which it had. W-4 is
+thin in the rendering and sound in the code.
+
+**And the sentence above was wrong about itself.** It says "this session could
+not open them." §14 and `docs/FLEET-READS.md` had recorded Part III as
+**VERIFIED** at source since 2026-07-30 — the same day. One document asserting
+both, for six weeks, with the DDL's own header agreeing with the wrong half.
+Recorded rather than quietly amended, because the useful part of a tally of
+these is that it keeps growing.

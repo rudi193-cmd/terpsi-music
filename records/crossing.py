@@ -1,6 +1,8 @@
 """The lane crossing W-3 permits, which had no way to exist.
 
-W-3 at source (`Willow` `PROTECTED_AGENTS.md` Part III, `c8c96b4`):
+W-3 at source (`willows-grove` `governance/PROTECTED_AGENTS.md` Part III, blob `2886a41`;
+re-anchored 2026-09-11 — see `docs/PART-III-READ.md`, which records that the
+commit this line used to cite resolves in no repository reachable from here):
 
 > *"Lanes are mutually sealed. Between wards, default deny; **a crossing
 > requires a guardian-signed envelope naming both lanes, purpose, and expiry.**

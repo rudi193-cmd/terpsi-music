@@ -1,10 +1,22 @@
 """W-7: where interests meet, the system halts. It does not compute a priority.
 
-The clause at source (`Willow` `PROTECTED_AGENTS.md` Part III, `c8c96b4`):
+The clause at source (`willows-grove` `governance/PROTECTED_AGENTS.md` Part III,
+blob `2886a41`; see `docs/PART-III-READ.md` for the read and its provenance):
 
-> *"Where two wards' interests collide, or a ward's against the guardian's
-> convenience, the steward **halts and escalates**; it never computes a
-> priority."*
+> *"Where two wards' interests collide, or a ward's interest collides with the
+> guardian's convenience, the steward **halts and escalates** — never computes a
+> priority. **Resolutions accumulate as precedent the guardian may ratify into
+> standing envelopes; none takes force without signature.**"*
+
+**The second sentence was missing here until 2026-09-11, and this docstring
+called the first one "at source" while it was.** It is the constructive half —
+the sanctioned path through the prohibition — and W-3 lost the same half the
+same way (`records/crossing.py`), which is why `tests/test_clause_quotes.py`
+now holds both. What is implemented below is still only the halt: **there is no
+`Precedent` type and no ratification path**, so the escalation learns nothing
+from its own history. Named in `docs/PART-III-READ.md` rather than left to be
+rediscovered, and the human register is explicit about what is missing —
+*"watching your answers, learn to bring it to you better."*
 
 CLAUDE.md's refusal 6 carries both halves, and the second is the one that gets
 dropped: *"a rehearsal time, a route, or a section split that is easier to run
