@@ -153,6 +153,21 @@ CREATE TABLE scope_object (
 -- an event -- because "Chris is staff of the drumline" is true and worth
 -- recording. An edge authorizes nothing on its own; see access_grant.
 --
+-- Why this table has no expires_at, and that is not an I-3 hole (PART-III-READ
+-- item 4, resolved on PROTECTED_AGENTS.md Part II read at source, blob 2886a41).
+-- I-3 -- "an envelope without an expiry or exit condition is invalid at
+-- issuance" -- binds an AUTHORITY: an office with declared values on all five
+-- axes, Exit among them. An edge is not an authority; it authorizes nothing, so
+-- I-3 does not reach it. The authorities carry their exit as expires_at NOT
+-- NULL (access_grant, crossing_envelope, self_widening), and the guardianship
+-- office's own exit is written at entry on the LANE (lane.exit_terms +
+-- threshold, W-6). What ends an edge is invalid_at below -- the DATED MECHANISM
+-- of an ending (refusal 3, the court order mid-season), not a term declared at
+-- the door. Giving an edge an expires_at would miscategorise a fact as an
+-- office with a term (I-4: offices are exercised on their own terms; a fact has
+-- none), and tests/test_lane_model.py refuses exactly that -- the named middle
+-- (rule 12) for the "authorizes nothing" declaration one line up.
+--
 -- The target is two nullable foreign keys with exactly one populated, rather
 -- than a (kind, id) pair. That buys real referential integrity in both
 -- directions and removes the free-text kind column entirely: which column is
