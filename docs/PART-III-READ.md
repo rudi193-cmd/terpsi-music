@@ -98,14 +98,36 @@ once a read has established them.
 
 ## What this read newly opens
 
-**1 · W-5's co-signer has nowhere to live.** `access_grant` carries one
-`signer_id`. The source requires envelopes that *"name the ward as co-signer
-for enumerated matters."* There is no co-signer column, no enumerated-matters
-column, and — the sharper half — **no proposed state**, so *"the steward may
-propose a widening […] it may never enact one"* has no representation other than
-writing the live grant, which is enacting it. The same shape as W-3's
-missing-envelope table, and it wants the same fix. (Carried from the 2026-07-30
-read, still unbuilt.)
+**1 · W-5's proposed state.** ~~No proposed state, so "the steward may propose a
+widening… it may never enact one" has no representation other than writing the
+live grant, which is enacting it.~~ **The sharper half is built, 2026-09-21 —
+`migrations/005_proposed_widening.sql` and `records/standing.py`'s
+`propose`/`ratify`.** `self_widening` (migration 001) was the enacted widening —
+guardian-signed, one enumerated matter — and its own header quoted the
+propose-never-enact sentence, but only the enacted half existed: a steward with
+a clean record to cite had nowhere to write a proposal except the live table,
+so proposing was enacting. Fixed the way W-3's missing envelope was, with a
+table:
+
+- **`proposed_widening`** is the durable, sealed **ledger** of proposals (rule
+  18 — a row grants nothing and no read path consults it). A proposal names one
+  matter, carries the **evidence** it cites (*"citing the record"*, non-blank),
+  and has no signature. *Anyone* may propose, the ward included — W-4 is *"a
+  ward may **request**"* — so there is no `proposed_by != subject_id` rule; the
+  restriction is on the guardian signature that enacts, not on the asking.
+- **`ratify()`** is the enforcement and the named middle (rule 12): the only
+  path from a proposal to an enacted `Widening` runs through a live guardian's
+  signature, reusing `Widening`'s W-4 check so a ward ratifying its own proposal
+  is refused in the one place that rule lives.
+- **`widens()` refuses a `ProposedWidening` by type**, so even a *guardian's own
+  proposal* is inert until they sign it — the clause in one line. Ablated
+  (`tests/ablate.py`); the seal is driven as `terpsi_app` in
+  `tests/test_store_rowsecurity.py`.
+
+**Deferred, named not assumed:** W-5's literal *"ward as co-signer"* — the ward
+becoming a required second signature on enumerated matters (two-signature
+authorization), rather than the guardian widening the ward's own cap. That is a
+larger agency model `self_widening` does not touch, and it is not this table.
 
 **2 · W-7's precedent has nowhere to live.** `records/conflict.py` makes the
 halt structural and does it well — an `Escalation` cannot carry an order. But

@@ -254,6 +254,11 @@ MUTATIONS = [
      "        return MaySupersede(\n            Supersession.PERMITTED,\n"
      "            \"supersession is a dated act and no instant was supplied\")",
      "an undated supersession is not permitted", "tests/test_standing.py"),
+    # W-5's propose-never-enact: widens() refuses a ProposedWidening by type.
+    # Neuter the filter and a guardian's own proposal widens before ratification.
+    ("records/standing.py", "        if not isinstance(w, Widening):\n            continue",
+     "        if False:\n            continue",
+     "a proposal widens before it is ratified (W-5)", "tests/test_standing.py"),
     # records/orders.py — §7.1's ending, bound.
     ("records/orders.py", "        if matches:", "        if False:",
      "an order ends a guardianship at all", "tests/test_orders.py"),
