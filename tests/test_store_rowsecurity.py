@@ -779,6 +779,59 @@ def test_a_reader_that_cannot_evaluate_the_seal_gets_an_error_not_an_empty_resul
             owner.close()
 
 
+def test_a_grant_signed_by_someone_with_no_standing_over_the_lane_is_refused():
+    """`access_grant_signer_has_standing` (migrations/001), W-4 / I-2.
+
+    `docs/PART-III-READ.md` item 3: `access_grant.signer_id` referenced `person`
+    and nothing more, so a grant over Ben's lane could be signed by anyone,
+    the ward included — a signature column with nothing behind it. The trigger
+    requires the signer to hold a live `guardian_of` or `self` edge over the
+    lane at `valid_at`.
+
+    **The forbidden act:** Cara holds a genuine `self` edge into *her* lane and
+    no edge at all into Ben's, so a grant over Ben's lane that she signs is a
+    signer with no standing. **The control:** Ann, who holds `guardian_of` over
+    Ben's lane, signs the same shape and it lands — a rule that refused every
+    signer would pass this test for the wrong reason.
+
+    The threshold-conditional half — a *subject* self-signing only past W-6's
+    threshold — is `records/standing.py::may_self_sign` and
+    `tests/test_standing.py`; the store holds no threshold, so the trigger lets
+    a self-edge signer through and that predicate governs it.
+    """
+    G_OK = uuid.UUID("aaaa1111-0000-0000-0000-00000000000a")
+    G_BAD = uuid.UUID("aaaa1111-0000-0000-0000-00000000000b")
+    grant = ("INSERT INTO access_grant VALUES (%s,%s,%s,%s,'L3',NULL,%s,"
+             "now()+interval '1 day',now(),now(),NULL)")
+    with Database() as db:
+        owner, app = installed(db)
+        seed(owner)
+        try:
+            # The control: a guardian-signed grant over Ben's lane lands.
+            owner.execute(grant, (G_OK, ANN, LBEN, GANN, ANN))
+            owner.commit()
+            assert rows_seen(owner,
+                             "SELECT count(*) FROM access_grant WHERE grant_id = %s",
+                             (G_OK,)) == 1, "a guardian-signed grant did not land"
+
+            # The forbidden act: Cara, no edge into Ben's lane, signs one over it.
+            try:
+                owner.execute(grant, (G_BAD, ANN, LBEN, GANN, CARA))
+            except Exception as exc:  # noqa: BLE001
+                owner.rollback()
+                assert "guardian_of or self edge" in str(exc), (
+                    f"refused, but not by the guard under test: {exc}")
+            else:
+                owner.rollback()
+                raise AssertionError(
+                    "a grant over Ben's lane signed by Cara — who holds no edge "
+                    "into it — was accepted (access_grant_signer_has_standing, W-4)")
+        finally:
+            owner.rollback()
+            app.close()
+            owner.close()
+
+
 if __name__ == "__main__":
     ok, why = True, ""
     try:

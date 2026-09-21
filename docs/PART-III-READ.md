@@ -116,17 +116,29 @@ built, the escalation path halts forever and learns nothing. There is no
 `Precedent` type, no ratification, and no standing envelope for a decided case
 to become. (New, 2026-09-11.)
 
-**3 · `access_grant.signer_id` may be the lane's own subject.** Nothing in the
-DDL stops a grant over a ward's lane being signed by that ward. That is W-4 and
-I-2 at once. It is the same unreachable-CHECK shape as the `self` edge's holder,
-and the same answer applies: a predicate in `records/`, a trigger in the
-migration. **And it must not be written as a flat rule** — W-6 says the
-guardian's standing *"ends or reduces to what the new owner grants back,"* so
-**after** the threshold, a grant signed by the subject over their own lane is
-the mechanism by which a graduate re-admits their parent. A naive
-`signer_id <> subject_id` would forbid the exact act W-6 requires. (This branch
-already wrote `edge_self_holder_is_subject` for the `edge` case on 2026-07-31;
-`signer_id` is the same shape, on `access_grant`, and is not yet guarded.)
+**3 · `access_grant.signer_id` may be the lane's own subject.** ~~Nothing in the
+DDL stops a grant over a ward's lane being signed by that ward.~~ **Resolved
+2026-09-21 — `migrations/001_lanes.sql`'s `access_grant_signer_has_standing`
+trigger and `records/standing.py::may_self_sign`.** That was W-4 and I-2 at
+once. It was *"the same shape as the `self` edge's holder"* — and the read that
+wrote this line got the shape half right and the split wrong. The self edge's
+DB-checkable half was **identity** (holder = subject), a fact the store holds;
+`signer_id`'s distinguishing half is the **threshold**, and the store holds no
+threshold — W-6's is a birthdate or a graduation date derived at read time
+(`records/serving.py`), never a column. So a single trigger cannot decide it: a
+flat `signer_id <> subject_id` forbids the graduate re-admitting their guardian
+(the act W-6 requires), and a flat *"signer must be a guardian"* forbids it too
+(`edge_self_holder_is_subject` refuses a subject holding `guardian_of` over
+their own lane). The resolution splits on what the store can see: the **trigger**
+requires the signer to hold a live `guardian_of` or `self` edge over the lane
+(the threshold-independent half — it closes the hole where any person could
+sign), and **`may_self_sign`** carries the rest (a *self*-signed grant is legal
+only past the threshold), the named middle for the pair (§16, rule 12). Both
+guards are ablated: `tests/test_store_rowsecurity.py` and `tests/ablate_store.py`
+for the trigger, `tests/test_standing.py` and `tests/ablate.py` for the
+predicate. Not closed: the *read-time* re-check (a signer whose standing later
+ends), which `crossing_envelope` carries in `migrations/003` and `access_grant`
+does not yet — a separate follow-up, named here rather than assumed done.
 
 **4 · `edge` versus `access_grant` as the office I-3 requires an exit from.**
 `lane` has `exit_terms` NOT NULL; `access_grant` has `expires_at` NOT NULL;

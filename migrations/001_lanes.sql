@@ -613,6 +613,60 @@ CREATE TRIGGER self_widening_guardian_signed
     BEFORE INSERT OR UPDATE ON self_widening
     FOR EACH ROW EXECUTE FUNCTION refuse_unsigned_by_guardian();
 
+-- A grant's signer holds standing over the lane it grants into. access_grant
+-- carried a signer_id that REFERENCES person and nothing more: any person, the
+-- ward included, could sign a grant over any lane. That is the crossing
+-- envelope's gap one table over -- a signature column with nothing behind it --
+-- and docs/PART-III-READ.md opened it (item 3): "nothing in the DDL stops a
+-- grant over Ben's lane being signed by Ben," which is W-4 and I-2 at once.
+--
+-- This trigger enforces the half the store can see WITHOUT W-6's threshold: the
+-- signer must hold, at valid_at, a LIVE edge over the lane, of a kind that can
+-- authorize -- guardian_of (someone standing over the ward) or self (the
+-- subject's own standing, which edge_self_holder_is_subject already proves is
+-- the subject). An unrelated third party holds neither and is refused. Standing
+-- is read at valid_at, the grant's own effective instant, exactly as
+-- refuse_unsigned_by_guardian reads it at signed_at: a signer whose standing
+-- later ends does not keep the grant open by having signed it -- that is a
+-- predicate over the read instant (records/serving.py, migrations/003), not
+-- over this row.
+--
+-- What it deliberately does NOT decide is the ward-versus-graduate question,
+-- because that turns on W-6's threshold and the threshold is NOT in this store:
+-- it is a birthdate or a graduation date derived at read time
+-- (records/serving.py, records/standing.py::past_threshold). A `self`-signed
+-- grant is legal only PAST that threshold -- before it, a ward signing its own
+-- grant is the ward authorizing itself (W-4); after it, the SAME row is how a
+-- graduate re-admits their former guardian (W-6). A flat `signer_id <>
+-- subject_id` would forbid the second, and so would a flat "signer must be a
+-- guardian" (edge_self_holder_is_subject refuses a subject holding guardian_of
+-- over their own lane). So the threshold-conditional refusal lives in
+-- records/standing.py::may_self_sign, the named middle for this pair (§16), and
+-- this trigger stops short of it on purpose -- documented, not silently absent.
+
+CREATE FUNCTION refuse_grant_signer_without_standing() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM edge e
+        WHERE e.holder_id = NEW.signer_id
+          AND e.target_lane_id = NEW.lane_id
+          AND e.kind IN ('guardian_of', 'self')
+          AND e.valid_at <= NEW.valid_at
+          AND (e.invalid_at IS NULL OR e.invalid_at > NEW.valid_at)
+    ) THEN
+        RAISE EXCEPTION
+            'a grant is signed by someone standing over its lane; % held no '
+            'live guardian_of or self edge over lane % at % (W-4, I-2)',
+            NEW.signer_id, NEW.lane_id, NEW.valid_at;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER access_grant_signer_has_standing
+    BEFORE INSERT OR UPDATE ON access_grant
+    FOR EACH ROW EXECUTE FUNCTION refuse_grant_signer_without_standing();
+
 -- ============================================================================
 -- CLASSIFICATION SEED
 --

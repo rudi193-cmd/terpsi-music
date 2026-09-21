@@ -159,6 +159,14 @@ class Grant:
     * **`expires_at` is `NOT NULL`.** A grant with no future expiry is the
       standing grant W-5 forbids, and it is `Envelope`'s rule under another
       name.
+
+    The one constraint **not** repeated here is the signer's standing: it needs
+    the lane's subject and W-6's threshold, neither of which a `Grant` carries.
+    `migrations/001_lanes.sql`'s `access_grant_signer_has_standing` enforces the
+    threshold-independent half (the signer holds a live `guardian_of` or `self`
+    edge over the lane) and `records/standing.py::may_self_sign` the rest (a
+    self-signed grant is legal only past the threshold). See that predicate and
+    `docs/PART-III-READ.md` item 3.
     """
 
     holder_id: str

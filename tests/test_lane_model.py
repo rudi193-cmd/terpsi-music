@@ -71,7 +71,7 @@ SET_SHAPED = ("scope", "pattern", "wildcard", "filter", "glob", "ids", "group")
 
 # Tables whose row shape a CHECK cannot reach, and the guard each must carry.
 # Every one of these is a rule about whose signature counts.
-SIGNATURE_TRIGGERS = ("edge", "crossing_envelope", "self_widening")
+SIGNATURE_TRIGGERS = ("edge", "crossing_envelope", "self_widening", "access_grant")
 
 # A column on `referent` whose name matches any of these has put participants
 # back on the shared object, which is the partition W-1 and W-3 forbid.
