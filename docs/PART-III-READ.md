@@ -24,7 +24,8 @@ unverified table and a verified one look identical."*
 | **In** | `willow-memory/willows-grove`, working tree at `c19fae6` |
 | **Blob** | `2886a41` (of `governance/PROTECTED_AGENTS.md`) |
 | **Also read** | `governance/PROTECTED_PERSONS.md`, blob `f42df851` — the retirement tombstone §14 cites |
-| **How** | Cloned and opened, not summarised, not fetched through an API, not recalled |
+| **Part II** | Read at source 2026-09-21 for item 4 (I-3, I-4; and I-6/I-7/I-10 in the same pass) — **same blob `2886a41`, same commit `c19fae6`**, so no new anchor. Fetched through the GitHub API this time, not cloned, and the fetch's returned object SHA `2886a41c…` was checked against the anchor before it was relied on |
+| **How** | Part III: cloned and opened, not summarised, not fetched through an API, not recalled. Part II: fetched through the API at the anchored blob and SHA-verified |
 | **Tier** | `P1` for the clause text below. **Not** `P1` for "this is the charter the constitution seat holds" — see the caveat |
 
 **The caveat, because it is the whole point of the exercise.** The copy read is
@@ -218,6 +219,45 @@ office and I-3 is satisfied. But W-6's words are *"the threshold written into
 which puts the office at `edge`. Either `edge` needs an exit written at entry,
 or the DDL should say why an edge is not an authority for I-3's purposes — a
 pair with no named middle is §16 rule 12.
+
+**Resolved 2026-09-21, and it needed Part II read at source — which this item
+forced.** The resolution turns on the exact words of I-3 and I-4, and neither
+had been read here: I-3 was quoted nowhere in the tree, I-4 only as a
+Schedule-A fragment. `docs/LANE-MODEL.md`'s own provenance note set the rule —
+*"the next thing that turns on [an unread invariant] should open Part II
+first"* — so Part II of `PROTECTED_AGENTS.md` was opened at source (blob
+`2886a41`, the same blob Part III was anchored on; verified by the API's
+returned SHA `2886a41c…` at commit `c19fae6`) rather than resolving on a gloss.
+
+Read as written, the tension dissolves and the answer is the **second** branch,
+not the first:
+
+- **I-3 binds an *authority*, and an edge is not one.** I-3's machine register
+  is *"an envelope without an expiry or exit condition is invalid at issuance;
+  exits execute, they are not renegotiated at the door."* An *Office* is
+  *"a named authority… with declared values on all five axes"* (Exit among
+  them); an *Envelope* is *"a bounded, signed, expiring grant of authority."*
+  The DDL's own words — *"an edge authorizes nothing on its own"* — put the edge
+  outside that: a **relational fact**, not an authority, so I-3 does not reach
+  it. I-4 (*"offices do not compound… each is exercised on its own terms"*) is
+  about non-merging of scopes, **not** a claim that the edge is the office; the
+  reading that "puts the office at `edge`" was the gloss.
+- **The authorities already carry I-3's exit at issuance.** `access_grant`,
+  `crossing_envelope` and `self_widening` each carry `expires_at NOT NULL` — the
+  envelope I-3 names. The guardianship office's own exit is written at entry on
+  the **lane** (`lane.exit_terms` + threshold, W-6) — which is why W-6 lives on
+  `lane` and I-3 on the grants. The edge's `invalid_at` is the dated *mechanism*
+  of an ending (refusal 3, the court order mid-season), never a term at the door.
+- **So it was the second branch: name the middle, do not add an edge exit.**
+  Forcing an exit onto every edge would miscategorise a fact as an office with a
+  term (I-4). The named middle is stated in the `edge` DDL comment and in
+  `docs/LANE-MODEL.md`'s exit-axis decision, and made checkable in
+  `tests/test_lane_model.py`: the three authorities must carry `expires_at NOT
+  NULL`, `edge` must carry none. **This was not only documentation — it closed a
+  live under-guard:** the structural checker asserted `crossing_envelope`'s
+  `expires_at` but never `access_grant`'s, so I-3's plainest case had no test.
+  Ablated (`tests/ablate.py`, *"I-3: an authority carries its exit at
+  issuance"*).
 
 ---
 

@@ -91,6 +91,29 @@ wildcard in. **Group grants are inexpressible rather than rejected**, which is
 the same move §6 makes with egress: no destination to deny because there is no
 client to call one.
 
+**The exit axis lives on the authority and the lane, never on the edge.**
+Resolved 2026-09-21 (`docs/PART-III-READ.md` item 4), on `PROTECTED_AGENTS.md`
+Part II read at source (blob `2886a41`, the same blob Part III was anchored on).
+Three tables carry a `NOT NULL` exit and one deliberately does not, and the
+question was whether that one — `edge` — is a hole. It is not. I-3 —
+*"an envelope without an expiry or exit condition is invalid at issuance; exits
+execute, they are not renegotiated at the door"* — binds an **authority**, an
+office declared on all five axes with Exit among them. The definitions make the
+mapping exact: an `access_grant` is an *Envelope* (*"a bounded, signed, expiring
+grant of authority"*) and carries `expires_at NOT NULL`; so do `crossing_envelope`
+and `self_widening`. An **edge is a relational fact** — *"an edge authorizes
+nothing on its own"* — so I-3 does not reach it, and its `invalid_at` is the
+dated *mechanism* of an ending (refusal 3), not a term written at the door. The
+guardianship office's own exit **is** written at entry, on the lane
+(`lane.exit_terms` + threshold, W-6) — which is why W-6 lives on `lane` and I-3
+on the grants. I-4 (*"offices do not compound… each is exercised on its own
+terms"*) is the reason an edge may not grow a term of its own: a fact is not an
+office, and giving it one would be the category error I-4 names. This is a
+§16 pair with its middle named in the same place it is stated:
+`tests/test_lane_model.py` asserts the three authorities carry `expires_at NOT
+NULL` and that `edge` carries none — ablated (`tests/ablate.py`), and
+`access_grant` was the one this checker did not cover until this item.
+
 **`L5` is unreachable through a grant, by CHECK.** `access_grant.max_rung`
 permits `L1`–`L4`; `self_widening.max_rung` permits `L4` and nothing else. The
 ladder's top rung is not policy-excluded, it is absent from both constraints, so
@@ -137,10 +160,12 @@ Ten and three; `field_classification` is a registry and takes neither. The
 envelope and the widening are **state** and that is a decision, not an
 oversight: both end by a date and never by a `DELETE` (refusal 3). A revoked
 envelope that was deleted cannot answer *"who could cross into Ben's lane on 12
-October, and why."* Both carry `expires_at` beside the pair — the timebound the
-clause requires *declared at issuance* (I-6) — and the two are different facts:
-`expires_at` is what the signer wrote down, `invalid_at` is the revocation that
-arrived afterwards.
+October, and why."* Both carry `expires_at` beside the pair — **I-3's exit
+written at issuance** (*"an envelope without an expiry or exit condition is
+invalid at issuance"*, `PROTECTED_AGENTS.md` Part II, blob `2886a41`), which P-2
+notes is the same rule as I-6's disposition timebound — and the two are
+different facts: `expires_at` is what the signer wrote down, `invalid_at` is the
+revocation that arrived afterwards.
 
 **Both axes are needed, and the case that proves it is ordinary.** A court order
 dated in March, delivered to the program in October. *When the restriction took
@@ -497,9 +522,14 @@ prohibition is the memorable half. Anywhere this repository encodes a clause
 from a gloss, the sanctioned path is the part to go and check.
 
 ~~**So: open `PROTECTED_AGENTS.md` Part III before this becomes
-`migrations/001_lanes.sql`.**~~ Done. **The remaining warning is narrower and
+`migrations/001_lanes.sql`.**~~ Done. ~~**The remaining warning is narrower and
 still live:** I-6, I-7 and I-10 are cited here from §7.4's summary and have
-*not* been read at source. Nothing in the DDL turns on them today — I-7's
-supersession asymmetry is the first entry on the unenforced list and is a
-predicate, not a column — but the next thing that does should open Part II
-first, for the reason the paragraph above gives.
+*not* been read at source.~~ **Part II was opened at source on 2026-09-21**
+(blob `2886a41`, the same blob Part III was anchored on) when item 4 came to
+turn on I-3 and I-4 — following the rule this paragraph set rather than
+encoding their gloss. I-3 and I-4 are now read as written and drive the exit-axis
+decision above and `tests/test_lane_model.py`'s I-3 guard; I-6, I-7 and I-10
+were read in the same pass (I-6 is the disposition timebound P-2 ties to I-3's
+exit; I-7's supersession asymmetry is enforced at `records/standing.py`; I-10
+governs crossings). The general caution stands for any clause this repository
+still encodes from a gloss: open the source before the next thing turns on it.

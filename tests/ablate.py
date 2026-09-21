@@ -933,6 +933,16 @@ MUTATIONS = [
      "CREATE TRIGGER self_widening_guardian_signed\n    AFTER INSERT OR UPDATE ON self_widening",
      "W-5: the widening's signature is checked before the write",
      "tests/test_lane_model.py"),
+    # I-3 (PART-III-READ item 4): an authority names its exit at issuance.
+    # `expires_at    timestamptz NOT NULL,` is verbatim on all three grant-shaped
+    # tables, so the two-line slice with signer_id above it is what makes the
+    # access_grant occurrence unique -- and access_grant is the one the checker
+    # did not cover before item 4. Nullable expires_at is a standing grant that
+    # reads as an ordinary one.
+    ("migrations/001_lanes.sql",
+     "    signer_id     uuid        NOT NULL REFERENCES person(person_id),\n    expires_at    timestamptz NOT NULL,",
+     "    signer_id     uuid        NOT NULL REFERENCES person(person_id),\n    expires_at    timestamptz,",
+     "I-3: an authority carries its exit at issuance", "tests/test_lane_model.py"),
     ("migrations/001_lanes.sql",
      "CREATE TRIGGER edge_self_holder_is_subject\n    BEFORE INSERT OR UPDATE ON edge",
      "CREATE TRIGGER edge_self_holder_is_subject\n    AFTER INSERT OR UPDATE ON edge",

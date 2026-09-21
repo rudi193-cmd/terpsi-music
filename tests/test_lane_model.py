@@ -314,6 +314,40 @@ def problems(sql: str) -> list[str]:
             if "'L4'" in c and "purpose" not in c:
                 bad.append("ladder: L4 is grantable without a declared purpose")
 
+    # --- I-3: every authority names its exit, written at issuance ----------
+    #
+    # `PROTECTED_AGENTS.md` Part II, read at source (blob `2886a41` — the same
+    # blob Part III was anchored on; `docs/PART-III-READ.md` item 4). I-3's
+    # machine register is exact: *"an envelope without an expiry or exit
+    # condition is invalid at issuance. Exits execute; they are not renegotiated
+    # at the door."* An **authority** is an office with declared values on all
+    # five axes, Exit among them; the schema's authorities are the grant-shaped
+    # tables (each an `Envelope` — a bounded, signed, expiring grant), and each
+    # must carry its exit as `expires_at NOT NULL`. `access_grant` is the
+    # plainest of the three and was the one this checker did not cover until
+    # item 4 — a nullable `expires_at` reads as a grant and is a standing one.
+    #
+    # The `edge` is deliberately NOT an authority here. *"An edge authorizes
+    # nothing on its own"* (the DDL) — it is a relational fact, so I-3 does not
+    # bind it, and its ending is `invalid_at`: nullable, set when a standing ends
+    # (refusal 3, the court order mid-season), the *mechanism* of an exit rather
+    # than a declared one. An edge that grew an `expires_at` would be a fact
+    # miscategorised as an office with a term (I-4: offices are exercised on
+    # their own terms; a fact has none). The guardianship office's own exit is
+    # written at entry on the lane (`lane.exit_terms` + threshold, W-6), which is
+    # why W-6 lives on `lane` and I-3 lives here.
+    for g in GRANT_SHAPED:
+        if g not in t:
+            continue
+        if "NOT NULL" not in columns(t[g]).get("expires_at", ""):
+            bad.append(f"I-3: {g}.expires_at is missing or nullable — an "
+                       "authority without an exit written at issuance is invalid "
+                       "at issuance (the envelope I-3 names)")
+    if "edge" in t and "expires_at" in columns(t["edge"]):
+        bad.append("I-3/I-4: edge.expires_at gives a relational fact a declared "
+                   "term — an edge authorizes nothing and is not an authority; "
+                   "its ending is invalid_at (refusal 3), never a declared expiry")
+
     # --- §7.1: state takes the pair, history must not ---------------------
     for name in STATE_TABLES:
         if name not in t:
@@ -767,6 +801,39 @@ def test_adjudication_commentary_needs_no_table_of_its_own():
     for cn in cols:
         assert cn not in ("subject_ids", "lane_ids", "students", "roster",
                           "participants"), f"lane_entry.{cn} is a roster column"
+
+
+def test_an_authority_without_a_written_exit_is_caught():
+    """I-3: every authority names its exit, and the envelope carries it at
+    issuance. Both halves of item 4's named middle, attempted.
+
+    `access_grant` is the plainest authority and the one this checker did not
+    cover until item 4 — a nullable `expires_at` reads as a grant at a glance
+    and is a standing one, which I-3 forbids (*"an envelope without an expiry …
+    is invalid at issuance"*). And the `edge`, which authorizes nothing, may not
+    grow a term: a relational fact is not an office, so giving it a declared
+    expiry is the category error I-4 names, not a tighter edge.
+    """
+    decoy = """
+CREATE TABLE access_grant (
+    grant_id   uuid PRIMARY KEY,
+    lane_id    uuid NOT NULL REFERENCES lane(lane_id),
+    max_rung   text NOT NULL,
+    expires_at timestamptz,
+    CONSTRAINT access_grant_max_rung CHECK (max_rung IN ('L1','L3'))
+);
+CREATE TABLE edge (
+    edge_id    uuid PRIMARY KEY,
+    kind       text NOT NULL,
+    expires_at timestamptz NOT NULL
+);
+"""
+    joined = "\n".join(problems(decoy))
+    for expected in (
+        "I-3: access_grant.expires_at is missing or nullable",
+        "I-3/I-4: edge.expires_at gives a relational fact a declared term",
+    ):
+        assert expected in joined, f"missed {expected!r} in:\n{joined}"
 
 
 def test_the_check_passes_the_real_schema_only_on_merit():
