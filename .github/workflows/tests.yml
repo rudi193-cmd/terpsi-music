@@ -231,8 +231,14 @@ jobs:
           # --- the first twelve tables --------------------------------------
           refuse "blank exit_terms (W-6)" lane_exit_terms_present \
             "INSERT INTO lane VALUES ('44444444-4444-4444-4444-444444444444','$CARA','   ',now(),now(),now(),NULL)"
+          # Holder is Nguyen and signer is Ann (a live guardian of the lane, and
+          # not the holder): access_grant_signer_has_standing is a BEFORE trigger
+          # and fires ahead of this CHECK, so the grant must clear it -- a live
+          # guardian signature, no self-grant -- to reach the rung the attack is
+          # about. A grant Ann signed to herself would be refused by the signer
+          # guard first and this would assert on the wrong one.
           refuse "a grant at L5" access_grant_max_rung \
-            "INSERT INTO access_grant VALUES ('55555555-5555-5555-5555-555555555555','$ANN','$LBEN','$GBEN','L5','x','$ANN',now(),now(),now(),NULL)"
+            "INSERT INTO access_grant VALUES ('55555555-5555-5555-5555-555555555555','$NGUYEN','$LBEN','$GBEN','L5','x','$ANN',now(),now(),now(),NULL)"
           # payload is NULL in every lane_entry below: migration 004 tombstoned
           # the clear column and constrained it to NULL, and passing '{}'::jsonb
           # here would be refused by lane_entry_payload_is_tombstoned rather
