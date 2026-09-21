@@ -131,6 +131,112 @@ def test_a_write_on_a_literal_Path_is_seen():
     assert got and got[0].reach is Reach.WRITE
 
 
+def test_the_pathlib_spelling_puts_the_mode_first_and_it_is_still_a_write():
+    """**A real write this checker read as a read, found 2026-07-31.**
+
+    `open(path, "w")` puts the mode second; `path.open("w")` puts it *first*,
+    because the path is the receiver. `_mode_of` looked only at index 1, found
+    nothing, fell through to its `"r"` default — and `tools/conform.py`'s own
+    record writer, `path.open("x", encoding=…)`, was classified as a **read** by
+    the gate whose job is to find writes.
+
+    Found by pointing the new write-path reconciliation at the tree and noticing
+    that a module known to write did not appear in the answer. Pinned here
+    because until it was, `tests/ablate.py` reported the fix as `SURVIVES` —
+    the harness saying, correctly, that nothing depended on it.
+    """
+    for mode in ("w", "a", "x", "r+"):
+        got = scan_source(f"p.open({mode!r}, encoding='utf-8')\n", "m.py")
+        assert got and got[0].reach is Reach.WRITE, (
+            f"path.open({mode!r}) was read as {got[0].reach if got else 'nothing'}")
+    # The builtin's shape still works, and a read is still a read either way.
+    assert scan_source("open(p, 'w')\n", "m.py")[0].reach is Reach.WRITE
+    assert scan_source("p.open('r')\n", "m.py")[0].reach is Reach.READ
+    assert scan_source("p.open()\n", "m.py")[0].reach is Reach.READ
+    assert scan_source("p.open(mode)\n", "m.py")[0].reach is Reach.UNKNOWN_MODE
+
+
+def test_the_module_that_writes_the_conformance_record_is_seen_to_write():
+    """The concrete case the bug hid, asserted against the shipped file rather
+    than a snippet — a fix pinned only by its own snippet is pinned to the
+    snippet."""
+    got = writes([ROOT / "tools" / "conform.py"])
+    assert got, "tools/conform.py writes a dated record and the scan sees none"
+
+
+# --- writes to a database are writes ---------------------------------------
+
+
+def test_a_statement_that_changes_the_store_is_a_write():
+    """A write is a write whether the bytes land on a local disk or in a
+    cluster. Until `store/` existed this scanner could only see the first, so
+    the write-path declaration would have been reconciled against a check unable
+    to see the thing being declared."""
+    for sql in ("INSERT INTO lane_entry (x) VALUES (1)",
+                "UPDATE lane_entry SET x = 1",
+                "DELETE FROM lane_entry",
+                "CREATE TABLE t (x text)",
+                "GRANT SELECT ON t TO r",
+                "REVOKE UPDATE ON t FROM r"):
+        got = scan_source(f"cur.execute({sql!r})\n", "m.py")
+        assert got and got[0].reach is Reach.DB_WRITE, f"{sql} was not seen"
+        assert got[0].is_write and got[0].is_db
+
+
+def test_a_select_is_not_a_write():
+    """A check that flagged every query would be switched off within a week —
+    `dataclasses.replace`'s lesson, one layer over."""
+    assert scan_source("cur.execute('SELECT 1 FROM lane_entry')\n", "m.py") == ()
+
+
+def test_sql_this_scan_cannot_read_counts_as_a_write():
+    """Unresolvable is not a pass, at exactly the place the code is least
+    legible. `cur.execute(sql, params)` could be anything."""
+    got = scan_source("cur.execute(sql, params)\n", "m.py")
+    assert got and got[0].reach is Reach.UNKNOWN_SQL and got[0].is_write
+
+
+def test_an_f_string_of_sql_is_seen():
+    """The normal spelling, and the one `tools/discipline.py` shipped without
+    once: an f-string is an `ast.JoinedStr` and invisible to a scan over
+    constants."""
+    got = scan_source('cur.execute(f"INSERT INTO {t} VALUES (1)")\n', "m.py")
+    assert got and got[0].reach is Reach.DB_WRITE
+
+
+def test_sql_in_prose_is_not_a_write():
+    """The decoy against the wrong implementation. A grep fails this; the
+    finding is SQL handed to an executor, never SQL in a docstring."""
+    src = ('"""never run INSERT INTO lane_entry outside the declared path."""\n'
+           'RULE = "DELETE FROM edge is forbidden"\n')
+    assert scan_source(src, "m.py") == ()
+
+
+def test_subprocess_run_is_not_a_database_executor():
+    """**`run` was in the executor set for one measurement.**
+    `subprocess.run([...])` matched it, so five of `tools/conform.py`'s process
+    launches were reported as unreadable SQL. A false positive is how a check
+    earns the reputation that gets it switched off."""
+    got = scan_source("subprocess.run([sys.executable, str(p)])\n", "m.py")
+    assert all(t.reach is not Reach.UNKNOWN_SQL for t in got), [str(t) for t in got]
+    assert "run" not in purity._SQL_EXECUTORS
+
+
+def test_records_still_writes_nothing_by_either_measure():
+    """§6's inner ring, re-asked now that the question is larger. The store is
+    the declared exception and this is the thing it is an exception to."""
+    assert writes([ROOT / "records"]) == ()
+
+
+def test_the_store_is_seen_to_write():
+    """The mirror. If `store/` scanned clean the write-path gate would be
+    reconciling a declaration against nothing, which is §4.3's failure with the
+    halves swapped."""
+    got = writes([ROOT / "store"])
+    assert got, "store/ writes nothing, so the write-path declaration is vacuous"
+    assert any(t.is_db for t in got)
+
+
 def test_a_write_through_a_Path_VARIABLE_is_NOT_seen_documented():
     """**A limitation, not a guarantee.** `p.unlink()` where `p` holds a `Path`
     needs type inference this checker does not do. Asserted by name so it reads
@@ -157,11 +263,31 @@ def test_the_evidence_says_how_many_files_were_looked_at():
     assert "module(s) scanned" in got.evidence and "recursively" in got.evidence
 
 
-def test_the_write_check_stays_unknown_because_there_is_no_manifest():
-    """No writes found is not the same as writes being declared and matched.
-    Until a manifest exists this is `UNKNOWN`, not `PASS`."""
+def test_the_write_check_is_a_gate_now_and_not_a_ledger():
+    """**This row stopped being UNKNOWN on 2026-07-31, and the reason is the
+    point.**
+
+    It read `"no manifest" in got.evidence` until §18 item 4 landed one, then
+    `"no write paths"` until gate G-C landed those. Both wordings were honest at
+    the time and both would have gone on claiming a fact the tree had moved
+    past — rule 17's defect living in a checker's own evidence string, corrected
+    twice in one file.
+
+    Now there is a declaration and a reconciliation, so rule 18's answer changes
+    from *ledger* to *enforcement*: the check `PASS`es, and it can `FAIL`, which
+    `tests/test_manifest.py` demonstrates against a decoy.
+    """
     got = check_write_paths()
-    assert got.state is State.UNKNOWN and "no manifest" in got.evidence
+    assert got.state is State.PASS, got.evidence
+    assert "write path(s) declared in manifest.json" in got.evidence
+    assert "both directions" in got.evidence
+
+
+def test_the_write_check_still_reports_unknown_where_it_cannot_reconcile():
+    """The vacuous case survives the upgrade: a tree that is not there is
+    unknown, not passing. `tests/test_rule13_acceptance.py` sweeps this too."""
+    empty = ROOT / "tests" / "fixtures" / "decoys" / "does-not-exist"
+    assert check_write_paths(empty).state is State.UNKNOWN
 
 
 # --- the checkers do not do the things they check for ---------------------

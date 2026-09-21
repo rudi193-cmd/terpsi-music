@@ -105,8 +105,30 @@ def test_an_expired_envelope_does_not_permit():
 def test_an_envelope_is_directional():
     """One signature must not open two seals. An envelope letting the sibling's
     lane read Ben's does not let Ben's read the sibling's."""
-    assert permits([env()], from_lane="lane-ben", to_lane="lane-sib", at=T0) is None
-    assert permits([env()], from_lane="lane-sib", to_lane="lane-ben", at=T0) is not None
+    assert permits([env()], from_lane="lane-ben", to_lane="lane-sib", at=T0,
+                   subject_id=BEN, signer_edges=[mother()]) is None
+    assert permits([env()], from_lane="lane-sib", to_lane="lane-ben", at=T0,
+                   subject_id=BEN, signer_edges=[mother()]) is not None
+
+
+def test_a_crossing_cannot_be_asked_about_without_naming_whose_seal_it_opens():
+    """`subject_id` used to default to `None`, and a `None` skipped the signer's
+    standing check entirely — so an envelope signed by an ex-guardian opened the
+    seal for any caller who did not think to name the ward. `serve()` always
+    named it, which is why the hole was invisible from the read path.
+
+    The fix is the missing-parameter form `deliver()` uses for recipients:
+    the question cannot be asked without its subject."""
+    import inspect
+    sig = inspect.signature(permits)
+    assert sig.parameters["subject_id"].default is inspect.Parameter.empty, (
+        "subject_id has a default again; the signer's standing is skippable"
+    )
+    try:
+        permits([env()], from_lane="lane-sib", to_lane="lane-ben", at=T0)
+    except TypeError:
+        return
+    raise AssertionError("a crossing was permitted without naming whose lane it opens")
 
 
 def test_the_signers_standing_is_checked_at_use_not_at_signing():

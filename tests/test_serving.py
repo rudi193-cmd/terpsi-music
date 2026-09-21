@@ -338,7 +338,16 @@ def test_an_edge_carries_the_second_clock_and_it_is_required():
         raise AssertionError("created_at is not required — §7.1's second axis is optional")
 
     e = Edge("guardian_of", "g", BEN, SEASON, created_at=SEASON)
-    assert dataclasses.fields(Edge)[-1].name == "created_at"
+    #: Asserted as a *property* rather than as a position. This read
+    #: `fields(Edge)[-1].name == "created_at"` until the ending's own clock was
+    #: added beside it, and a positional assertion breaks on a field that is
+    #: appended rather than on the thing it was checking — which is that
+    #: `created_at` is required and keyword-only.
+    spec = {f.name: f for f in dataclasses.fields(Edge)}
+    assert spec["created_at"].kw_only
+    assert spec["created_at"].default is dataclasses.MISSING, (
+        "created_at grew a default; §7.1's second axis became optional"
+    )
     try:
         e.created_at = LATER  # type: ignore[misc]
     except Exception:
@@ -407,6 +416,222 @@ def test_the_subjects_standing_is_an_edge_and_is_not_ambient():
     assert with_edge.via_edge == "self", (
         "the read did not name the edge that entitled it; §7.2 has nothing to narrate"
     )
+
+
+# --- W-3's default deny: the half the seal was missing ----------------------
+#
+# `docs/LANE-MODEL.md` listed this as stated-and-unenforced: *"the schema
+# partitions; it does not enforce that a query stays in its lane."*
+
+
+def ana_field(rung=Rung.L2, **kw) -> Field:
+    base = dict(lane_id="lane-ana", subject_id="student-ana", name="call_time",
+                rung=rung, payload="5:45pm at the band room",
+                instruction="report at the posted time")
+    base.update(kw)
+    return Field(**base)
+
+
+def ben_self() -> Edge:
+    return Edge("self", BEN, BEN, SEASON, created_at=SEASON)
+
+
+def test_a_ward_reading_another_wards_lane_is_denied_below_the_derive_floor():
+    """**The forbidden act that used to succeed.** Two things had to line up and
+    both are ordinary: a read that passes no `lane_id` never reached the seal at
+    all, and an `L2` field needs no entitlement edge — so Ben was served Ana's
+    call time with nothing consulted. W-3's opening words are *"Between wards,
+    default deny."*"""
+    s = serve(ana_field(), Principal(BEN), [ben_self()], SEASON)
+    assert s.outcome is Outcome.REFUSED, (
+        "a ward read another ward's lane entry; the seal is not rung-shaped"
+    )
+    assert "default deny" in s.reason
+
+
+def test_the_ward_seal_is_not_rung_shaped():
+    """It refuses at every rung, because the partition is not a sensitivity
+    question. An `L1` fact that genuinely may be published does not need a lane
+    entry to be read from."""
+    for rung in (Rung.L1, Rung.L2, Rung.L3):
+        s = serve(ana_field(rung=rung), Principal(BEN), [ben_self()], SEASON)
+        assert s.outcome is Outcome.REFUSED, f"{rung} crossed the seal"
+
+
+def test_naming_the_target_lane_as_the_origin_is_not_a_crossing():
+    """A ward who names the lane they are reading *into* as their origin has
+    named one lane twice, and `Envelope` refuses that at construction — so no
+    envelope can ever match and the refusal is structural."""
+    s = serve(ana_field(), Principal(BEN), [ben_self()], SEASON, lane_id="lane-ana")
+    assert s.outcome is Outcome.REFUSED
+
+
+def test_a_signed_envelope_is_still_the_sanctioned_path_for_a_ward():
+    """The companion assertion. A clause that forbids without providing the
+    sanctioned path is not the clause — so the legitimate sibling case has to
+    work, from the ward's own lane, on a guardian's signature."""
+    from records.crossing import Envelope
+
+    ana_guardian = Edge("guardian_of", "g-mother", "student-ana", SEASON,
+                        created_at=SEASON)
+    env = Envelope(LANE, "lane-ana", "shared bus roster for the Dayton trip",
+                   "g-mother", SEASON, LATER)
+    s = serve(ana_field(), Principal(BEN), [ben_self(), ana_guardian], SEASON,
+              lane_id=LANE, envelopes=[env])
+    assert s.outcome is Outcome.PAYLOAD, s.reason
+    assert "crossing permitted by envelope" in s.reason
+
+
+def test_a_forged_self_edge_does_not_make_somebody_a_ward():
+    """`is_self_edge`, not `kind == "self"`. The seal restricts rather than
+    widens here, and letting a forged row decide either direction is one
+    defect."""
+    forged = Edge("self", "staff-nguyen", "student-ana", SEASON, created_at=SEASON)
+    staff = Edge("staff_of", "staff-nguyen", "student-ana", SEASON, created_at=SEASON)
+    s = serve(ana_field(rung=Rung.L3), Principal("staff-nguyen"), [forged, staff],
+              SEASON)
+    assert s.outcome is Outcome.PAYLOAD, (
+        "a forged self edge made a staff member into a ward and sealed them out"
+    )
+
+
+def test_an_ended_self_edge_no_longer_seals_anybody_in():
+    """Refusal 3, on the seal. A graduate whose `self` edge ended is not a ward,
+    and the seal that follows from being one ends with it."""
+    ended = Edge("self", BEN, BEN, SEASON, SEASON + timedelta(days=10),
+                 created_at=SEASON)
+    staff = Edge("staff_of", BEN, "student-ana", SEASON, created_at=SEASON)
+    s = serve(ana_field(rung=Rung.L3), Principal(BEN), [ended, staff], LATER)
+    assert s.outcome is Outcome.PAYLOAD
+
+
+def test_a_guardian_of_both_siblings_is_not_a_ward_and_is_not_sealed_out():
+    """The seal is *between wards*. A guardian holding edges to two children is
+    not in a lane themselves and reads each lane on its own edge."""
+    both = Edge("guardian_of", "g-mother", "student-ana", SEASON, created_at=SEASON)
+    s = serve(ana_field(rung=Rung.L3), Principal("g-mother"), [both, guardian()],
+              SEASON)
+    assert s.outcome is Outcome.PAYLOAD
+
+
+# --- the rung ceiling -------------------------------------------------------
+
+
+def a_grant(**kw):
+    from records import Grant
+    base = dict(holder_id="staff-nguyen", lane_id=LANE, max_rung=Rung.L3,
+                signed_by="dana-reyes", valid_at=SEASON,
+                expires_at=SEASON + timedelta(days=200), created_at=SEASON)
+    base.update(kw)
+    return Grant(**base)
+
+
+def staff() -> Edge:
+    return Edge("staff_of", "staff-nguyen", BEN, SEASON, created_at=SEASON)
+
+
+def test_a_grant_ceiling_below_the_field_refuses_the_payload():
+    """`access_grant.max_rung` recorded the ceiling and nothing performed the
+    comparison at serving time, which is exactly what made the column a ledger
+    (§7.2's *say which*). The edge is a fact; the grant authorizes."""
+    who = Principal("staff-nguyen", frozenset({"health"}))
+    capped = serve(health_field(), who, [staff()], SEASON,
+                   grants=[a_grant(max_rung=Rung.L3)])
+    assert capped.outcome is Outcome.INSTRUCTION
+    assert "grant ceiling" in capped.reason
+
+    lifted = serve(health_field(), who, [staff()], SEASON,
+                   grants=[a_grant(max_rung=Rung.L4, purpose="health")])
+    assert lifted.outcome is Outcome.PAYLOAD
+
+
+def test_an_empty_grant_table_is_not_an_unlimited_one():
+    """The forbidden act: a principal with a live edge and no grant at all is
+    served an `L3` payload. `()` means *consulted, and nothing found*."""
+    s = serve(roster_field(), Principal("staff-nguyen"), [staff()], SEASON, grants=[])
+    assert s.outcome is Outcome.INSTRUCTION
+    assert "no live grant" in s.reason
+
+
+def test_no_grant_table_and_an_empty_one_are_different_instructions():
+    """Rule 13 in a signature. `None` says *no grant source was consulted*, `()`
+    says *consulted and empty*; a single sentinel would have merged a fail-open
+    with a fail-closed."""
+    unconsulted = serve(roster_field(), Principal("staff-nguyen"), [staff()],
+                        SEASON, grants=None)
+    consulted = serve(roster_field(), Principal("staff-nguyen"), [staff()],
+                      SEASON, grants=())
+    assert unconsulted.outcome is Outcome.PAYLOAD
+    assert consulted.outcome is Outcome.INSTRUCTION
+
+
+def test_a_grant_over_another_lane_does_not_reach_this_one():
+    s = serve(roster_field(), Principal("staff-nguyen"), [staff()], SEASON,
+              grants=[a_grant(lane_id="lane-ana")])
+    assert s.outcome is Outcome.INSTRUCTION
+
+
+def test_an_expired_or_ended_grant_is_not_a_grant():
+    for kw in ({"expires_at": SEASON + timedelta(days=1)},
+               {"invalid_at": SEASON + timedelta(days=1)}):
+        s = serve(roster_field(), Principal("staff-nguyen"), [staff()], LATER,
+                  grants=[a_grant(**kw)])
+        assert s.outcome is Outcome.INSTRUCTION, f"a grant survived {kw}"
+
+
+def test_the_ceiling_composes_by_max_across_several_grants():
+    who = Principal("staff-nguyen", frozenset({"health"}))
+    s = serve(health_field(), who, [staff()], SEASON,
+              grants=[a_grant(max_rung=Rung.L2),
+                      a_grant(max_rung=Rung.L4, purpose="health")])
+    assert s.outcome is Outcome.PAYLOAD
+
+
+def test_l5_is_unreachable_through_a_grant_by_construction():
+    """`access_grant_max_rung` omits `L5`, so a grant purporting to serve it
+    fails at write time. The type fails at construction, for the same reason."""
+    try:
+        a_grant(max_rung=Rung.L5)
+    except ValueError:
+        return
+    raise AssertionError("a grant was issued at L5")
+
+
+def test_a_grant_cannot_name_a_group_or_a_wildcard_lane():
+    """W-2 and refusal 5. A grant table with a single `NOT NULL` lane column
+    cannot express a group; neither can this."""
+    for bad in ("", "   ", "*", "all", "ANY", "every"):
+        try:
+            a_grant(lane_id=bad)
+        except ValueError:
+            continue
+        raise AssertionError(f"{bad!r} was accepted as a lane in a grant")
+
+
+def test_an_l4_grant_without_a_declared_purpose_is_not_a_grant():
+    try:
+        a_grant(max_rung=Rung.L4)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("an L4 grant issued with no purpose")
+
+
+def test_a_grant_without_a_future_expiry_is_a_standing_grant():
+    try:
+        a_grant(expires_at=SEASON)
+    except ValueError:
+        return
+    raise AssertionError("a grant with no future expiry was accepted (W-5)")
+
+
+def test_an_unsigned_or_unheld_grant_is_refused():
+    for kw in ({"signed_by": "  "}, {"holder_id": ""}):
+        try:
+            a_grant(**kw)
+        except ValueError:
+            continue
+        raise AssertionError(f"a grant was built with {kw}")
 
 
 if __name__ == "__main__":

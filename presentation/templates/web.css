@@ -1,0 +1,31 @@
+/* Badge styling for the browser surface — {{version}}
+ * Generated from presentation/tokens.yaml. Edit the template, not this file:
+ * `python3 presentation/render.py --check` fails the build on any difference.
+ *
+ * Colour here is emphasis only. Every badge's identity is its prefix, which is
+ * in the badge's TEXT and therefore survives this file being ignored entirely
+ * — a printed page, a high-contrast override, a text browser, a screen reader.
+ */
+
+:root {
+  --paper: {{paper}};
+  --ink: {{ink}};
+{{#levels}}  --badge-{{key}}: {{hex}};
+{{/levels}}}
+
+.badge {
+  font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  padding: 0 0.35em;
+  white-space: nowrap;
+}
+
+{{#levels}}.badge-{{key}} { background: var(--badge-{{key}}); }
+{{/levels}}
+/* Forced monochrome, and it is not a fallback: it is the surface the parity
+ * test asserts against. Nothing below removes information, because the
+ * information is the text. */
+@media (monochrome), print {
+  .badge { background: none !important; }
+}

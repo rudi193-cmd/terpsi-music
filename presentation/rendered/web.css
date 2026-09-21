@@ -1,0 +1,58 @@
+/* Badge styling for the browser surface — terpsi-presentation/2026-07-31
+ * Generated from presentation/tokens.yaml. Edit the template, not this file:
+ * `python3 presentation/render.py --check` fails the build on any difference.
+ *
+ * Colour here is emphasis only. Every badge's identity is its prefix, which is
+ * in the badge's TEXT and therefore survives this file being ignored entirely
+ * — a printed page, a high-contrast override, a text browser, a screen reader.
+ */
+
+:root {
+  --paper: #ffffff;
+  --ink: #101418;
+  --badge-l1: #f4f6f8;
+  --badge-l2: #c9d2da;
+  --badge-l3: #8fa0ae;
+  --badge-l4: #4f6472;
+  --badge-l5: #1c2a33;
+  --badge-t0: #1c2a33;
+  --badge-t1: #4f6472;
+  --badge-t2: #8fa0ae;
+  --badge-t3: #c9d2da;
+  --badge-t4: #f4f6f8;
+  --badge-p1: #f4f6f8;
+  --badge-p2: #c9d2da;
+  --badge-p3: #8fa0ae;
+  --badge-p4: #4f6472;
+  --badge-p5: #1c2a33;
+}
+
+.badge {
+  font-family: "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  padding: 0 0.35em;
+  white-space: nowrap;
+}
+
+.badge-l1 { background: var(--badge-l1); }
+.badge-l2 { background: var(--badge-l2); }
+.badge-l3 { background: var(--badge-l3); }
+.badge-l4 { background: var(--badge-l4); }
+.badge-l5 { background: var(--badge-l5); }
+.badge-t0 { background: var(--badge-t0); }
+.badge-t1 { background: var(--badge-t1); }
+.badge-t2 { background: var(--badge-t2); }
+.badge-t3 { background: var(--badge-t3); }
+.badge-t4 { background: var(--badge-t4); }
+.badge-p1 { background: var(--badge-p1); }
+.badge-p2 { background: var(--badge-p2); }
+.badge-p3 { background: var(--badge-p3); }
+.badge-p4 { background: var(--badge-p4); }
+.badge-p5 { background: var(--badge-p5); }
+/* Forced monochrome, and it is not a fallback: it is the surface the parity
+ * test asserts against. Nothing below removes information, because the
+ * information is the text. */
+@media (monochrome), print {
+  .badge { background: none !important; }
+}

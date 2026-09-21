@@ -15,140 +15,151 @@ constraint is worse than none, because it trains people to skip the list."* The
 removed material is in `docs/FLEET-READS.md` and in §18's own tombstones, which
 is where it belongs.
 
+**Finalized 2026-07-31.** The two decisions that blocked — §18 items 4 and 15 —
+are taken by the maintainer and recorded in place there; this file only points.
+This revision also corrects two places where this file had drifted behind §18
+and the tree — it listed the exit line as unwritten after `docs/EXIT.md` landed,
+and the crossing-envelope table as absent after `records/crossing.py` shipped.
+Both were this file's defect (the doc wins; rule 12's pair, drifting), fixed by
+deletion per the pruning rule above.
+
 ---
 
 ## Are the ducks in a row
 
-**No. The decisions largely are; the build is not, and one item blocks
-outright.**
+**Yes, as of 2026-07-31. Decision-blocked no longer — what remains is effort,
+and it is ordered below.**
 
-### The item upstream of the rest
+- **Item 15 is decided: the composite.** Anchors witnessed three ways —
+  OpenTimestamps weekly, a legible annual deposit, guardian receipts
+  continuously — because they fail differently and a dispute two years out
+  uses whichever survived. The shapes exist (`records/witness.py`,
+  `records/receipts.py`); **the wiring landed 2026-07-31**
+  (`records/publication.py`, `docs/WITNESS-DEPOSIT.md`), and the dependency
+  decision was taken 2026-07-31: Ed25519 accepted, the repository's first
+  dependency. Nothing about item 15 is open.
+- **Item 4 is decided: `scout-21` §3, adopted.** Four rendering backends over
+  one presentation-IR middle, three trust paths, and the `presentation/` +
+  `surfaces/` layout that section names. Layout is unblocked, and with it item
+  3's promotion gate.
 
-**Item 15 — who witnesses the anchor.** This repository exists because
-institutions do not follow their own rules and nobody can prove it. Every other
-mechanism assumes a record that is **believable later**, and a record its author
-controls is weak evidence. The mechanism is built; the counterparty is not
-chosen, and until it is, the rest is a very careful diary.
-
-### Blocking the first commit
-
-| | | |
-|---|---|---|
-| **B3** | item 4 — which surfaces exist | **Deferred, in hand elsewhere.** Nothing about the first commit's layout is decidable until it lands. This is the only item that blocks rather than merely waits |
-| **item 3** | the lane DDL leaves `docs/schema/` | One gate cleared, one opened — see below |
-| **item 5** | the exit line | §11.1 requires it **before the first install**. It does not exist |
-
-**Item 3 moved sideways rather than forward.** Reading Part III at source
-cleared the *"rests on a paraphrase"* gate — and opened a new one. W-3 requires
-*"a guardian-signed envelope naming both lanes, purpose, and expiry"*, and no
-such table exists among the twelve. The prohibition is encoded; the permission
-is not, so a legitimate sibling crossing is **unrepresentable**, not merely
-ungated. A thirteenth table is needed before promotion, and item 4 still gates
-it either way.
-
-### One thing that got worse on 2026-07-30, not better
-
-- **The foundation is emptier than §9 claimed.** Items 1 and 2 were marked
-  *built* on the spike's authority. The spike retires and nothing is inherited,
-  so both are **to build**.
-- ~~**`field-acoustics` does not exist.**~~ **Withdrawn 2026-07-30 — it does.**
-  `apps/field-acoustics` is in `safe-app-store` with a correct catalog path, as
-  are the other seven names reported absent alongside it. The earlier claim
-  searched for standalone repositories; the fleet keeps apps inside the store.
-  §9 foundation 6 points at something real. See `docs/FLEET-READS.md`.
-
-### One live hazard with no answer yet
-
-Refusal 1 forbids a cloud inference fallback. **Corrected 2026-07-30 after
-re-deriving the tallies** — the first account of this was wrong in the
-maintainer's favour and the real shape is more tractable.
-
-`willow-2.0/core/inference_router.py` reads
-`os.environ.get("WILLOW_INFERENCE_PROVIDER", "auto")`, and `_chain("local")`
-returns Ollama and nothing else. **So an off-switch exists** — refusal 1 already
-names the variable verbatim — **and the default is `auto`**, which means the
-chain is fail-open when unconfigured rather than undisableable. The providers
-appear in 24 Python files, and the two documented chains disagree with each
-other, so "we will not use `willow-seed`" remains insufficient.
-
-**The tractable part:** `respond()` returns `(response_text, provider_used)`.
-Refusal 1 can therefore be enforced **by assertion** — require
-`provider_used == "ollama"` and fail otherwise — rather than by trusting an
-environment variable to have been set. That converts it from a deployment note
-into something testable, and is the shape to build.
-
-### Where the tree actually stands
+## Where the tree actually stands (2026-07-31, derived by looking)
 
 ```
-migrations/   ABSENT — the DDL is still in docs/schema/
-surface dir   none
-craft/        text-only: no student data, no network, no model
-voice.py      ROUTED — records/dispatch.py runs it after the seal, before dispatch
-records/      the read predicate — the first code here that decides about a person
+migrations/    001_lanes.sql — fourteen tables, run against PostgreSQL 16;
+               five-part tombstone at docs/schema/
+presentation/  the middle — IR, tokens, one mapping table, rendered/ diffed
+surfaces/      four doors on ls — tui, web, print, text; skeletons
+manifest.json  four surfaces, zero listeners, zero outbound; reconciled in CI
+craft/         text-only: no student data, no network, no model
+records/       the domain core; suite green
+inference      GUARD ONLY — refusal 1 asserted in records/inference.py;
+               no call site exists to route yet, which is the point
+tools/         conform, sockets, purity, providers, discipline — checkers
+               exist BEFORE the things they check, so those cannot be
+               born wrong
 ```
-
-**`records/` is the vertical slice, built 2026-07-30**, and it earned its keep
-twice on the first day. Ablating each guard showed one mutant surviving — the
-`L5` never-served check could be removed and the suite stayed green, because a
-different rule caught the same field further down (`EXTERNAL-ARM.md`'s *"a gate
-green because a different constraint was catching it"*). And implementing §7's
-edge vocabulary faithfully revealed that **a student cannot read their own
-record**, now §18 item 12.
-
-Neither was findable by reading. Both took an afternoon.
-
----
-
-## What is settled
-
-Four §18 items closed 2026-07-30 — 1, 1a, 2 and 11 — each struck in place with
-its resolution. `docs/SENSITIVITY.md` is canonical for the ladder, *Protected
-status*, and the scoped `L3`+ NULL reading. §14 carries a per-row
-`VERIFIED`/`UNVERIFIED` state enforced by `tests/test_component_map.py`, and 27
-fleet repositories have been read.
-
-**The lesson worth carrying out of that pass**, because it will recur: item 1a
-was filed as the highest-value *read* in the item-0 sweep and was not a read at
-all. It was sourced to a spike, and **a claim sourced to a spike is a decision
-nobody has taken yet, wearing the costume of a fact.** Some of §14's thirty
-remaining `UNVERIFIED` rows are the same shape; opening the files will not fix
-those.
-
-## Buildable today
-
-| | task | depends on |
-|---|---|---|
-| ~~C1~~ | ~~The vertical slice~~ | **Built 2026-07-30** — `records/serving.py`, the first code here that touches the domain. Found §18 item 12 |
-| ~~C1b~~ | ~~The send predicate~~ | **Built 2026-07-30** — `records/sending.py`, G1–G11 of `PLAN-GUARDIANSHIP.md`. Found §18 item 13 and a missing `created_at` on `Edge` |
-| ~~C1c~~ | ~~The classifier~~ | **Built 2026-07-30** — `records/classify.py`, `SENSITIVITY.md`'s five steps. Found §18 item 14 within minutes |
-| C1 | Extend `craft/` | nothing — text-only, no student data, no network, no model |
-| C2 | Sweep `docs/survey/*.md` for `§N` | needs the routing decision in `scout-25` part 5 first |
-| C3 | A rule-13 acceptance test | nothing. `willow-grove`'s constraint 1 supplies the shape — point a reader at an unreachable source in CI and assert no surface reports health. Rule 13 has **no test here** |
-| ~~C4~~ | ~~The crossing-envelope table~~ | **Built 2026-07-30** — `records/crossing.py`, wired into `serve()`. W-3's permission is representable at last |
-| ~~C5~~ | ~~The disclosure log, seal cascade, dispositions, W-6 exit~~ | **Built 2026-07-30** |
-| ~~C6~~ | ~~Route `voice.guard()`~~ | **Built 2026-07-30** — `records/dispatch.py`. `voice.py` is a gate rather than a ledger, and routing it found `no_rung` checking the wrong scale |
-| ~~C7~~ | ~~Anchoring — where the anchor lives~~ | **Built 2026-07-30** — `records/witness.py`. §5 specified the anchor and never its custody. **§18 item 15** is the decision: who witnesses it |
-
-Short, and the shortness is the finding. **This repository is decision-blocked,
-not effort-blocked** — and the instinct to build C in parallel should be
-resisted for anything downstream of layout. `docs/PLAN-GUARDIANSHIP.md` is the
-worked example: eleven acceptance gates, fully specified, unbuildable until B3
-says what a surface is.
 
 ## Order
 
-1. **B3** — surfaces. Everything about layout waits on it.
-2. **The crossing-envelope table**, then item 4 clears the DDL into `migrations/`.
-3. **The exit line**, before anything installs.
-4. **Decide the refusal-1 inheritance question** before any inference path is written.
-5. Then §9's list in its existing order — noting foundations 1 and 2 are **to build**.
+1. ~~**The surfaces skeleton.**~~ — **Built 2026-07-31, audited and merged** —
+   `presentation/` (IR, tokens, the one mapping table, committed rendered
+   artifacts diffed in CI) and `surfaces/{tui,web,print,text}` — four doors on
+   `ls`, thin renderers, no framework. `manifest.json` landed in the same
+   commit as the reconciliation that checks it, per item 4's obligations.
+   Honest limits, recorded there and held here: these are skeletons — no
+   server, no session, and scout-21's three trust paths are docstrings, a
+   ledger not an enforcement; and the IR does not re-check W-1 (a `Serving`
+   carries no lane id), so the cross-lane refusal lives in `serve()` alone —
+   a named gap.
+2. ~~**Promote the lane DDL.**~~ — **Built 2026-07-31, audited and merged** —
+   `migrations/001_lanes.sql`: fourteen tables, `crossing_envelope` (W-3's
+   permission) and `self_widening` (W-5's) encoded structurally, executed
+   against PostgreSQL 16 with 27 forbidden acts refused each by the guard
+   named in its error. Item 4 was found not to gate it. The
+   stated-and-unenforced list drops to three — `edge_self_holder_is_subject`
+   is now a trigger, and writing it found the mirror row (a ward holding
+   `guardian_of` over itself) that would have signed its own envelope.
+3. ~~**Wire the witness composite.**~~ **Built 2026-07-31** —
+   `records/publication.py` and `docs/WITNESS-DEPOSIT.md`. The weekly payload,
+   its register and the states around a proof that never came back; the annual
+   deposit as a procedure with a dated disposition when it is missed. ~~One
+   thing is left and it is a decision, not effort: Ed25519 issuance.~~
+   **Decided 2026-07-31 — the dependency is accepted.** `cryptography` is
+   pinned in `requirements.txt` with its reason, `Ed25519Signer` issues
+   attributable receipts the holder's object cannot mint, and the
+   `receipt-attribution` conformance row moved `ABSENT` → `PASS` on the
+   merits. §18 item 15 carries the closure.
+4. ~~**Refusal-1 by assertion**~~ — **Built 2026-07-31, audited and merged** —
+   `records/inference.py` asserts on what actually answered, with five refusal
+   states and no field a caller could use to allowlist a provider;
+   `tools/providers.py` watches by AST for a call site that skips the guard,
+   wired into `conform.py` and honestly `UNKNOWN` while nothing here infers.
+   The ordering held: the guard exists first, so an inference path cannot be
+   born unguarded. Opening the upstream found `llm_edge.py` discarding
+   `provider_used` and a fourth chain mode posting to another node's local
+   runner — which is why the guard checks the address as well as the label.
+5. ~~**The rule-13 acceptance test** (was C3)~~ — **Built 2026-07-31,
+   audited and merged** — `tests/test_rule13_acceptance.py`. Every seam broken
+   rather than skipped, and the breakage found three places where a source
+   that could not be reached read as one that answered *nothing*:
+   `voice.check()` with no rules loaded, `sockets.declared_from` on a manifest
+   with no `listeners` key, and `purity.egress` dropping the unparseable file
+   that `purity.writes` reports. All three fixed and ablated. Three more seams
+   fail **closed** and cannot say *why* — listed in that file's
+   `CANNOT_DISTINGUISH`, each with a test that goes red when it is fixed. The
+   sharpest — `Ledger.log_for` answering for a lane it has never heard of —
+   **was decided strict 2026-07-31 and is §18 item 16**: an unknown lane
+   raises, the write path alone still opens one (W-1), and the finding's
+   tests flipped to hold the fix.
+
+   **The list's own completeness, 2026-08-02.** The file's middle walked
+   `SEAMS` and asserted a test for each row; nothing walked the tree and
+   asserted a row for each seam, so the inventory was the authority on whether
+   it was complete — and its docstring promises *"a seam added later without an
+   unknown state is caught by a test nobody had to remember to write."* The
+   other half now exists:
+   `test_the_inventory_lists_every_injected_source_in_the_tree` reads the tree
+   for functions taking a source as a parameter and fails when one is absent
+   from `SEAMS`. It found eight on its first run — seven are rows with tests,
+   one (`store/narration.py`) is in `EXEMPT` with a reason and a debt, because
+   breaking it needs a cluster. `craft/` is inventoried at the same time and
+   arrived by hand: the mark does not reach its shape, which `KNOWN_BLIND`
+   says out loud. Counts derived from the tree on 2026-08-02: `SEAMS` 43 rows,
+   `CANNOT_DISTINGUISH` 3, `EXEMPT` 1, `KNOWN_BLIND` 2.
+6. **Then §9's list in its existing order** — noting foundations 1 and 2 are
+   **to build**, not built; the spike retired and nothing was inherited.
+
+Anytime, no dependencies: extend `craft/` (text-only). Still gated: the
+`docs/survey/*.md` §N sweep waits on the routing decision in `scout-25` part 5.
+
+## What is settled
+
+Six §18 items closed across 2026-07-30/31 — 1, 1a, 2, 4, 11 and 15 — each
+struck in place with its resolution, and items 5–10, 12 and 13 resolved or
+built per their own entries. `docs/SENSITIVITY.md` is canonical for the ladder;
+§14 carries a per-row `VERIFIED`/`UNVERIFIED` state enforced by
+`tests/test_component_map.py`.
+
+**The lesson worth carrying forward**, because it will recur: a claim sourced
+to a spike is a decision nobody has taken yet, wearing the costume of a fact.
+Some of §14's `UNVERIFIED` rows are the same shape; opening the files will not
+fix those.
+
+## Next phase
+
+**The store — `docs/PLAN-STORE.md`, pointed at by §18 item 18.** Designed,
+decision-gated: G-A (escrow disposition — options in the plan, maintainer
+picks) and G-B (the `reconciled_session` rung rule) block the first write;
+the S-1…S-4 decomposition is written and waits. The listener (§9 item 7)
+follows the store as its own decision. §9 items 6, 8, 9 and 10 are built
+and merged; item 11 waits on a surface for the gate to stand behind.
 
 ## What this plan deliberately does not do
 
-- **Does not re-order §9.** Its ordering principle — expensive-to-retrofit first
-  — is sound. What was wrong is its *status labels*, and those are corrected in
-  place.
-- **Does not schedule.** No dates: the blocking item is someone else's
-  keystrokes and estimating it here would be fiction.
+- **Does not re-order §9.** Its ordering principle — expensive-to-retrofit
+  first — is sound.
+- **Does not schedule.** No dates. The remaining items are effort, but
+  estimating effort here would still be fiction.
 - **Does not restate a mechanism.** Every row points at the document that owns
   it. If a mechanism appears described here, that is a defect (§16).

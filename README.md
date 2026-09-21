@@ -25,10 +25,11 @@ block a first commit and two of them are decisions rather than documents — §1
 
 | | |
 |---|---|
+| `docs/WEB_PRESENCE.md` | Squarespace + custom domain (marketing); hub stays on-prem |
 | `docs/ARCHITECTURE.md` | Canonical. 18 sections. **Read §18 first** — the open list — then §14 for what exists versus what is proposed |
 | `docs/CAPABILITY-MAP.md` | The domain surface. §24 is the craft-feedback capability, the only one not already built somewhere |
 | `docs/SENSITIVITY.md` | The `L1`–`L5` rungs, the class-to-rung mapping, the sensitivity→trust crossing |
-| `docs/LANE-MODEL.md` | The W-1/W-3 schema, with the DDL at `docs/schema/001_lanes.proposed.sql` |
+| `docs/LANE-MODEL.md` | The W-1/W-3 schema, with the DDL at `migrations/001_lanes.sql` |
 | `docs/CROSSINGS.md` | Findings record — one session's defects and the six patterns under them |
 | `docs/FLEET-READS.md` | The 36 fleet repositories this design rests on, and why none is readable right now |
 | `docs/CRAFT-SOURCES.md` | What §24 claims already exists in the field, with its evidence and how weak that evidence is |
@@ -71,9 +72,29 @@ tombstone. Same report, same ids, same declaration file.
 python3 -m craft docs/ARCHITECTURE.md --prose --intent docs/prose.intent
 ```
 
-The proposed migration runs against PostgreSQL 16 in CI, where eight forbidden
-acts are attempted and asserted to fail. A guard that cannot be shown to fail
-has not been shown to work.
+The other working parts are the **presentation middle** and the **four doors**
+`docs/survey/scout-21-surfaces-a11y.md` §3 names — `presentation/` holds the IR,
+the palette and the one mapping table for `L1–L5`, `T0–T4` and `P1–P5`;
+`surfaces/{tui,web,print,text}/` are thin renderers over it. Nothing there is an
+application: no server, no session, no framework. Two middles keep the pairs
+honest, and both run in CI.
+
+```bash
+python3 tools/manifest.py                # the declaration, against the tree
+python3 presentation/render.py --check   # rendered artifacts, against their templates
+```
+
+The first reconciles `manifest.json` — surfaces, listeners, permissions —
+against what the source actually opens, and reports the vacuous case as
+`UNKNOWN` rather than as a pass. The second renders the four backend artifacts
+and exits nonzero if a committed one differs by a byte.
+
+`migrations/001_lanes.sql` runs against PostgreSQL 16 in CI, where 27 forbidden
+acts are attempted and each is asserted to fail **by the guard named in its
+error** — not merely to fail, because a `BEFORE ROW` trigger fires ahead of every
+`CHECK` and foreign key on the row, and an attack that only counts refusals
+cannot tell which one spoke. Six legitimate writes are asserted still to land.
+A guard that cannot be shown to fail has not been shown to work.
 
 ## Fleet
 

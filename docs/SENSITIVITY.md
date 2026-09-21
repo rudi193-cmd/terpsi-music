@@ -434,12 +434,19 @@ step 2, and still land at `L5` because rendering it would identify who declined.
 
 ## Provenance of this file
 
-Written without access to any fleet repository — there is no organisation to
+~~Written without access to any fleet repository — there is no organisation to
 read them from, so §18 item 0's verification pass could not be run and cannot be
-run from a remote session at all. Every claim here about what `marching-arts`,
-`willow-gate`, `law-gazelle`, or `quiet-corner` actually do is `P2 Cited` at
-best, sourced from `docs/ARCHITECTURE.md`, which sourced it from READMEs and
-merged pull-request descriptions.
+run from a remote session at all.~~ **Corrected 2026-08-01:** that premise was
+false, and it was the same one the top of `docs/FLEET-READS.md` withdrew. The
+verification pass *was* run from a remote session — through the GitHub API with
+`add_repo` where needed, and one cross-owner repo over the public web — and
+`willow-gate` and `law-gazelle` among others were read at pinned commits (§14,
+`docs/FLEET-READS.md`). This file predates that pass: claims here about what
+`marching-arts`, `willow-gate`, `law-gazelle` or `quiet-corner` actually do were
+`P2 Cited` from `docs/ARCHITECTURE.md` when written, and where §14 has since
+verified the corresponding row at source the citation is now firmer. The one
+reading the pass did **not** settle is the trust-column caveat above — the
+Rookie/Steady numbering was still not checked against `willow-gate`.
 
 The definitions themselves are not cited and are not claimed to be: nothing in
 the fleet defines these five levels, which is why §18 called for a document

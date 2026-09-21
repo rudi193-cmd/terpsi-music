@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from .rungs import Rung, compose
+from .rungs import NEVER_SERVED, Rung, compose
 
 # --- the decided cases -----------------------------------------------------
 
@@ -157,6 +157,60 @@ def classify(d: Descriptor) -> Classification:
         "judgment and this classifier does not make judgments",
         "step 3: undecided",
     )
+
+
+def aggregate(name: str, *, over, cohort: int, floor: int) -> Classification:
+    """Step 2a applied to a **computed** aggregate: a count, a total, a rate.
+
+    `classify()` answers about a field at schema-definition time. This answers
+    about a number a surface is about to render, and it is the same step —
+    *"`L2` applies only after the re-identification check; until it passes, the
+    field inherits the `max` of its inputs"* — with the check's one input made
+    explicit. Two modules need it (`records/attendance.py`'s headcounts,
+    `records/fees.py`'s program totals) and a copy in each is the pair rule 12
+    forbids, so it lives here beside the procedure it belongs to.
+
+    `over` is the rungs of the inputs. `cohort` is how many subjects the
+    aggregate is computed across. `floor` is the suppression threshold, and it
+    is **required with no default**, for `dispositions.ask`'s reason: a
+    system-wide default would let callers stop declaring one, and no verified
+    figure for `k` exists in this tree — `docs/survey/scout-18-finance-dignity.md`
+    reports the sources that would settle it as blocked, so a number written
+    here would be rule 17's figure-in-prose with a colon after it.
+
+    **An `L5` input is never declassified by counting it.** `SENSITIVITY.md`:
+    *"the only operation that lowers a rung is an explicit, dated, human-sealed
+    declassification"*, and `L5` has neither a purpose that unlocks it nor a
+    signature that widens it. So *"three students in this section are on a fee
+    waiver"* is `L5` at any cohort size — it is the declination table wearing a
+    count, which is the disclosure §7's indistinguishability guarantee exists
+    to suppress. Without this branch a large enough cohort would launder it to
+    `L2`, and the aggregate over a *small* one is the case everybody checks.
+
+    The worked harm the check itself is for: a section of three, one waiver, and
+    a per-section total. Nobody is named and the child is identified.
+    """
+    over = tuple(over)
+    if not over:
+        raise ValueError("aggregate() of no inputs — an empty record is not L1")
+    if floor < 2:
+        raise ValueError(
+            f"a suppression floor of {floor} suppresses nothing; a floor is declared "
+            "at the call site and there is no default (P-2's argument)"
+        )
+    if compose(*over) is NEVER_SERVED:
+        return Classification(
+            Decision.DECIDED, NEVER_SERVED,
+            f"an aggregate over an enforcement-only input stays enforcement-only at "
+            f"any cohort size; counting is not a declassification (cohort {cohort})",
+            "L5: counting does not declassify")
+
+    passed = cohort >= floor
+    c = classify(Descriptor(name, identifies_a_person=False, derived_from=over,
+                            passed_reidentification_check=passed))
+    return Classification(c.decision, c.rung,
+                          f"{c.reason}; cohort of {cohort} against a declared floor "
+                          f"of {floor}", c.via)
 
 
 def unclassified(descriptors) -> tuple:

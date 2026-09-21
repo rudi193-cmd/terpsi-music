@@ -1,9 +1,11 @@
 """Every listener the source can open, against every listener the manifest admits.
 
-**Built before the manifest, deliberately.** §18 item 4 has not decided what
-surfaces exist, so there is nothing to declare yet — and that is the argument for
-writing this now rather than later. §4.3 records the failure it prevents, at
-source and verified:
+**Built before the manifest, deliberately.** When this was written §18 item 4
+had not decided what surfaces exist, so there was nothing to declare yet — and
+that was the argument for writing it then rather than later. The manifest landed
+2026-07-31 against a checker that already refused; `tools/manifest.py` is now its
+caller, and it supplies the target list rather than this file naming paths by
+hand. §4.3 records the failure it prevents, at source and verified:
 
 > `safe-app-willow-grove` declares `"surfaces": ["tui"]`, permissions limited to
 > `lan_listen`/`lan_send`, and a `CLAUDE.md` rule reading **"No web ports for the
@@ -38,7 +40,16 @@ one place where guessing means an open port nobody wrote down.
 listeners this scan has nothing to check, and a check with nothing to check must
 not read as a check that passed. `reconcile()` says so, `conform.py` renders it
 `UNKNOWN`, and the moment a listener appears with no manifest to declare it the
-result is `FAIL` rather than a shrug.
+result is `FAIL` rather than a shrug. `tools/manifest.py` carries the same
+posture one level up: a manifest that cannot be read, or a scan that covered no
+files, is `UNKNOWN` and never `PASS`.
+
+**One thing this file does not distinguish, recorded rather than left to be
+found:** `sqlite3.connect(":memory:")` is read as an outbound connection,
+because the call name is all the parse sees. That is why `tools/manifest.py`
+excuses `docs/` rather than scanning it, and `tests/test_manifest.py` pins the
+misreading so that fixing it here fails there and prompts the exclusion to
+shrink.
 
     python3 tools/sockets.py [path ...]
 
@@ -216,15 +227,72 @@ def declared_from(manifest: Optional[Path] = None) -> Optional[Tuple[Declared, .
     `None` and `()` are different facts and are kept apart: *nobody has declared
     anything* is the state before item 4, and *the manifest declares no
     listeners* is a claim that can be wrong.
+
+    **A manifest with no `listeners` key has declared nothing**, and that is the
+    first fact rather than the second. It was read as the second — the spelling
+    was `data.get("listeners", [])` — so a manifest whose key was misspelled,
+    nested one level down, or simply not written yet reconciled `CLEAN` against
+    a tree with no listeners, where an absent manifest reconciles `VACUOUS`. A
+    typo bought a passing check that an absent file could not. `"listeners": []`
+    still reads as `()`, because that is somebody's claim and can be wrong.
     """
     p = manifest if manifest is not None else MANIFEST
     if not p.exists():
         return None
     data = json.loads(p.read_text(encoding="utf-8"))
+    if "listeners" not in data:
+        return None
     return tuple(Declared(str(d.get("host", _UNRESOLVED)),
                           str(d.get("port", _UNRESOLVED)),
                           str(d.get("surface", "")))
                  for d in data.get("listeners", []))
+
+
+@dataclass(frozen=True)
+class DeclaredOutbound:
+    """One admitted outbound path, named by **module** rather than by address.
+
+    The listeners above are declared as `host:port` because a bind address is a
+    literal in the source. An outbound connection to the store is not: the DSN
+    is resolved at run time from the environment, deliberately, because a store
+    that carries its own address in the tree connects to whatever is running.
+    So the thing that can honestly be declared is *which module may open one*,
+    and `store/connecting.py` is the whole list.
+
+    That is a narrower claim than a port and a stronger one than nothing. §6's
+    inner ring forbids outbound and `records/` is that ring; this key is how the
+    store becomes the declared exception rather than an undeclared one, and a
+    `connect()` appearing anywhere else is a finding on the next run.
+    """
+
+    module: str
+    kind: str = ""
+    why: str = ""
+
+    def covers(self, e: Endpoint) -> bool:
+        here = str(e.module).replace("\\", "/")
+        there = self.module.replace("\\", "/").rstrip("/")
+        return here == there or here.startswith(there + "/")
+
+
+def declared_outbound_from(manifest: Optional[Path] = None
+                           ) -> Optional[Tuple[DeclaredOutbound, ...]]:
+    """What the manifest admits may reach out, or `None` when nothing says.
+
+    Same posture as `declared_from`: a missing key is *nobody has declared
+    anything*, not *nothing is declared*. `"outbound": []` is somebody's claim
+    and can be wrong; an absent key is a manifest that has not been asked.
+    """
+    p = manifest if manifest is not None else MANIFEST
+    if not p.exists():
+        return None
+    data = json.loads(p.read_text(encoding="utf-8"))
+    if "outbound" not in data:
+        return None
+    return tuple(DeclaredOutbound(str(d.get("module", "")),
+                                  str(d.get("kind", "")),
+                                  str(d.get("why", "")))
+                 for d in data.get("outbound", []))
 
 
 class Verdict(Enum):
@@ -253,8 +321,15 @@ class Reconciliation:
 
 
 def reconcile(found: Sequence[Endpoint],
-              declared: Optional[Sequence[Declared]]) -> Reconciliation:
-    """Compare what the source opens against what the manifest admits."""
+              declared: Optional[Sequence[Declared]],
+              declared_outbound: Optional[Sequence[DeclaredOutbound]] = None
+              ) -> Reconciliation:
+    """Compare what the source opens against what the manifest admits.
+
+    `declared_outbound` defaults to `None`, which is *nobody declared any*, and
+    under it every outbound endpoint is a finding — the behaviour this function
+    had before the store existed, preserved rather than loosened.
+    """
     listeners = tuple(e for e in found if e.kind is Kind.LISTEN)
     outbound = tuple(e for e in found if e.kind is Kind.OUTBOUND)
     findings: List[Finding] = []
@@ -266,7 +341,7 @@ def reconcile(found: Sequence[Endpoint],
         for e in listeners:
             findings.append(Finding(
                 "NO_MANIFEST",
-                f"{e} — a listener exists and there is no manifest to declare it"))
+                f"{e} — a listener exists and no manifest declares it"))
     else:
         for e in listeners:
             if not e.resolved:
@@ -294,17 +369,31 @@ def reconcile(found: Sequence[Endpoint],
                     f"{d.host}:{d.port} ({d.surface or 'no surface named'}) is declared "
                     "and nothing binds it — a stale declaration reads as a real one"))
 
+    admitted = tuple(declared_outbound or ())
     for e in outbound:
+        if any(d.covers(e) for d in admitted):
+            continue
         findings.append(Finding(
             "OUTBOUND",
-            f"{e} — §6's inner ring forbids outbound; this is the 8.8.8.8 probe's shape"))
+            f"{e} — §6's inner ring forbids outbound; this is the 8.8.8.8 probe's "
+            "shape. A module that legitimately reaches a local store is declared "
+            "in the manifest's `outbound`, by module, with its reason"))
+    for d in admitted:
+        if not any(d.covers(e) for e in outbound):
+            findings.append(Finding(
+                "OUTBOUND_DECLARED_ABSENT",
+                f"{d.module} is declared as reaching out ({d.kind or 'no kind named'}) "
+                "and opens nothing — a stale declaration reads as a real one, and "
+                "the next module to be added under that path inherits a permission "
+                "nobody re-examined"))
 
     verdict = Verdict.FINDINGS if findings else Verdict.CLEAN
     return Reconciliation(verdict, tuple(findings), listeners, outbound)
 
 
 def check(paths: Sequence[Path], manifest: Optional[Path] = None) -> Reconciliation:
-    return reconcile(scan(paths), declared_from(manifest))
+    return reconcile(scan(paths), declared_from(manifest),
+                     declared_outbound_from(manifest))
 
 
 def main(argv: Sequence[str]) -> int:

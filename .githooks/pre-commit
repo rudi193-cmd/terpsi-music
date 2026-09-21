@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# The enforcement half of CLAUDE.md refusal 2, and of docs/SECURITY-AUDIT.md
+# TM-ROOT-01: **never commit the trust root.** `mcp_apps/`, `_net_leases/` and
+# grant material stay out of the tree and off any remote — contract and policy
+# are versioned, grants are not (§6).
+#
+# `.gitignore` is the mitigation and this is the gate. The distinction is the
+# whole point (rule 18): `.gitignore` refuses `git add`, but `git add -f`
+# walks straight past it, so an ignore rule is a note to a cooperative author,
+# not a guard against a mistake. This hook reads the *staged set* — what is
+# actually about to be committed — so a force-add lands in the index and is
+# refused here, at the one place every commit passes through.
+#
+# It is enforcement only once installed: `git config core.hooksPath .githooks`
+# (or run `scripts/install-hooks.sh`). Uninstalled, it is a ledger. That is
+# stated rather than hidden, and `tests/test_trust_root_hook.py` runs the hook
+# directly so the guard is shown to fail regardless of any local install.
+set -euo pipefail
+
+# The trust root, as patterns over a staged path. Kept in step with the
+# `.gitignore` block of the same name; the test asserts every pattern here is
+# also ignored, so the two cannot drift into one refusing what the other allows.
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+refused=""
+while IFS= read -r path; do
+  [ -z "$path" ] && continue
+  # The dir names match four ways each: exact (`mcp_apps` — the gitlink/submodule
+  # shape, where the trust root is a single index entry with nothing after it),
+  # under (`mcp_apps/x`), nested-exact (`vendor/mcp_apps`), and nested-under.
+  # The exact and nested-exact arms are the gitlink gap Bugbot and the security
+  # pass both caught: `mcp_apps/*` alone lets a force-added submodule pointer at
+  # the bare path index trust-root material past the gate.
+  case "$path" in
+    mcp_apps|mcp_apps/*|*/mcp_apps|*/mcp_apps/*| \
+    _net_leases|_net_leases/*|*/_net_leases|*/_net_leases/*| \
+    *.grant|*.lease)
+      refused="${refused}  ${path}"$'\n' ;;
+  esac
+done <<< "$staged"
+
+if [ -n "$refused" ]; then
+  {
+    echo "refused: the trust root is not committable (CLAUDE.md refusal 2, §6)."
+    echo "These staged paths are grant material, which is never versioned:"
+    printf '%s' "$refused"
+    echo "Contract and policy are versioned; grants are not. Unstage them"
+    echo "(git restore --staged <path>) — and if a force-add put them here,"
+    echo "that is exactly the case .gitignore could not catch and this hook did."
+  } >&2
+  exit 1
+fi
+exit 0

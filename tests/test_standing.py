@@ -317,6 +317,97 @@ def test_the_subject_CANNOT_see_reads_of_another_students_lane_documented():
     assert view.state is LogAccess.UNKNOWN
 
 
+# --- I-7's supersession asymmetry, as a predicate --------------------------
+
+
+def director() -> Edge:
+    return Edge("director_of", "dana-reyes", BEN, T0, created_at=T0)
+
+
+def test_no_office_derived_grant_confers_authority_over_the_wards_own_entry():
+    """The clause at source: *"no office's Force extends to deleting or amending
+    entries about its own exercise."* So the refusing branch consults no edges,
+    and holding more of them cannot turn the answer around."""
+    from records.standing import Supersession, may_supersede
+
+    for holder, edges in (("dana-reyes", [director()]),
+                          ("g-mother", [mum()]),
+                          ("staff-nguyen", [Edge("staff_of", "staff-nguyen", BEN,
+                                                 T0, created_at=T0)]),
+                          ("nobody-at-all", [])):
+        check = may_supersede(author_id=BEN, subject_id=BEN, principal_id=holder,
+                              edges=edges, at=LATER)
+        assert check.state is Supersession.REFUSED, f"{holder} superseded the ward's entry"
+        assert not check.permitted
+
+
+def test_the_author_supersedes_their_own_entry():
+    """The asymmetry, not immutability. Without this branch the clause would
+    read *entries are frozen*, and a student could not correct their own
+    account."""
+    from records.standing import Supersession, may_supersede
+
+    check = may_supersede(author_id=BEN, subject_id=BEN, principal_id=BEN)
+    assert check.state is Supersession.PERMITTED and check.permitted
+
+
+def test_an_office_authored_entry_is_the_offices_to_supersede():
+    """The other side of the asymmetry, and the reason a live edge is still
+    required: a staff note about Ben is amendable by staff with standing, and by
+    nobody who has none."""
+    from records.standing import Supersession, may_supersede
+
+    with_standing = may_supersede(author_id="staff-nguyen", subject_id=BEN,
+                                  principal_id="dana-reyes", edges=[director()],
+                                  at=LATER)
+    assert with_standing.permitted
+
+    without = may_supersede(author_id="staff-nguyen", subject_id=BEN,
+                            principal_id="dana-reyes", edges=[], at=LATER)
+    assert without.state is Supersession.REFUSED
+
+    ended = may_supersede(author_id="staff-nguyen", subject_id=BEN,
+                          principal_id="dana-reyes",
+                          edges=[Edge("director_of", "dana-reyes", BEN, T0,
+                                      invalid_at=T0 + timedelta(days=5),
+                                      created_at=T0)],
+                          at=LATER)
+    assert ended.state is Supersession.REFUSED, "an ended office kept its authority"
+
+
+def test_an_entry_whose_authorship_nobody_recorded_is_unknown():
+    """Rule 13. An unauthored entry is not thereby the office's to amend, and
+    `UNKNOWN` is not a permission — `permitted` is false for it."""
+    from records.standing import Supersession, may_supersede
+
+    for kw in ({"author_id": None}, {"author_id": "  "}, {"subject_id": None}):
+        args = dict(author_id="staff-nguyen", subject_id=BEN,
+                    principal_id="dana-reyes", edges=[director()], at=LATER)
+        args.update(kw)
+        check = may_supersede(**args)
+        assert check.state is Supersession.UNKNOWN, f"{kw} decided rather than deferring"
+        assert not check.permitted
+
+
+def test_supersession_is_a_dated_act():
+    """An office claim with no instant cannot be checked against dated standing,
+    so it is unknown rather than allowed."""
+    from records.standing import Supersession, may_supersede
+
+    check = may_supersede(author_id="staff-nguyen", subject_id=BEN,
+                          principal_id="dana-reyes", edges=[director()])
+    assert check.state is Supersession.UNKNOWN
+
+
+def test_a_forged_self_edge_confers_no_supersession_authority():
+    forged = Edge(SELF, "staff-nguyen", BEN, T0, created_at=T0)
+    from records.standing import Supersession, may_supersede
+
+    check = may_supersede(author_id="dana-reyes", subject_id=BEN,
+                          principal_id="staff-nguyen", edges=[forged], at=LATER)
+    assert check.state is Supersession.REFUSED
+
+
 def test_the_module_is_not_broken_shut():
     assert serve(chair(), Principal(BEN), [me()], LATER).outcome is Outcome.PAYLOAD
     assert serve(health(), Principal(BEN), [me(), mum()], LATER,

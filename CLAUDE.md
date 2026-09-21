@@ -39,7 +39,7 @@ A music-program management application holding **minors' education records**: ro
 
 ## Working here
 
-- Canonical docs: **`docs/ARCHITECTURE.md`** (18 sections, with a component map at §14 marking what exists versus what is proposed), **`docs/CAPABILITY-MAP.md`** (the domain surface), **`docs/SENSITIVITY.md`** (the `L1–L5` rungs, the class-to-rung mapping, and the sensitivity→trust crossing), and **`docs/LANE-MODEL.md`** (the W-1/W-3 schema, with the DDL at `docs/schema/001_lanes.proposed.sql`). The last two are canonical for their own subject and addressed by rung or clause rather than by section number.
+- Canonical docs: **`docs/ARCHITECTURE.md`** (18 sections, with a component map at §14 marking what exists versus what is proposed), **`docs/CAPABILITY-MAP.md`** (the domain surface), **`docs/SENSITIVITY.md`** (the `L1–L5` rungs, the class-to-rung mapping, and the sensitivity→trust crossing), and **`docs/LANE-MODEL.md`** (the W-1/W-3 schema, with the DDL at `migrations/001_lanes.sql`). The last two are canonical for their own subject and addressed by rung or clause rather than by section number.
 - Read **`§18` first** — the open list, with the four items that block a first commit — then `§14` for what exists versus what is proposed. Most of what this design needs already exists elsewhere in the fleet; the value is in what does not.
 - **`§14`'s "Exists" column is unverified** — assembled from READMEs and PR descriptions, not from reading source. Treat it as a claim to check, not a fact to build on (`§18` item 0).
 - Fleet repos are read through the GitHub API, not cloned. Do not clone the fleet into this workspace.

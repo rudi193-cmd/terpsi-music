@@ -73,11 +73,45 @@ def test_the_exit_terms_travel_with_the_data_in_the_words_written_at_opening():
     assert TERMS in named(made(), "README.txt").text
 
 
+def _readme_says_n_csv_rows(text):
+    """The count the README tells the recipient entries.csv should hold."""
+    import re
+    m = re.search(r"entries\.csv has (\d+) record", text)
+    return int(m.group(1)) if m else None
+
+
 def test_the_readme_says_how_many_records_there_should_be():
     """The truncation problem, addressed to a person rather than to a verifier."""
     text = named(made(), "README.txt").text
-    assert "There are 3 records" in text
-    assert "you did not receive all of it" in text
+    assert _readme_says_n_csv_rows(text) == 3
+    assert "lost after the bundle was made" in text
+
+
+def test_the_readme_count_is_the_served_rows_not_the_total_when_some_are_withheld():
+    """The truncation self-check has to count what entries.csv actually holds.
+
+    entries.csv carries the *served* rows; withheld L5 records are named in the
+    manifest and never rendered. The README told the recipient to expect
+    `len(entries)` rows — the total, withheld included — so a bundle with any
+    withheld record put fewer rows in the file than its own README said to
+    expect, and a recipient following that instruction reads a correct export
+    as a truncated one. It is the manifest's `withheld: N` restated as prose and
+    then contradicted three lines up.
+
+    The count the README states must equal the rows the CSV actually has.
+    """
+    arts = made(with_l5=True)             # 3 served, 1 withheld, 4 total
+    readme = named(arts, "README.txt").text
+    csv_rows = list(csv.reader(io.StringIO(named(arts, "entries.csv").text)))[1:]
+
+    stated = _readme_says_n_csv_rows(readme)
+    assert stated == len(csv_rows), (
+        f"README says entries.csv should have {stated} rows; it has "
+        f"{len(csv_rows)}. A recipient counting rows against the README's own "
+        "number sees a shortfall the manifest does not report")
+    assert stated == 3, "3 served records reach entries.csv"
+    # the total still appears, reconciled rather than presented as the row count
+    assert "4" in readme and "in total" in readme
 
 
 # --- full history, unfiltered (W-6) ---------------------------------------

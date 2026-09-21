@@ -32,6 +32,10 @@ them with denominators. The tier above is a classifier, and refusal 1 says
 where it has to run: locally, on program hardware, never a cloud fallback.
 Until that exists this is one tier, and it says so.
 
+The refusal that governs that tier is now built ahead of it:
+`records/inference.py` refuses any answer that cannot be shown to have come
+from the local model, so the classifier tier cannot arrive unguarded.
+
 Acceptance is by mutation (rule 19). `tests/test_voice.py` breaks each rule
 deliberately and asserts something catches it.
 """
@@ -135,7 +139,24 @@ _PROVENANCE = re.compile(r"\bP[1-5]\b|\b(measured|cited|fitted|estimated|assumed
 
 
 def check(text, serves_value=False):
-    """The ledger half. Returns findings; blocks nothing on its own."""
+    """The ledger half. Returns findings; blocks nothing on its own.
+
+    **An empty ruleset is `unavailable`, not `no findings`.** Rule 13 names
+    this case in its own words -- *"a rubric that failed to load returns
+    'unavailable,' not 'no findings'"* -- and this function was the one place
+    in the module where it did not hold: `guard()` already refuses a payload it
+    cannot read, `refuses()` already treats a raise as a refusal, and a policy
+    that was not there returned `[]`, which reads as cleared all the way down
+    to dispatch. `RULES` is a literal today and cannot fail to load, which is
+    exactly why the check belongs here now: the loader that replaces it cannot
+    then be born wrong, the argument `tools/sockets.py` makes for shipping a
+    checker before the first manifest.
+    """
+    if not _COMPILED:
+        return [f"unavailable[{REFUSE}]: policy {POLICY_VERSION} has no rules "
+                f"loaded, so this text was never checked -- a rubric that did "
+                f"not load is unavailable, not clear"]
+
     findings = []
     for name, action, pattern, why in _COMPILED:
         found = pattern.search(text)

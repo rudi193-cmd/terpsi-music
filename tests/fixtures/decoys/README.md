@@ -30,6 +30,14 @@ inspect them would open the sockets it was written to detect.
 | `reads_only.py` | `tools/purity.py` | a read is not a write; a check that cries wolf gets switched off |
 | `clean.py`, `egress_in_prose.py`, `writes_in_prose.py` | both | **decoys against the wrong implementation** — each names the forbidden thing in prose, so a grep-based checker fails them and an AST-based one does not |
 
+| `inference_direct.py` | `tools/providers.py` | the plainest unguarded path: import the router, call it, drop the provider label |
+| `inference_endpoint.py` | `tools/providers.py` | a provider reached with no router and no SDK — `urllib` + a bearer token, `curl` in a subprocess, and a request straight to the local runner, which returns no label to assert on |
+| `inference_launders.py` | `tools/providers.py` | **the decoy against the wrong implementation of *guarded***: it imports `records.inference` and calls it, then calls the router twice beside it, once in an `except:` retry against the cloud chain |
+| `inference_guarded.py` | `tools/providers.py` | the same call routed through the guard; the control, and the reason this is a rule about refusal 1 rather than a rule against importing a router |
+| `inference_in_prose.py` | `tools/providers.py` | names the router, `api.groq.com` and the local endpoint in prose — a grep fails it, an AST scan does not |
+
+| `registry_drift.sql` | `tools/registry.py` | a classification registry drifted seven ways from `records/classify.py`: a rung below the class, a class nobody decided, an elevation with no recorded rule, a column with no row, a row with no column, and the two field-name cases (`sis_legal_name`, `chosen_name`) that only come out right through the procedure |
+
 | `deletes_standing.py` | `tools/discipline.py` | `del`, `_edges.remove()`, an executed `DELETE FROM`, `clear()`, `discard()` |
 | `deletes_nested/buried.py` | `tools/discipline.py` | a removal one directory down |
 | `dates_standing.py` | `tools/discipline.py` | revocation done right — `invalid_at`, plus the comprehension this scan deliberately does not flag |
@@ -46,6 +54,15 @@ inspect them would open the sockets it was written to detect.
 passed against the tree they guarded and failed against a decoy. The socket
 checker was written with decoys from the start and still had a bug the decoys
 caught on the first run.
+
+**`local-inference` is the sixth, and it repeated the socket checker's
+lesson.** Written with the five `inference_*` decoys from the start, and the
+decoys still caught a defect on the first run: a `from core.inference_router
+import respond` was attributed to the *verb* rather than to the module it came
+from, so every router call was filed as a third-party SDK call and the guarded
+control failed for a reason that had nothing to do with guarding. There was
+nothing in this repository to notice that against — the whole tree reaches no
+model — which is the argument for these files in one line.
 
 `runners/` is excluded from the real scan by `discipline.NOT_SUITES`, and
 `tests/test_discipline.py` asserts the exclusion **both ways** — the real scan

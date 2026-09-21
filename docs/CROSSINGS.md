@@ -225,6 +225,244 @@ The replacement asserts against the predicate in both directions: a subject with
 no edge is refused, and a subject with one is served *and names the edge*. It can
 fail, which is the only property that was ever wanted.
 
+### Addendum, 2026-08-01 — the checker printed the sentence `voice.py` refuses
+
+Also filed here rather than in the tally, which stays a snapshot of the session
+it names.
+
+`voice.py` carries a rule called `false_all_clear`. It refuses six phrasings in
+assistant text, one of them the literal string `no findings`, with the reason
+*"a lookup that failed is unknown, not clear, and absence never renders as a
+result."* It has been in the tree since the voice module was written, it has a
+fixture, and it ablates red.
+
+`craft/__main__.py` printed this, for a file it could not parse:
+
+```
+=== unavailable
+  No song sections found. …returning unavailable rather than no findings (§6).
+
+=== findings (0)
+```
+
+The banner says the checker read nothing. The next line puts a count on it. The
+count is a result, and the thing it is a result about never happened — the same
+sentence the module two directories up refuses by name, printed by the tool
+that ships in the same package.
+
+**The diff side was worse, and it was worse in the flattering direction.**
+`run_diff` in both skins read `.findings` off each side and subtracted, ignoring
+whether either side had been read at all. So `--against` an unreadable earlier
+draft reported *"0 resolved, 9 introduced"* — every finding in the newer draft
+blamed on a revision that did not add any of them — and a revision the parser
+could not read reported
+*"9 resolved, 0 introduced"*, every finding cleared, by a comparison against
+nothing. `run_diff`'s own docstring is the accusation:
+
+> *a tool reporting only the wins is flattering rather than teaching*
+
+Four things about it worth keeping:
+
+1. **The rule was not missing. It was applied one layer too low.** `run_all`
+   gets rule 13 exactly right — `Report.unavailable` exists for this, the
+   docstrings argue for it, and `test_an_unparseable_file_is_unavailable_not_clean`
+   has guarded it since the checker was written. Both callers then dropped the
+   field on the floor. **A refusal that is not read is not a refusal**, which is
+   crossing one arriving at a new address: *a declaration with nothing behind
+   it*, where this time the declaration is a struct field and what is behind it
+   is one `if` nobody wrote.
+2. **Neither surface had a test.** `craft/__main__.py` had no test of any kind —
+   the suites imported `run_all` and `run_diff` and never the CLI — and no file
+   under `craft/` carried an ablation row. 477 mutations on this branch at the
+   moment these five landed, none of them aimed at the one piece of working
+   software in the repository. The guards were dense where the design is and
+   absent where the code is.
+3. **`unavailable` was doing two jobs.** A draft that could not be read and a
+   draft that was read with 34 words of unknown stress both land in the same
+   list, and the song in this repo is permanently in the second state. A caller
+   keying off `if report.unavailable` would have printed *unavailable* for every
+   real lyric. That is why the fix is a second field (`Report.unread`) rather
+   than a test on the first, and why both suites now assert the partial case
+   stays comparable.
+4. **One defect, two skins, and the fix is a middle rather than two edits**
+   (§16). `checks.diff_declined` is imported by `prose.run_diff`, and
+   `test_the_two_skins_refuse_a_comparison_through_one_middle` asserts it is the
+   same object and that the string `def diff_declined` does not appear in
+   `prose.py`. The pair was already there; only the middle is new.
+
+Counts in this addendum were derived from the tree on 2026-08-02, on the branch
+this landed on rather than the one it was written on: 482 mutations in
+`tests/ablate.py` after this change, five of them the first to point at
+`craft/`. The figures in the original commit message (120 before, 125 after)
+were true of `claude/wall-emptiness-8gj70w` and were stale the moment the change
+was carried here — which is rule 17 charging a toll on a port, and the reason
+the number is re-derived rather than copied across with the code.
+
+### Addendum, 2026-08-02 — the inventory was the authority on its own completeness
+
+`tests/test_rule13_acceptance.py` is the sweep: it enumerates every seam this
+repository consults and breaks each one for real. Its docstring states the
+property it is for:
+
+> *so that a seam added later without an unknown state is caught by a test
+> nobody had to remember to write*
+
+It names its own middle, which is what §16 asks. The middle is
+`test_every_seam_in_the_inventory_has_a_test`, and it walks `SEAMS` and asserts
+a test exists for each row.
+
+**It only ran one way.** Walking the list and finding a test for each row proves
+the tests are complete *against the list*. Nothing walked the tree and asserted
+a row for each seam, so the list was the only authority on whether the list was
+complete — and the case the docstring promises to catch, a module consulting a
+fallible source with **no** unknown state, is exactly the case that leaves no
+trace in the list. The promise was kept for seams somebody had already
+remembered, which is the set that needed no promise.
+
+Three things worth keeping from the fix:
+
+1. **Half a middle passes for a whole one, because it is green.** A pair with
+   one reconciler in one direction looks identical, in a test run, to a pair
+   with a reconciler. This is crossing four — a declaration with an enforcement
+   attached to it — arriving in the one file in the tree written to catch it,
+   and it survived a review and a merge.
+2. **The obvious mark was the wrong mark, and measuring said so.** The tempting
+   definition of *consults a fallible source* is *"the module has an
+   `UNKNOWN`-shaped enum member or an `unavailable` field."* Measured against
+   this tree it flags 27 modules, 18 of them absent from `SEAMS` — but the fatal
+   objection is not the noise. It can only see modules that **already** have an
+   unknown state, so by construction it can never reach the case the docstring
+   is about. It would have been a green check pointed away from its own subject.
+   The mark that shipped is *a function takes the source as a parameter*, which
+   is independent of whether an unknown state exists.
+3. **It found eight on its first run.** `drop/preparing.py`,
+   `drop/producer.py`, `records/assistance.py`, `records/attendance.py`,
+   `records/commentary.py`, `records/fees.py`, `records/inference.py`,
+   `store/narration.py`. Six of the eight were already honoured and already
+   tested in their own suites — which is not a defence, it is this file's
+   subject: a seam covered only where it lives is a seam the sweep cannot report
+   on, and the sweep is what a reviewer reads. Seven are rows now; the eighth is
+   exempt with a reason and a debt, because breaking it needs a cluster.
+
+And the residual, said out loud rather than rounded off: the mark does not reach
+`craft/`, whose fallible source is its own parser over caller-supplied text.
+`craft/` is inventoried because a person put it there, one addendum above, after
+it shipped the defect. `KNOWN_BLIND` names that shape and asserts the mark still
+misses it, so the day somebody widens the mark, the list of published misses
+goes red rather than quietly becoming a lie. That is `voice.KNOWN_MISSES`'s
+discipline applied to a check's own blind spot.
+
+Counts derived from the tree on 2026-08-02: `SEAMS` 43 rows, `CANNOT_DISTINGUISH`
+3, `EXEMPT` 1, `KNOWN_BLIND` 2, and 487 mutations in `tests/ablate.py` — five of
+them aimed at the completeness check itself, because a check that finds nothing
+today and cannot be shown to fail is a ledger (rule 18).
+
+*The three mutation figures in the two addenda above were each written on a
+branch that did not yet carry the other's rows — 473, 478 and 483 — and every
+one was stale at the merge. Corrected here to the merged tree: 487. That is
+crossing five arriving twice in one session, in the file that predicts it, and
+the mechanism is worth naming because it is not carelessness: a count derived
+correctly from the tree you are standing on is still a claim about a tree that
+is about to change under you. Parallel branches make rule 17 a merge-time
+obligation, not only a writing-time one.*
+
+### Addendum, 2026-08-02 — a refusal whose scope was not the scope of the act
+
+The sharpest defect of the session, and the one nothing in the tree could see.
+
+`records/retention.py` refuses carefully. `assess()` places a record on four
+standings, `due()` returns only `DUE`, and `dispose()` raises `NotDue` for
+anything else — `LIVE`, `RETAINED` and `UNKNOWN` are all kept, which is the
+fail-closed direction. Five mutations covered that ladder and every one went red.
+
+Then `purge()` handed the decision to `atrest.destroy(lane_id=…)`, which drops
+**every** wrapping under the lane:
+
+```python
+kept = tuple(w for w in keyring.wrappings if w.lane_id != lane)
+```
+
+A lane is one student (rule 8). So a `Disposition` scoped to one season and one
+kind destroyed the key opening that student's every sealed payload, in every
+season, of every kind. Run against `lane_entry` with every migration in the
+tree today applied: a live medical note reading `epi-pen in the case` came back
+`key_destroyed` after purging an unrelated aged-out attendance record.
+`assess()` had just called it `live`, `due()` had excluded it, and `dispose()`
+would have raised on it.
+
+**Refusal 3 held throughout, and saying so precisely is the point.** Nothing was
+deleted. Both rows stayed. The `Erasure` was dated, attributed, and outlived
+what it erased. Every property the module was built to guarantee was intact.
+What failed was that a record-scoped refusal governed a student-scoped act — and
+because the act was correct and the refusal was correct, the defect existed only
+in the *join* between them, where neither module's tests look.
+
+**Why the mutation harness could not have caught it, again.** The 2026-07-30
+addendum says ablation proves a guard is load-bearing and says nothing about an
+assertion not attached to one. This is the sibling case: the assertion existed
+and was attached to a real guard, but its *scope* was wrong.
+`test_purge_destroys_only_the_lanes_it_was_given` compares `lane-a` against
+`lane-b` and passes honestly. The forbidden act was inside a lane, and no
+mutation of a correct predicate can reach a test that never asks the question.
+**Ablation proves a guard fires. It cannot tell you the guard is aimed at the
+right thing.**
+
+The fix is crossing one's, applied at the join: `purge()` now requires the
+lane's full record set and refuses unless every record in it is due, with a lane
+the caller cannot enumerate refused as unknown rather than read as empty. The
+key-model fix that would make the refusal unnecessary — seal per `(lane,
+season)` — is recorded as §18 item 19 rather than chosen quietly, because a
+conservative fix that goes unnamed reads afterwards as the design.
+
+One thing found on the way that belongs here: **there is no `season` column
+anywhere in `migrations/`.** The word appears in two SQL comments and nowhere
+else. The axis the whole retention predicate turns on is carried by the record
+types in `records/` and by nothing durable.
+
+### Addendum, 2026-08-02 — two more declarations with nothing behind them
+
+Both are crossing one, and both are recorded because the pattern is the useful
+part, not the two small fixes.
+
+`store/roles.py`'s `RoleState` was documented *"What the cluster looks like
+after `ensure_roles`. **Reported, not assumed.**"* Its `created` field earned
+that — `after - before`, both halves read from `pg_roles`. Its `app_privileges`
+field was the module constant `APP_HOLDS`, and it was not merely assumed:
+`store/migrate.py` orders `ensure_roles` → `apply_all` → `apply_grants`, so at
+the moment the value was constructed there was no table to hold a privilege on
+and no grant had been issued. The field said `("SELECT", "INSERT")` about a role
+that held nothing, one line under a sentence promising it did not do that.
+`held_by_app()` — further down the same module, asking `information_schema` —
+was already the
+honest answer and already what the tests used.
+
+`records/aggregate.py`'s `CellResult.contributors` was documented as *"what the
+announcement is written from."* The announcement is written by `_announce`,
+which walks `readings` directly, and could not have been written from a per-cell
+set of lane ids that carries no subject.
+
+**Both were removed rather than corrected, and the reason is the same one this
+file has recorded five times:** a field with nothing behind it is not inert, it
+is an invitation. `docs/CROSSINGS.md` crossing one — remove the ability, not the
+permission.
+
+**The audit that found the second one got it wrong in a way worth keeping.** It
+reported `contributors` as never populated. It was populated, at both
+construction sites, **positionally** — which is why `grep -rn contributors`
+returns two hits and why an AST sweep counting attribute reads and keyword
+arguments classified it as dead. So the field was not a dormant default: every
+release carried lane ids on the value `_render` hands to `_readme`, `_table` and
+`_manifest`, in the module whose entire purpose is that identifiers do not reach
+a booster board. Nothing read it, which is the only reason it leaked nothing.
+
+The generalisation is the one this file exists for: **a sweep that looks for a
+name cannot see a value passed without one.** The mechanised never-read check
+that found most of this session's findings had a blind spot of exactly the shape it
+was built to detect, and it took a second reader to see it. The replacement
+guard asserts over *field values* rather than field names, so a field re-added
+under any other name is caught — the retired `contributors` being the case that
+proves the name was never the invariant.
+
 ---
 
 ## Provenance of this file

@@ -1,0 +1,20 @@
+# This repository's first and only dependency, accepted by maintainer decision
+# 2026-07-31 (§18 item 15): guardian receipts a third party can attribute need
+# an asymmetric primitive, the stdlib carries none, and vendoring crypto is
+# out. Pinned exactly (§17: a floating ref is the defect recorded against
+# `nestor @ master`, with higher stakes here). Everything else in the tree runs
+# on the standard library, and additions to this file are a maintainer's call,
+# not a convenience.
+cryptography==41.0.7
+
+# The second dependency, accepted by the store plan's dispatch 2026-07-31
+# (§18 item 18, decision 1): the store's driver. PostgreSQL was settled by the
+# tree rather than by preference — `migrations/001_lanes.sql` is already
+# executed and attacked there — and a schema that is executed needs something
+# to execute it. psycopg v3 rather than v2 because v2 is in maintenance and its
+# name is already in `tools/purity.py`'s egress set, where v3 now joins it: the
+# inner ring must not reach a database by either spelling. Pinned exactly, for
+# the reason above the line before it. Stdlib remains the rule everywhere else,
+# and `tools/drivers.py` fails the build if this import appears outside
+# `store/`.
+psycopg[binary]==3.1.18

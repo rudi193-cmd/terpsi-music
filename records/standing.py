@@ -41,8 +41,9 @@ the item's second option and the cheaper one:
    §7.2's *narrate the read* silently broken by the fix.
 3. **It can be ended** by `invalid_at` (refusal 3). A safety plan in which the
    subject is the risk is rare and real, and has nowhere to live otherwise.
-4. **It is already a row.** `docs/schema/001_lanes.proposed.sql`'s `edge` table
-   takes it by widening one CHECK.
+4. **It is already a row.** `migrations/001_lanes.sql`'s `edge` table takes it
+   by widening one CHECK — and, since promotion, a trigger that refuses a
+   `self` row whose holder is not the lane's subject.
 
 **Why not the item's third option — deliberate no-standing.** It makes I-7
 unverifiable by the party it protects. *"A student's entries are as durable as
@@ -68,12 +69,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Sequence, Tuple
+from typing import Callable, Optional, Sequence, Tuple
 
 from .crossing import _NOT_A_PERSON
 from .disclosure import Entry, Log
 from .rungs import Rung
-from .serving import Edge
+from .serving import Edge, _WILDCARDS
 
 #: The edge kind. A string rather than an enum because §7's other four kinds are
 #: strings and a mixed vocabulary is worse than a plain one.
@@ -82,8 +83,6 @@ SELF = "self"
 #: The rung a `self` edge reaches before the threshold. Above it, a guardian's
 #: signature is required per category.
 SELF_CAP = Rung.L3
-
-_WILDCARDS = frozenset({"*", "all", "any", "every", ""})
 
 
 def self_edge(subject_id: str, *, valid_at: datetime, created_at: datetime,
@@ -176,8 +175,19 @@ class Widening:
         return self.signed_at <= when < self.expires_at
 
 
-def widens(widenings: Sequence[Widening], *, subject_id: str,
-           category: Optional[str], at: datetime,
+class WideningsUnknown(RuntimeError):
+    """The widening source could not be consulted.
+
+    Raised rather than returned, because `widens()` answers `Optional[Widening]`
+    and `None` already means *nothing widens this category* — a third meaning in
+    the same value is how the seam came to be indistinguishable in the first
+    place. A caller that wants the softer answer catches this; `serving.serve`
+    does, and turns it into `Outcome.UNKNOWN`.
+    """
+
+
+def widens(widenings: Sequence[Widening] | Callable[[], Sequence[Widening]], *,
+           subject_id: str, category: Optional[str], at: datetime,
            signer_edges: Sequence[Edge] = ()) -> Optional[Widening]:
     """The live widening covering this category, or `None`.
 
@@ -190,7 +200,22 @@ def widens(widenings: Sequence[Widening], *, subject_id: str,
     individual **and** carries a category the law follows*; if the category is
     missing the field is misclassified, and inventing a match here would widen
     on the strength of a defect.
+
+    **`widenings` takes a sequence or a callable**, the shape
+    `records/sending.py::recipients` has always carried. A callable that raises
+    is `WideningsUnknown`, never `None`: a guardian who signed nothing and a
+    store that could not be asked led to the same `None` and the same held cap,
+    which is the row `tests/test_rule13_acceptance.py` carried for this seam
+    until the store gave the error somewhere to come from.
     """
+    if callable(widenings):
+        try:
+            widenings = tuple(widenings())
+        except Exception as exc:  # noqa: BLE001 — any failure is unknown, not empty
+            raise WideningsUnknown(
+                f"the widening source failed: {exc!r}; an unwidened category and "
+                "a source that could not be read are different facts (rule 13)"
+            ) from exc
     if not category:
         return None
     for w in widenings:
@@ -293,3 +318,99 @@ def own_log(log: Log, viewer_id: str, subject_id: str, at: datetime,
 
     return OwnLog(LogAccess.GRANTED, log.entries, len(log.entries),
                   f"{len(log.entries)} read(s) recorded about this subject, at every rung")
+
+
+# --- I-7's supersession asymmetry -------------------------------------------
+
+
+class Supersession(Enum):
+    PERMITTED = "permitted"
+    REFUSED = "refused"
+    UNKNOWN = "unknown"   # not a permission (rule 13)
+
+
+@dataclass(frozen=True)
+class MaySupersede:
+    """A decision about ending or amending one entry, with its reason."""
+
+    state: Supersession
+    reason: str
+
+    @property
+    def permitted(self) -> bool:
+        """True only for `PERMITTED`. An `UNKNOWN` is not a yes."""
+        return self.state is Supersession.PERMITTED
+
+
+def may_supersede(*, author_id: Optional[str], subject_id: Optional[str],
+                  principal_id: str, edges: Sequence[Edge] = (),
+                  at: Optional[datetime] = None) -> MaySupersede:
+    """Whether `principal_id` may supersede an entry authored by `author_id`.
+
+    **The clause, at source** (`Willow` `PROTECTED_AGENTS.md`, I-7 —
+    *the record binds the holder most*):
+
+    > *"No office's Force extends to deleting or amending entries about its own
+    > exercise. Entries authored by the governed about the office are as durable
+    > as entries authored by the office about the governed."*
+
+    `docs/LANE-MODEL.md` states the schema-side consequence and says it cannot
+    be a column CHECK: *"supersession of a `lane_entry` whose `author_id` is the
+    lane's own subject requires an authority that no office-derived grant
+    confers. That is a predicate over the acting principal and the row."* This
+    is that predicate.
+
+    **The asymmetry is the whole content**, and it is why the clause is not
+    "entries are immutable":
+
+    * an entry the **office** authored may be superseded by the office — its
+      own draft, its own note, its own correction
+    * an entry the **governed** authored may be superseded by nobody but its
+      author, and **no edge helps** — not `director_of`, not `guardian_of`, not
+      an office-derived grant of any rung. The check runs before any edge is
+      consulted, because an edge that could confer this would be the clause
+      defeated by whoever holds the most of them.
+
+    A missing author or subject is `UNKNOWN` and refuses (rule 13): an entry
+    whose authorship nobody recorded is not thereby the office's to amend.
+    `edges` and `at` are accepted and deliberately unused in the refusing
+    branch — see the docstring of the branch itself.
+    """
+    if not (author_id or "").strip() or not (subject_id or "").strip():
+        return MaySupersede(
+            Supersession.UNKNOWN,
+            "this entry records no author, or no lane subject; an entry whose "
+            "authorship is unknown is not the office's to amend (I-7)")
+
+    if principal_id == author_id:
+        return MaySupersede(
+            Supersession.PERMITTED,
+            "the author supersedes their own entry")
+
+    if author_id == subject_id:
+        # The governed authored it. No edge is consulted on purpose: I-7's
+        # authority is one "that no office-derived grant confers", so reading
+        # `edges` here to look for a stronger one would be the clause defeated
+        # by exactly the principal it binds hardest.
+        return MaySupersede(
+            Supersession.REFUSED,
+            "I-7: this entry was authored by the lane's own subject about the "
+            "office, and no office-derived grant confers authority to supersede "
+            "it — entries authored by the governed are as durable as entries "
+            "authored about them")
+
+    if at is None:
+        return MaySupersede(
+            Supersession.UNKNOWN,
+            "supersession is a dated act and no instant was supplied")
+
+    standing = any(e.subject_id == subject_id and e.principal_id == principal_id
+                   and e.live_at(at) and not (e.kind == SELF and not is_self_edge(e))
+                   for e in edges)
+    if not standing:
+        return MaySupersede(
+            Supersession.REFUSED,
+            "no live edge to this lane's subject at this instant")
+    return MaySupersede(
+        Supersession.PERMITTED,
+        "an office-authored entry, superseded by a principal with live standing")

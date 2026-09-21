@@ -15,7 +15,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from records import Edge, Field, Principal, Rung, serve  # noqa: E402
 from records.disclosure import Ledger, Log  # noqa: E402
 from records.receipts import (  # noqa: E402
-    GuardianReceipt, authentic, contradictions, gaps, held_by, issue,
+    AsymmetricUnavailable, GuardianReceipt, HmacTagger, Issuance, NoSigner,
+    Uncheckable, authentic, contradictions, gaps, held_by, issue, receipt_text,
+    schemes,
 )
 
 T0 = datetime(2026, 3, 1)
@@ -200,10 +202,15 @@ def test_a_receipt_carries_a_tag_the_issuer_can_check():
 
 def test_the_receipt_carries_no_content_only_the_fact_of_a_record():
     """A receipt is handed to a person and must survive being handed to the
-    wrong one. The digest is opaque; nothing about the entry travels."""
+    wrong one. The digest is opaque; nothing about the entry travels.
+
+    `issuance` joined this set on 2026-07-31 and is not content: it names what
+    the receipt's own tag is worth, which the holder would otherwise have to
+    assume. The set stays exact so the next field has to be argued for too.
+    """
     fields = {f.name for f in dataclasses.fields(GuardianReceipt)}
     assert fields == {"lane_id", "position", "entry_digest", "issued_at",
-                      "to_guardian", "tag"}
+                      "to_guardian", "tag", "issuance"}
     _led, rs = issue_all(Ledger(), LB, BEN, guardians(), 1)
     assert "chair" not in repr(rs[0]) and "student-ben" not in repr(rs[0])
 
@@ -249,13 +256,114 @@ def test_the_tag_is_not_claimed_to_be_a_signature_documented():
     r = rs[0]
     minted = dataclasses.replace(
         r, position=42,
-        tag=__import__("hmac").new(
-            KEY, "\x1f".join([r.lane_id, "42", r.entry_digest,
-                              r.issued_at.isoformat(), r.to_guardian]).encode(),
-            __import__("hashlib").sha256).hexdigest())
+        tag=HmacTagger(KEY).tag("\x1f".join(
+            [r.lane_id, "42", r.entry_digest, r.issued_at.isoformat(),
+             r.to_guardian, r.issuance.value])))
     assert authentic(minted, KEY), (
         "anyone holding the key can mint a receipt; that is the known limit"
     )
+
+
+# --- which scheme issued it, and what that is worth -----------------------
+
+
+def test_a_receipt_says_what_its_own_tag_is_worth():
+    """A holder told nothing assumes the strongest reading. So the weaker
+    property is a field, it is on the printed slip in words, and it is covered
+    by the tag."""
+    _led, rs = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    r = rs[0]
+    assert r.issuance is Issuance.SELF_VERIFIABLE
+    assert r.scheme == "hmac-sha256"
+    page = receipt_text(r).text
+    assert "Someone else cannot" in page
+    assert "hmac-sha256" in page
+
+
+def test_relabelling_a_receipt_as_attributable_breaks_its_tag():
+    """The issuance claim is inside the tagged material, so a receipt cannot be
+    promoted after issue by editing one field."""
+    _led, rs = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    promoted = dataclasses.replace(rs[0], issuance=Issuance.ATTRIBUTABLE)
+    try:
+        authentic(promoted, KEY)
+    except Uncheckable:
+        return          # the verifier refuses before it even checks the maths
+    raise AssertionError("a relabelled receipt was checked as if nothing changed")
+
+
+def test_the_issuance_claim_is_inside_the_tag():
+    """Relabelling the receipt *and* the verifier to match still fails, because
+    what a receipt says it is worth is part of what was tagged. Without this the
+    seventh field would be a caption anyone could edit."""
+    _led, rs = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    promoted = dataclasses.replace(rs[0], issuance=Issuance.ATTRIBUTABLE)
+    lenient = HmacTagger(KEY, "hmac-sha256", Issuance.ATTRIBUTABLE)
+    assert not authentic(promoted, lenient), (
+        "a receipt was promoted to attributable by editing a field"
+    )
+    assert authentic(rs[0], HmacTagger(KEY)), "the ordinary case stopped working"
+
+
+def test_a_scheme_a_verifier_cannot_read_is_unknown_not_forged():
+    """Rule 13 at a verifier. `False` would report *cannot check* and *forged*
+    with the same word, and the difference is the whole of the question."""
+    _led, rs = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    signed = dataclasses.replace(rs[0], tag="ed25519:" + "0" * 128,
+                                 issuance=Issuance.ATTRIBUTABLE)
+    try:
+        authentic(signed, KEY)
+    except Uncheckable as exc:
+        assert "unknown, not a mismatch" in str(exc)
+        return
+    raise AssertionError("an unreadable scheme came back as an ordinary boolean")
+
+
+def test_an_absent_asymmetric_signer_refuses_rather_than_falling_back():
+    """**The dependency §18 item 15 carries.** A deployment that asks for the
+    attributable path and does not have the primitive must be told so. A silent
+    HMAC underneath would make the two indistinguishable at every call site, and
+    the first place anyone noticed would be a dispute."""
+    led = write(Ledger(), LB, BEN, 1)
+    try:
+        issue(led, LB, BEN, guardians(), T0, signer=AsymmetricUnavailable())
+    except NoSigner as exc:
+        assert "not quietly issued under a weaker scheme" in str(exc)
+        return
+    raise AssertionError("an unavailable signer issued something anyway")
+
+
+def test_issuance_is_chosen_rather_than_defaulted():
+    """A key or a signer, never both and never neither: which scheme issued a
+    receipt is always something somebody decided."""
+    led = write(Ledger(), LB, BEN, 1)
+    for kwargs in ({}, {"key": KEY, "signer": HmacTagger(KEY)}):
+        try:
+            issue(led, LB, BEN, guardians(), T0, **kwargs)
+        except ValueError:
+            continue
+        raise AssertionError(f"issue() accepted {kwargs or 'neither'}")
+
+
+def test_a_signer_and_a_bare_key_agree():
+    """The seam is not a second implementation: passing the key is passing an
+    `HmacTagger` around it."""
+    led = write(Ledger(), LB, BEN, 1)
+    by_key = issue(led, LB, BEN, guardians(), T0, KEY)
+    by_signer = issue(led, LB, BEN, guardians(), T0, signer=HmacTagger(KEY))
+    assert by_key == by_signer and by_key
+
+
+def test_the_attributable_path_landed_and_the_fallback_still_says_what_it_is():
+    """**Rewritten 2026-07-31, as this test's own message instructed** when it
+    guarded the absence: the asymmetric scheme has landed (`Ed25519Signer`,
+    the repository's first dependency, maintainer decision — §18 item 15
+    struck). What survives the rewrite: the fallback names itself, and asking
+    for a primitive a box lacks still refuses rather than substituting.
+    """
+    assert "ed25519" in schemes()
+    assert Issuance.ATTRIBUTABLE.limit          # the words carry on the artifact
+    assert AsymmetricUnavailable().issuance is Issuance.UNAVAILABLE
 
 
 def test_the_module_is_not_broken_shut():
@@ -263,6 +371,91 @@ def test_the_module_is_not_broken_shut():
     assert len(rs) == 4 and all(authentic(r, KEY) for r in rs)
 
 
+# --- the attributable path (§18 item 15, decided 2026-07-31) ---------------
+
+
+def _issuer():
+    from records.receipts import generate_signer
+    return generate_signer()
+
+
+def test_a_third_party_attributes_a_receipt_with_the_public_key_alone():
+    """The property the dependency was accepted for: verification needs no
+    secret and no cooperation, and the verifying object cannot mint."""
+    from records.receipts import Ed25519Signer
+    signer = _issuer()
+    led, _ = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    receipts_out = tuple(
+        issue(led, LB, BEN, guardians(), T0, signer=signer))
+    assert receipts_out, "no receipts issued to a live guardian"
+    third_party = Ed25519Signer(public_key=signer.public_key)
+    assert all(authentic(r, third_party) for r in receipts_out)
+
+
+def test_the_verifying_object_cannot_issue():
+    from records.receipts import Ed25519Signer, NoSigner
+    holder = Ed25519Signer(public_key=_issuer().public_key)
+    try:
+        holder.tag("anything")
+    except NoSigner:
+        pass
+    else:
+        raise AssertionError("a public-key-only signer minted a tag")
+
+
+def test_a_tampered_receipt_is_not_authentic():
+    from dataclasses import replace
+    from records.receipts import Ed25519Signer
+    signer = _issuer()
+    led, _ = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    r = issue(led, LB, BEN, guardians(), T0, signer=signer)[0]
+    third_party = Ed25519Signer(public_key=signer.public_key)
+    forged = replace(r, position=r.position + 1)
+    assert authentic(r, third_party)
+    assert not authentic(forged, third_party)
+
+
+def test_a_different_programmes_key_does_not_attribute():
+    from records.receipts import Ed25519Signer
+    ours, theirs = _issuer(), _issuer()
+    led, _ = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    r = issue(led, LB, BEN, guardians(), T0, signer=ours)[0]
+    assert not authentic(r, Ed25519Signer(public_key=theirs.public_key))
+
+
+def test_an_unreadable_tag_is_uncheckable_not_forged():
+    from records.receipts import Ed25519Signer, Uncheckable
+    v = Ed25519Signer(public_key=_issuer().public_key)
+    for bad in ("hmac-sha256:deadbeef", "ed25519:not-hex"):
+        try:
+            v.verify("m", bad)
+        except Uncheckable:
+            continue
+        raise AssertionError(f"{bad!r} was answered rather than refused")
+
+
+def test_schemes_are_derived_by_attempting_the_import():
+    """`ed25519` appears because the primitive imports on this box — the
+    requirements file is a declaration, and `schemes()` never trusts it."""
+    from records.receipts import schemes
+    have = schemes()
+    assert "ed25519" in have and "hmac-sha256" in have
+    assert have.index("ed25519") < have.index("hmac-sha256")
+
+
+def test_the_attributable_receipt_names_its_own_issuance():
+    signer = _issuer()
+    led, _ = issue_all(Ledger(), LB, BEN, guardians(), 1)
+    r = issue(led, LB, BEN, guardians(), T0, signer=signer)[0]
+    assert r.issuance is Issuance.ATTRIBUTABLE
+    assert "without the programme's help" in r.issuance.limit
+
+
+# The __main__ runner stays LAST in this file: it iterates globals() at the
+# point it executes, so a test defined below it exists for pytest and not
+# for the standalone runner CI uses. The ablation harness caught exactly
+# that on 2026-07-31 — a mutation SURVIVED because the tests holding it
+# were appended after this block and never ran standalone.
 if __name__ == "__main__":
     failures = 0
     for name, fn in sorted(globals().items()):

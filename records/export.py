@@ -64,6 +64,17 @@ class Artifact:
         return hashlib.sha256(self.text.encode("utf-8")).hexdigest()
 
 
+def _served(transfer) -> list:
+    """The rows entries.csv carries: everything except the never-rendered L5.
+
+    One definition, because `bundle()` and `_readme()` both need it and two
+    copies of *which rung never leaves* is the pair rule 12 exists to forbid —
+    and, concretely, two identical lines made the ablation that targets this
+    filter match two sites.
+    """
+    return [e for e in transfer.entries if getattr(e, "rung", None) is not NEVER_SERVED]
+
+
 def _rows(entries: Sequence) -> Tuple[Tuple[str, ...], Tuple[Tuple[str, ...], ...]]:
     """Flatten whatever the lane held into a table with a stable header.
 
@@ -96,6 +107,13 @@ def _csv(header: Sequence[str], rows: Sequence[Sequence[str]]) -> str:
 
 def _readme(transfer) -> str:
     withheld = [e for e in transfer.entries if getattr(e, "rung", None) is NEVER_SERVED]
+    # entries.csv holds the *served* rows, not every entry: the withheld ones are
+    # named in MANIFEST.txt and never rendered. The truncation self-check has to
+    # count against what the file actually contains, or a bundle with any
+    # withheld record fails its own check — the CSV legitimately has fewer rows
+    # than the total, and a recipient told "fewer than the total means missing"
+    # reads a correct export as a truncated one.
+    served = _served(transfer)
     lines = [
         "YOUR RECORD",
         "===========",
@@ -119,10 +137,17 @@ def _readme(transfer) -> str:
         "                so you can tell whether anything went missing.",
         "  README.txt    this file.",
         "",
-        f"There are {len(transfer.entries)} records. If entries.csv has fewer rows",
-        "than that, you did not receive all of it.",
+        f"entries.csv has {len(served)} record(s), one per row. If it has fewer",
+        "rows than that, some were lost after the bundle was made, and",
+        "MANIFEST.txt's checksums are how you tell which.",
         "",
     ]
+    if withheld:
+        lines += [
+            f"({len(served)} shown here plus {len(withheld)} withheld below is "
+            f"{len(transfer.entries)} on record in total.)",
+            "",
+        ]
     if withheld:
         lines += [
             "WITHHELD",
@@ -194,7 +219,7 @@ def bundle(transfer) -> Tuple[Artifact, ...]:
             "an incomplete transfer has nothing to export; W-6 requires the "
             "record and the written exit terms"
         )
-    served = [e for e in transfer.entries if getattr(e, "rung", None) is not NEVER_SERVED]
+    served = _served(transfer)
     header, rows = _rows(served)
     body = (
         Artifact("README.txt", "text/plain", _readme(transfer)),

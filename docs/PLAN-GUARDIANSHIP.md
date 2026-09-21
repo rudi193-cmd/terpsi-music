@@ -190,6 +190,29 @@ Separating them means two places to get it right.
 
 Step 1 is the part worth having before the case arrives.
 
+> **What landed 2026-07-31, and the gate this plan did not have.** The step-1
+> predicate exists in `records/sending.py` and the *act* that drives it now
+> exists in `records/orders.py`: an order arrives, `invalid_at` is set from the
+> order's own date, the order is recorded as the authority, and the ending
+> carries its own knowledge clock beside the edge's. `tests/test_orders.py`
+> runs the §7.1 case end to end and asserts that **messaging, receipts,
+> envelope-signing and widening-signing stop at the same instant, from one
+> act** — with the companion assertion beside it that all four were open the
+> day before, because a predicate that refused everybody would pass the first
+> half.
+>
+> **The gate this table is missing is about the lane, not about a recipient.**
+> Every one of G1–G13 asks *"is this person reachable"*, and none asks *"what
+> is this lane's state afterwards"* — so an order ending the only guardianship
+> would have passed all thirteen while leaving a lane nobody answers for. That
+> is the same shape the G12/G13 note above describes one section up: a gate set
+> assembled by asking *what could go wrong to a recipient* does not notice a
+> question about a different object. Call it **G14 — an ending leaves the lane
+> in a named state**: a live `guardian_of` edge, or an explicit dated
+> declaration with a reason and a namer. Silence is refused (I-6, and I-7's
+> asymmetry — an office may not dissolve the record of its own exercise by
+> walking away from the lane).
+
 > **The step-1 list originally read six gates and the two it was missing were
 > the load-bearing ones.** G12 and G13 are cheaper than anything else in the
 > step — an edge-kind check and a date comparison — and a predicate lacking both

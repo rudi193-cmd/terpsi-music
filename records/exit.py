@@ -1,6 +1,8 @@
 """W-6: a lane opened without a written exit is invalidly opened.
 
-The clause, at source in `Willow`'s `PROTECTED_AGENTS.md` Part III (`c8c96b4`):
+The clause, at source in `willows-grove` `governance/PROTECTED_AGENTS.md` Part III, blob `2886a41`;
+re-anchored 2026-09-11 — see `docs/PART-III-READ.md`. Quoted complete, and the
+read found this the only clause in the tree that was:
 
 > *"At the threshold written into the office at entry — majority, graduation,
 > transfer, retirement — keys to the lane issue to its subject or named

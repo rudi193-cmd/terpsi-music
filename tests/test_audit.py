@@ -1,0 +1,654 @@
+"""R16 and R17, each pointed at a tree where it must complain.
+
+Rule 19, and §10's version of it: *a guard that cannot be shown to fail has not
+been shown to work.* Both of these checks report a comfortable answer against
+this repository today — R16 `ABSENT` because there is nothing at rest yet, R17
+`PASS` because the egress mutations are in the registry and the record says they
+were caught. Neither of those answers is evidence of anything until the check
+has been shown to produce the other ones.
+
+So every branch of both checks is driven here against a synthetic tree, and the
+one false positive that would quietly destroy R16 gets a test of its own:
+`records/sealing.py` is called sealing and encrypts nothing.
+
+**This file also carries the middle** for the pair `tools/audit.py` creates with
+`docs/SECURITY-AUDIT.md` — a check and a document recording what the check said.
+§16: name the reconciler in the same commit, or do not create the pair.
+`test_the_document_records_what_the_checks_report_today` is that reconciler.
+
+Stdlib only. Runs under pytest or directly.
+"""
+
+from __future__ import annotations
+
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tools"))
+
+import audit  # noqa: E402
+from audit import (  # noqa: E402
+    AT_REST_BOUNDARY, AT_REST_VERBS, REQUIRED_EGRESS_SITES, Severity, Verdict,
+    at_rest_seam, audit_commit, audit_date, durable_callers, egress_coverage,
+    escrow_disposition, escrow_facts, findings, narration_callers, r16_at_rest,
+    r17_no_egress_neutralised, recorded, registry, record_rows, store_writes,
+)
+
+AUDIT_DOC = ROOT / "docs" / "SECURITY-AUDIT.md"
+
+#: A sealing module as it will look when the parallel work lands: the verbs,
+#: and a body that does something to bytes.
+SEALED = """\
+def seal_at_rest(blob, dek):
+    return bytes(b ^ 7 for b in blob)
+
+
+def unseal_at_rest(blob, dek):
+    return seal_at_rest(blob, dek)
+"""
+
+#: The same seam plus a store: something actually writes a record to disk,
+#: which is the condition under which unescrowed sealing is the state that
+#: ends a program (S1) rather than a mechanism ahead of its store (S2).
+SEALED_AND_WRITING = SEALED + """\
+
+def persist(path, blob, dek):
+    with open(path, "wb") as f:
+        f.write(seal_at_rest(blob, dek))
+"""
+
+ESCROW_OK = """\
+# Escrow
+
+Split 3-of-5 across the director, the district administrator and a sealed
+offline share. Rehearsed 2026-06-01; next drill 2027-06-01.
+"""
+
+
+def _tree(d, files):
+    p = Path(d)
+    for name, text in files.items():
+        (p / name).write_text(text, encoding="utf-8")
+    return p
+
+
+# --- R16: the false positive it exists to refuse ---------------------------
+
+
+def test_the_human_seal_is_not_at_rest_sealing():
+    """**The whole reason R16 matches on verbs and not on filenames.**
+
+    `records/sealing.py` is in this tree, is named sealing, and is rule 10's
+    named-human seal over a machine draft — `hashlib`, no cipher, nothing
+    encrypted. A check keying on the module name reports PASS today over a
+    store that does not exist yet, which is the most flattering possible wrong
+    answer.
+    """
+    real = ROOT / "records" / "sealing.py"
+    assert real.exists(), "the decoy for this test is the real module; it moved"
+    # Asserted per-file since 2026-07-31: a true seam (records/atrest.py) now
+    # exists in the tree, so "the directory scan finds nothing" stopped being
+    # the property. The property is and was: the human seal, alone, matches no
+    # verb — and the true seam is recognised (the test below this one).
+    import tempfile, shutil
+    with tempfile.TemporaryDirectory() as d:
+        shutil.copy(real, Path(d) / "sealing.py")
+        assert not at_rest_seam(Path(d)), (
+            "records/sealing.py satisfied R16 — the check is matching on a name"
+        )
+    assert "seal" not in AT_REST_VERBS, (
+        "the bare verb `seal` is in the required set, so the human seal counts"
+    )
+
+
+def test_a_real_sealing_module_is_found():
+    """The other direction: the seam is recognised when something lands on it.
+    A check that never finds anything is indistinguishable from a broken one."""
+    with tempfile.TemporaryDirectory() as d:
+        p = _tree(d, {"atrest.py": SEALED})
+        got = at_rest_seam(p)
+    assert {v for _, v in got} == {"seal_at_rest", "unseal_at_rest"}, got
+
+
+# --- R16: every branch --------------------------------------------------------
+
+
+def test_nothing_stored_and_nothing_sealing_is_absent_not_a_pass():
+    """Rule 13. Nothing is at rest, so nothing is unencrypted — and that is a
+    different fact from encryption being present."""
+    with tempfile.TemporaryDirectory() as d:
+        p = _tree(d, {"quiet.py": "X = 1\n"})
+        got = r16_at_rest(records=p, escrow=p / "nope.md")
+    assert got.verdict is Verdict.ABSENT and not got.passed
+    assert got.condition, "an ABSENT with no condition never becomes applicable"
+
+
+def test_a_store_with_no_sealing_is_a_high_finding():
+    """The commit this check is written for: something starts writing records
+    to a disk and no sealing arrives with it."""
+    with tempfile.TemporaryDirectory() as d:
+        p = _tree(d, {"store.py": "def save(p, t):\n    p.write_text(t)\n"})
+        got = r16_at_rest(records=p, escrow=p / "nope.md")
+    assert got.verdict is Verdict.FINDING and got.severity is Severity.S1
+    assert "no at-rest sealing" in got.evidence
+
+
+def test_sealing_without_escrow_is_a_high_finding_once_anything_is_at_rest():
+    """§5: *a single file loss destroys every secret in the box, irrecoverably,
+    by design.* Sealed and unescrowed is the state that ends a program — once
+    a record is actually at rest for the key to strand."""
+    with tempfile.TemporaryDirectory() as d:
+        p = _tree(d, {"atrest.py": SEALED_AND_WRITING})
+        got = r16_at_rest(records=p, escrow=p / "nope.md")
+    assert got.verdict is Verdict.FINDING and got.severity is Severity.S1
+    assert "escrow" in got.evidence.lower()
+
+
+def test_a_seam_ahead_of_its_store_is_a_finding_not_yet_a_high_one():
+    """The mechanism-before-store ordering this repo builds by (item 4 note
+    iii). No master minted, nothing at rest — a lost key file cannot destroy
+    records that do not exist, so the severity is S2 with the S1 condition
+    named on the finding itself. Went red on F3's merge until the check
+    honoured its own stated condition."""
+    with tempfile.TemporaryDirectory() as d:
+        p = _tree(d, {"atrest.py": SEALED})
+        got = r16_at_rest(records=p, escrow=p / "nope.md")
+    assert got.verdict is Verdict.FINDING and got.severity is Severity.S2
+    assert "S1" in got.condition
+
+
+def test_sealing_with_a_rehearsed_split_passes():
+    with tempfile.TemporaryDirectory() as d:
+        p = _tree(d, {"atrest.py": SEALED, "ESCROW.md": ESCROW_OK})
+        got = r16_at_rest(records=p, escrow=p / "ESCROW.md")
+    assert got.verdict is Verdict.PASS, got.evidence
+    assert "3-of-5" in got.evidence
+
+
+def test_an_unrehearsed_escrow_plan_is_not_escrow():
+    """§5 states the rule this branch is: *an untested key recovery is not
+    escrow.* A document describing a split nobody has ever reconstructed is a
+    plan, and R16 must not accept it as a disposition."""
+    with tempfile.TemporaryDirectory() as d:
+        p = _tree(d, {"atrest.py": SEALED,
+                      "ESCROW.md": "Split 2-of-3 across the director and two others.\n"})
+        disposed, why = escrow_disposition(p / "ESCROW.md")
+        got = r16_at_rest(records=p, escrow=p / "ESCROW.md")
+    assert not disposed and "rehears" in why.lower()
+    assert got.verdict is Verdict.FINDING
+
+
+def test_a_missing_escrow_document_says_so_rather_than_passing():
+    disposed, why = escrow_disposition(ROOT / "docs" / "does-not-exist.md")
+    assert not disposed and "does not exist" in why
+
+
+# --- R16's at-rest boundary (S-3) ------------------------------------------
+#
+# S-1 put a write path in the tree and R16 had to decide what that means. The
+# decision is `audit.AT_REST_BOUNDARY` — *at rest is a byte that outlives the
+# process* — and these four tests are that decision driven from both sides,
+# against synthetic trees, so the transition happens on purpose here rather than
+# by accident on some later commit.
+
+#: A store package: a write path, and nothing that says who drives it.
+A_STORE = """\
+def insert_draft(conn, table, values):
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO lane_entry (payload_sealed) VALUES (%s)",
+                    (values["payload_sealed"],))
+"""
+
+#: A test module driving it. Under `tests/`, so the database it writes to is
+#: created and dropped inside one run.
+A_TEST = """\
+from store.writing import insert_draft
+
+
+def test_it(conn):
+    insert_draft(conn, "lane_entry", {"payload_sealed": b"gAAAA"})
+"""
+
+#: A deployment module driving it by import. This is the commit the condition
+#: names.
+AN_APP = """\
+from store.writing import insert_draft
+
+
+def record_a_note(conn, values):
+    insert_draft(conn, "lane_entry", values)
+"""
+
+#: A second one driving it **without importing it** — the module is handed in,
+#: which is how a TUI written for testability would actually reach the store.
+#: Two files rather than one because the scan has two detection routes, and a
+#: single file exercising both leaves either one ablatable with no test failing:
+#: this is scout-13 row B, found by a mutation that reported SURVIVES.
+AN_APP_BY_CALL = """\
+def record_a_note(store, conn, values):
+    store.insert_draft(conn, "lane_entry", values)
+"""
+
+
+def _store_tree(d, *, with_app: bool, escrow: str = ""):
+    """`(records, store, root)` for a tree with a seam, a store, and callers."""
+    p = Path(d)
+    (p / "records").mkdir()
+    (p / "store").mkdir()
+    (p / "tests").mkdir()
+    (p / "records" / "atrest.py").write_text(SEALED, encoding="utf-8")
+    (p / "store" / "writing.py").write_text(A_STORE, encoding="utf-8")
+    (p / "tests" / "test_store.py").write_text(A_TEST, encoding="utf-8")
+    if with_app:
+        (p / "app").mkdir()
+        (p / "app" / "main.py").write_text(AN_APP, encoding="utf-8")
+        (p / "app" / "handler.py").write_text(AN_APP_BY_CALL, encoding="utf-8")
+    (p / "ESCROW.md").write_text(escrow or "no policy here\n", encoding="utf-8")
+    return p / "records", p / "store", p
+
+
+def test_a_store_written_only_by_its_tests_is_not_a_record_at_rest():
+    """**The boundary, from the side the real tree is on.**
+
+    `store/` writes; `purity.writes()` finds the statements. Nobody outside
+    `tests/` calls it, so every byte it has ever written went into a database
+    `tests/cluster.py` created and dropped inside one module. Counting that as a
+    record at rest would make R16 an `S1` that no commit can clear — the thing
+    that would clear it is a key ceremony in a room (`docs/ESCROW.md`, §11.1) —
+    and a gate nobody can turn green is a gate everybody learns to ignore.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        records, store, root = _store_tree(d, with_app=False)
+        assert store_writes(store) > 0, "the synthetic store writes nothing"
+        assert durable_callers(root, store) == ()
+        got = r16_at_rest(records=records, escrow=root / "ESCROW.md",
+                          store=store, tree=root)
+    assert got.verdict is Verdict.FINDING and got.severity is Severity.S2, got
+    assert "nothing durably at rest" in got.evidence
+    assert "in store/" in got.evidence, "the store's writes are not reported"
+    assert AT_REST_BOUNDARY in got.evidence, (
+        "the boundary is applied and not stated; a judgement a reader cannot "
+        "find is a judgement nobody can disagree with")
+    assert "S1" in got.condition and "non-test caller" in got.condition
+
+
+def test_the_first_non_test_caller_makes_it_durable_and_R16_high():
+    """**The transition, exercised deliberately before it happens by accident.**
+
+    One file moves — the same store, the same seam, the same unrehearsed escrow
+    document — and R16 goes from `S2` to `S1`. That is `docs/PLAN-STORE.md`'s
+    S-4 commit, and the point of driving it here is that nobody has to notice.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        records, store, root = _store_tree(d, with_app=True)
+        callers = dict(durable_callers(root, store))
+        assert callers, "a non-test caller was not seen"
+        # Both detection routes, each on its own file, each named. Asserting
+        # only that *some* caller was found let a mutation disabling the call
+        # route report SURVIVES: main.py's import was still covering for it.
+        assert "imports store.writing" in callers["app/main.py"], callers
+
+
+def test_a_store_caller_under_a_dotdir_is_not_a_deployment_caller():
+    """**The bug that flipped R16 to a false S1 on 2026-07-31, pinned.** An agent
+    worktree lives at `.claude/worktrees/<id>/` and carries its own copy of
+    `store/` and every module that imports it. The scan walked into it and
+    counted those copies as deployment callers, so R16 read `S1` — a
+    build-failing verdict — whenever a worktree happened to be present. A file
+    under any dot-directory is VCS or tooling state, never a deployment caller;
+    the scan now skips it (as `.gitignore` and `tools/manifest.py` already do)."""
+    with tempfile.TemporaryDirectory() as d:
+        records, store, root = _store_tree(d, with_app=True)
+        # a second, real caller under a dotdir — the worktree shape
+        wt = root / ".claude" / "worktrees" / "agent-x" / "app"
+        wt.mkdir(parents=True)
+        (wt / "main.py").write_text(AN_APP, encoding="utf-8")
+        callers = dict(durable_callers(root, store))
+        assert not any(".claude" in m for m in callers), (
+            f"a dot-directory copy was counted as a deployment caller: {callers}")
+        # the real app/ caller is still seen — the skip is scoped to dotdirs
+        assert "app/main.py" in callers
+        assert "calls insert_draft()" in callers["app/handler.py"], callers
+        got = r16_at_rest(records=records, escrow=root / "ESCROW.md",
+                          store=store, tree=root)
+    assert got.verdict is Verdict.FINDING and got.severity is Severity.S1, got
+    assert "durable write site" in got.evidence
+    assert "single file loss" in got.evidence
+
+
+def test_the_same_durable_tree_passes_once_the_rehearsal_is_dated():
+    """The other half of the transition: `S1` is not a wall, it is a ceremony
+    that has not happened. A dated rehearsal in the document clears it, and
+    nothing about the code changes."""
+    with tempfile.TemporaryDirectory() as d:
+        records, store, root = _store_tree(d, with_app=True, escrow=ESCROW_OK)
+        got = r16_at_rest(records=records, escrow=root / "ESCROW.md",
+                          store=store, tree=root)
+    assert got.verdict is Verdict.PASS, got.evidence
+    assert "3-of-5" in got.evidence
+    assert "2 non-test caller" in got.evidence, got.evidence
+
+
+def test_the_real_tree_reads_S2_with_the_condition_named_and_not_S1():
+    """**And CI does not go red waiting for a room.**
+
+    The assertion the boundary exists to make safe: this repository has a
+    sealing seam, a store that writes, an escrow policy with no dated rehearsal,
+    and nothing durable at rest. That is `S2` with the condition named, not
+    `S1`. If this ever flips without `docs/ESCROW.md` gaining a rehearsal, it is
+    because something outside `tests/` started writing records — which is
+    exactly when R16 *should* go high.
+    """
+    got = r16_at_rest()
+    assert got.verdict is Verdict.FINDING, got
+    assert got.severity is Severity.S2, (
+        f"R16 is {got.severity.value} on the real tree: {got.evidence}")
+    assert durable_callers() == (), durable_callers()
+    assert store_writes() > 0, (
+        "the real store writes nothing, so this test proves nothing about the "
+        "boundary it is here to hold")
+    assert AT_REST_BOUNDARY in got.evidence
+    assert "§11.1" in got.condition
+
+
+#: A deployment module that narrates and reconciles but never writes a record —
+#: S-4's read-first vertical, in miniature. It calls `serve_field` (disclosure_log)
+#: and `land_reconciliation` (reconciled_session) and imports neither the writing
+#: module nor its verbs.
+A_NARRATOR = """\
+from store.narration import serve_field
+from store.reconcile import land_reconciliation
+
+
+def show(conn, **kw):
+    serve_field(conn, **kw)
+
+
+def leave(conn, session, rec, at):
+    land_reconciliation(conn, session, rec, at=at)
+"""
+
+
+def test_a_narration_only_caller_does_not_make_the_store_a_record_at_rest():
+    """**The boundary S-4 settled: narration is not a record at rest.**
+
+    A deployment module that reads, narrates and reconciles writes only the
+    append-only history tables, which carry no sealed column
+    (`store/sealing_plan.py` derives one, `lane_entry.payload`, and it is on the
+    record-write path). So it is a `narration_callers()` entry and **not** a
+    `durable_callers()` one, and R16 stays `S2` — the escrow fuse does not turn on
+    a surface that stores no sealed payload. It still trips on the first
+    record-write caller, which is the write surface after S-4."""
+    with tempfile.TemporaryDirectory() as d:
+        records, store, root = _store_tree(d, with_app=False)
+        (root / "console").mkdir()
+        (root / "console" / "session.py").write_text(A_NARRATOR, encoding="utf-8")
+        narrators = dict(narration_callers(root, store))
+        assert "console/session.py" in narrators, narrators
+        assert "serve_field" in narrators["console/session.py"]
+        assert "land_reconciliation" in narrators["console/session.py"]
+        # The escrow-relevant scan sees nothing: no record-write caller.
+        assert durable_callers(root, store) == (), durable_callers(root, store)
+        got = r16_at_rest(records=records, escrow=root / "ESCROW.md",
+                          store=store, tree=root)
+    assert got.verdict is Verdict.FINDING and got.severity is Severity.S2, got
+    assert "narration/reconcile caller" in got.evidence
+    assert "not a record at rest" in got.evidence
+
+
+def test_the_real_tree_has_a_narration_caller_and_no_record_writer():
+    """S-4 landed: `console/` narrates and reconciles over the real tree, and
+    still nothing outside `tests/` writes a record. Both halves in one assertion,
+    so removing the vertical (narrators empty) or adding a write surface (durable
+    non-empty) each fails here."""
+    assert narration_callers(), (
+        "no deployment module narrates; S-4's read-first vertical is missing and "
+        "the knock has no surface routing through it")
+    assert durable_callers() == (), durable_callers()
+
+
+# --- R17: the registry half ---------------------------------------------------
+
+
+def test_the_real_registry_covers_every_egress_detection_site():
+    """The positive result, derived rather than asserted: read the table out of
+    `tests/ablate.py` and confirm each way the egress checker detects egress has
+    a mutation against it."""
+    coverage = egress_coverage(registry())
+    uncovered = [site for site, labels in coverage.items() if not labels]
+    assert not uncovered, f"no mutation ablates: {uncovered}"
+    assert len(coverage) == len(REQUIRED_EGRESS_SITES)
+
+
+def test_a_registry_missing_an_egress_mutation_is_a_finding():
+    """**The load-bearing test.** R17's claim is not *there are mutations* — it
+    is *each detection path is individually shown to fail*, and a registry can
+    grow while one site quietly loses its only row."""
+    rows = [r for r in registry() if "_DYNAMIC" not in r[1]]
+    coverage = egress_coverage(rows)
+    assert [s for s, labels in coverage.items() if not labels], (
+        "dropping the dynamic-import mutation left the coverage map full"
+    )
+
+    with tempfile.TemporaryDirectory() as d:
+        thin = Path(d) / "ablate.py"
+        thin.write_text(
+            "MUTATIONS = [\n"
+            '    ("records/rungs.py", "a", "b", "unrelated", "tests/test_rungs.py"),\n'
+            "]\n", encoding="utf-8")
+        got = r17_no_egress_neutralised(reg=thin)
+    assert got.verdict is Verdict.FINDING and got.severity is Severity.S1
+    assert "egress detection site" in got.evidence
+
+
+def test_no_registry_at_all_is_absent():
+    with tempfile.TemporaryDirectory() as d:
+        got = r17_no_egress_neutralised(reg=Path(d) / "gone.py")
+    assert got.verdict is Verdict.ABSENT and not got.passed
+
+
+def test_the_registry_is_read_by_ast_and_not_by_grep():
+    """A mutation table quoted in a docstring is not a mutation table. Parsing
+    is what tells the difference, and this asserts the parse actually happened
+    rather than a substring search having got lucky."""
+    rows = registry()
+    assert rows and all(len(r) == 5 for r in rows), "MUTATIONS is not 5-tuples"
+    assert all(isinstance(part, str) for r in rows for part in r)
+
+
+# --- R17: the conformance-record half -----------------------------------------
+
+
+def test_a_record_reporting_a_failed_ablation_is_a_finding():
+    """The half §10 says has been breaking. The registry can be complete and
+    the harness can still be reporting that a mutation survived — and R17 must
+    read the report rather than the intention."""
+    with tempfile.TemporaryDirectory() as d:
+        rec = Path(d)
+        (rec / "2026-07-31T000000Z.md").write_text(
+            "| | check | guarantee | evidence |\n|---|---|---|---|\n"
+            "| **PASS** | `no-egress` | core purity | 19 modules |\n"
+            "| **FAIL** | `ablation` | rule 19 | a guard survived |\n",
+            encoding="utf-8")
+        got = r17_no_egress_neutralised(records=rec)
+    assert got.verdict is Verdict.FINDING and got.severity is Severity.S1
+    assert "ablation=FAIL" in got.evidence
+
+
+def test_a_record_missing_the_egress_row_is_a_finding():
+    """A row that is absent and a row that says PASS are different facts."""
+    with tempfile.TemporaryDirectory() as d:
+        rec = Path(d)
+        (rec / "2026-07-31T000000Z.md").write_text(
+            "| **PASS** | `ablation` | rule 19 | all guards red |\n",
+            encoding="utf-8")
+        got = r17_no_egress_neutralised(records=rec)
+    assert got.verdict is Verdict.FINDING
+    assert "no-egress=no row" in got.evidence
+
+
+def test_no_conformance_record_is_unknown_not_a_pass():
+    with tempfile.TemporaryDirectory() as d:
+        got = r17_no_egress_neutralised(records=Path(d))
+    assert got.verdict is Verdict.UNKNOWN and not got.passed
+
+
+def test_the_newest_record_is_the_one_read():
+    """Records are dated, never overwritten, and a check reading an arbitrary
+    one of them would answer *did it ever conform* rather than *does it*."""
+    with tempfile.TemporaryDirectory() as d:
+        rec = Path(d)
+        (rec / "2026-01-01T000000Z.md").write_text(
+            "| **FAIL** | `ablation` | x | old |\n", encoding="utf-8")
+        (rec / "2026-07-31T000000Z.md").write_text(
+            "| **PASS** | `ablation` | x | new |\n", encoding="utf-8")
+        newest, states = record_rows(rec)
+    assert newest.name == "2026-07-31T000000Z.md" and states["ablation"] == "PASS"
+
+
+# --- the document, and the middle ---------------------------------------------
+
+
+def test_the_document_records_what_the_checks_report_today():
+    """**The reconciler** (§16, rule 12). `tools/audit.py` computes R16 and R17;
+    `docs/SECURITY-AUDIT.md` records them. That is a pair, and a pair without a
+    middle is how this fleet has lost four out of four. This is the middle: the
+    recorded verdict and the live one, compared, in the same commit that made
+    them two things.
+    """
+    text = AUDIT_DOC.read_text(encoding="utf-8")
+    said = recorded(text)
+    for result in audit.run():
+        assert result.id in said, f"{result.id} is not recorded in {AUDIT_DOC.name}"
+        assert said[result.id] == result.verdict.value, (
+            f"{result.id}: the document says {said[result.id]}, the check says "
+            f"{result.verdict.value} — one of them is out of date"
+        )
+
+
+def test_the_tally_matches_the_table():
+    """Rule 17 turned on the document itself.
+
+    The summary line is a count of the table three screens above it, which is
+    exactly the shape that goes stale — a row's verdict changes and the sentence
+    describing the table keeps its old arithmetic. The first version of this
+    document shipped with the wrong figure in it, which is why this test exists
+    rather than a proofread.
+    """
+    import re
+
+    text = AUDIT_DOC.read_text(encoding="utf-8")
+    m = re.search(
+        r"\*\*Tally: (\d+) pass, (\d+) findings?, (\d+) not-applicable, "
+        r"(\d+) absent, (\d+) unknown, of\s+(\d+)\s*\n?checks\*\*", text)
+    assert m, "no tally line in the shape this test can read"
+    said = dict(zip(("PASS", "FINDING", "NOT-APPLICABLE", "ABSENT", "UNKNOWN"),
+                    (int(g) for g in m.groups()[:5])))
+    table = recorded(text)
+    for verdict, claimed in said.items():
+        actual = sum(1 for v in table.values() if v == verdict)
+        assert actual == claimed, (
+            f"the tally says {claimed} {verdict}, the table has {actual}"
+        )
+    assert int(m.group(6)) == len(table), "the total does not match the row count"
+
+
+def test_the_findings_summary_is_derived():
+    """The other count in this document that describes this document."""
+    import re
+
+    text = AUDIT_DOC.read_text(encoding="utf-8")
+    m = re.search(r"\*Findings: (\d+) recorded, (\d+) closed, (\d+) open\*", text)
+    assert m, "no findings summary in the shape this test can read"
+    got = findings(text)
+    assert len(got) == int(m.group(1)), "recorded count is wrong"
+    assert sum(1 for f in got if not f.open) == int(m.group(2)), "closed count is wrong"
+    assert sum(1 for f in got if f.open) == int(m.group(3)), "open count is wrong"
+
+
+def test_the_document_records_all_seventeen_checks():
+    said = recorded(AUDIT_DOC.read_text(encoding="utf-8"))
+    missing = [f"R{n}" for n in range(1, 18) if f"R{n}" not in said]
+    assert not missing, f"no verdict recorded for {missing}"
+
+
+def test_no_check_is_silently_passed():
+    """Rule 13 at the level of the document. `NOT-APPLICABLE` and `ABSENT` are
+    legitimate answers and neither is `PASS`; what is not legitimate is a check
+    that could not run being recorded as one that ran."""
+    said = recorded(AUDIT_DOC.read_text(encoding="utf-8"))
+    allowed = {v.value for v in Verdict}
+    strange = {k: v for k, v in said.items() if v not in allowed}
+    assert not strange, f"verdicts outside the vocabulary: {strange}"
+
+
+def test_every_not_applicable_carries_the_condition_that_ends_it():
+    """A `NOT-APPLICABLE` with no condition is a check quietly retired. §16's
+    tombstone rule, at the scale of a table row."""
+    text = AUDIT_DOC.read_text(encoding="utf-8")
+    bad = []
+    for line in text.splitlines():
+        if "**NOT-APPLICABLE**" in line or "**ABSENT**" in line:
+            if "applies when" not in line.lower():
+                bad.append(line.split("|")[1].strip())
+    assert not bad, f"no re-entry condition recorded for: {bad}"
+
+
+def test_the_document_carries_a_date_and_a_commit_pin():
+    text = AUDIT_DOC.read_text(encoding="utf-8")
+    assert audit_date(text), "no date; the gate cannot judge staleness"
+    assert audit_commit(text), "no commit pin; the audit does not say what it read"
+
+
+def test_an_open_high_finding_is_visible_to_the_parser():
+    """The parser is what the gate rests on, so point it at a finding table
+    holding the thing that must fail a build."""
+    got = findings(
+        "| `TM-XXX-01` | R9 | `S1` | open | it is bad |\n"
+        "| `TM-XXX-02` | R9 | `S2` | closed 2026-07-31 | it was bad |\n")
+    assert len(got) == 2
+    assert got[0].open and got[0].severity is Severity.S1
+    assert not got[1].open
+
+
+def test_a_status_nobody_updated_reads_as_open():
+    """The default direction. A finding whose status went blank must not read
+    as resolved — that is the failure mode that makes an audit flattering."""
+    got = findings("| `TM-XXX-03` | R9 | `S2` | needs a decision | x |\n")
+    assert got and got[0].open
+
+
+# --- the checker's own posture ------------------------------------------------
+
+
+def test_the_checker_parses_and_never_imports_what_it_inspects():
+    """Same rule `tests/test_purity.py`, `tests/test_sockets.py` and
+    `tests/test_discipline.py` hold their checkers to. Executing a module to
+    find out whether it reaches the network is how you find out by doing it."""
+    import ast
+
+    banned = {"exec", "eval", "__import__", "import_module", "runpy"}
+    tree = ast.parse((ROOT / "tools" / "audit.py").read_text(encoding="utf-8"))
+    called = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            f = node.func
+            called.add(f.attr if isinstance(f, ast.Attribute)
+                       else getattr(f, "id", ""))
+    assert not (called & banned), f"tools/audit.py calls {sorted(called & banned)}"
+
+
+if __name__ == "__main__":
+    failures = 0
+    for name, fn in sorted(globals().items()):
+        if name.startswith("test_") and callable(fn):
+            try:
+                fn()
+                print(f"ok   {name}")
+            except Exception as exc:
+                failures += 1
+                print(f"FAIL {name}\n{type(exc).__name__}: {exc}\n")
+    raise SystemExit(1 if failures else 0)

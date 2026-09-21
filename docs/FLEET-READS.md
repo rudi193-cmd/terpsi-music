@@ -39,8 +39,10 @@ Consequences, as originally stated — the first is withdrawn, the others stand:
 
 - ~~**§14's table stays `P2 Cited` for every remote session.** Not as a caveat —
   as a structural fact. Anything written remotely rests on the summary.~~
-  **Withdrawn.** Rows can be verified remotely and four now have been. See
-  *Reads performed* below.
+  **Withdrawn.** Rows can be verified remotely, and the pass has since
+  completed: **41 of 41 exists-rows verified at source as of 2026-08-01** (see
+  *The pass, completed* below and §14's enforced note). The *"four"* this bullet
+  first reported was the 2026-07-30 start, not the finish.
 - ~~**`Nestor` may be unreachable even locally-authorised.** §17 flags it: it is
   the sole occupant of `Die-Namic-Systems`, and *"`add_repo` refuses cross-tier
   and a session can hold one owner's repos or another's, not both."*~~
@@ -135,7 +137,38 @@ and a record of what was observed rather than only what was concluded.
 `almanac-template`'s `catalog-entry.schema.json` is the worked solution and
 §15 says to adopt it wholesale: `status` ∈ `live · revised · moved ·
 redirected · superseded · dark · frozen`, with `observed` recording machine
-facts and `status_source` ∈ `auto · curator` recording who decided.
+facts and `status_source` ∈ `auto · curator` recording who decided. (Confirmed
+by reading the schema directly on 2026-08-01 — see below.)
+
+---
+
+## The pass, completed — 2026-08-01
+
+§18 item 0's pass is done. **41 of 41 §14 exists-rows are verified at source**,
+the figure derived and enforced by `tests/test_component_map.py` (the header note
+reads `41 of 41`). The one row naming no fleet source — scale-direction — is
+built here (`presentation/scales.py`), not a fleet claim.
+
+- **How.** Read through the GitHub API (`get_file_contents`/`search_code` at a
+  pinned sha), repositories brought into scope with `add_repo` where needed
+  (`SAFE`, `willow-config`, `willow-compose`, and the standalone app repos), and
+  the one cross-owner repo (`almanac-template`) over the public web. No local
+  `~/github/` checkout and no GitHub organisation were required — the struck
+  section at the top of this file was wrong about that, and this pass is the
+  proof.
+- **Corrections the pass forced, carried in §14 in-cell.** SAFE `HARD_STOPS`
+  carries no under-13 stop (the COPPA governance is `UTETY` ground rule 4 only);
+  `willow-compose` is not itself a family-data app (it *excludes* family data);
+  `private-ledger` is a shipped app, not a template, and its injected `ingest`
+  promotes aggregates *outward*, not a data-source bridge; `oakenscrolls-office`
+  calibrates one user's own forecasts, not judges; `ask-jeles` persists more than
+  the row claimed. Each is a `VERIFIED` row that diverged from the prose and now
+  says so.
+- **Two fleet facts worth carrying.** `willow-config` commits its `mcp_apps/`
+  manifests (only the grant subdirs are gitignored) — this app's refusal 2 is
+  stricter; and its tracked `env` sets a cloud inference fallback chain
+  (`WILLOW_INFERENCE_PROVIDER=auto`), the fail-open posture this app's refusal 1
+  inverts.
 
 ---
 
@@ -144,10 +177,14 @@ facts and `status_source` ∈ `auto · curator` recording who decided.
 Assembled by extracting every backticked repository name from
 `docs/ARCHITECTURE.md`, `docs/CAPABILITY-MAP.md` and `CLAUDE.md`, then sorting
 by what §18 blocks on. ~~**No repository in this list has been opened.**~~
-**Three have, on 2026-07-30** — `Willow`, `safe-app-store` and
-`safe-app-common-package`; see *Reads performed*. The remaining 33 have not. The
-tiering is a judgement about reading order, not a claim about contents, and the
-counts were derived from the tree on 2026-07-30.
+~~**Three have, on 2026-07-30** — `Willow`, `safe-app-store` and
+`safe-app-common-package`; see *Reads performed*. The remaining 33 have not.~~
+**The pass completed 2026-08-01: every §14 exists-row was opened at source** —
+the 2026-07-30 reads plus the 2026-08-01 waves across willow-gate, nestor,
+willow-mcp, UTETY, kartikeya, jeles, jeles-remote, the `safe-app-store` apps,
+`SAFE`, `willow-config`, `willow-compose`, and `almanac-template` over the public
+web (see *The pass, completed*). The tiering is a judgement about reading order,
+not a claim about contents, and the counts were derived from the tree.
 
 ---
 
@@ -158,7 +195,7 @@ opened in a clone at the named commit, not summarised.
 
 | Repository | Commit | Read | Result |
 |---|---|---|---|
-| `Willow` | `c8c96b4` | `PROTECTED_AGENTS.md` Part III | **Confirms §7.4.** All seven ward clauses present and rendered faithfully in `ARCHITECTURE.md`. Draft 0.6, unratified, candidate Article XIV — which §14 already said |
+| `willows-grove` | `2886a41` (blob; re-anchored 2026-09-11 — `c8c96b4` resolves nowhere reachable) | `governance/PROTECTED_AGENTS.md` Part III | **Confirms §7.4 in part.** All seven ward clauses present. ~~rendered faithfully in `ARCHITECTURE.md`~~ — **corrected 2026-09-11: five of seven.** W-5's co-signature mechanism and W-7's precedent-and-ratification sentence are dropped in §7.4, and W-7's was dropped again inside a docstring labelled *at source* (`docs/PART-III-READ.md`). **A row marked VERIFIED that was itself wrong about faithfulness** — presence is cheap to check and faithfulness is not. Draft 0.6, unratified, candidate Article XIV — which §14 already said |
 | `safe-app-store` | `b1825f7` | `apps/marching-arts`, `libs/subject-consent` | **Both exist.** 27 apps in the store |
 | `safe-app-store` | `b1825f7` | `marching_arts/bands.py`, `policy.py` | **Divergence — see below.** The band scale is not the L-ladder |
 | `safe-app-common-package` | `2b3d088` | `src/safe_app_common/no_egress.py` | **Exists**, with `tests/test_no_egress_checker.py` beside it. §9 foundation 4 confirmed |
@@ -241,8 +278,8 @@ This is the row shape item 0 most needs: *checked, and the claim held.*
 **`willow-2.0` is where this repository took `valid_at`/`invalid_at`, and this
 repository hardened it.** The source migration adds the pair to 17 tables and
 carries **no CHECK constraint on interval ordering** — nothing stops an
-`invalid_at` that precedes its `valid_at`. `docs/schema/001_lanes.proposed.sql`
-carries eight named ones, and enforces append-only with a trigger rather than a
+`invalid_at` that precedes its `valid_at`. `migrations/001_lanes.sql`
+carries ten named ones, and enforces append-only with a trigger rather than a
 comment. So the direction of divergence here is the opposite of the
 `marching-arts` case: the paraphrase was *stronger* than its source.
 
@@ -577,7 +614,7 @@ and it fails on an undated, stateless or unpinned declaration. Recording
 `absent` passes, because recording absence is the correct outcome of having
 looked (rule 13).
 
-## `almanac-template` — genuinely unreachable, and this is the real cross-tier case
+## `almanac-template` — cross-tier for `add_repo`, but reachable over the public web (corrected 2026-08-01)
 
 `add_repo` refused: *"cross-tier adds are not supported in v1: requested
 `almanac-data/almanac-template` but session already has repos from owner(s)
@@ -589,11 +626,19 @@ is on the same account; the `almanac-data` org is the actual boundary. So the
 warning was not wrong about the *mechanism*, only about where it applies, and
 the cost of getting that wrong was deterring twelve reads that worked.
 
-**Consequence for §14's verification column.** `almanac-template`'s
-`catalog-entry.schema.json` is named as the model to adopt wholesale and cannot
-be read from this session. But `kartikeya.resolve_sandbox_config` supplies the
-same shape from a reachable repository — claim plus source, with a named
-sentinel for nothing-supplied-this — so the column is not blocked on it.
+**Consequence for §14's verification column — corrected 2026-08-01.**
+~~`almanac-template`'s `catalog-entry.schema.json` is named as the model to adopt
+wholesale and cannot be read from this session.~~ `add_repo` refuses the
+cross-owner attach, but the repository is **public**, so the constraint is on
+that one tool, not on reading: it was read over the public web
+(`raw.githubusercontent`, pinned `49f1d62`). **Row 996 is `VERIFIED`** —
+`catalog-entry.schema.json` carries both `observed` (machine facts from the last
+probe: `checked`/`reachable`/`http_status`) and `status` (a derived lifecycle
+label auditable against it), and `.github/workflows/link-check.yml` runs a daily
+`cron: "0 12 * * *"` over `scripts/check_links.py` that files a dead-link issue
+through `scripts/alert_on_dead_links.py`. The `kartikeya.resolve_sandbox_config`
+fallback was a real substitute but was not needed. "Genuinely unreachable" was
+the wrong conclusion — cross-tier for `add_repo` is not the same as unreadable.
 
 ---
 
@@ -620,7 +665,7 @@ were checked; **eight do not exist under `rudi193-cmd`**:~~
 | `the-squirrel` | **absent** |
 | `nest-seed` | **absent** — Tier 2 lists it as *"digitisation, `nest_promote`/`nest_digest`"* |
 | `safe-app-common` | **renamed** → `safe-app-common-package`, read at `2b3d088` |
-| `almanac-template`, `almanac-data` | **exist**, under the `almanac-data` org — unreachable cross-tier |
+| `almanac-template`, `almanac-data` | **exist**, under the `almanac-data` org — cross-tier for `add_repo`, but `almanac-template` was read over the public web (row 996 `VERIFIED`; see the corrected section above) |
 
 **This is §15's dead-link tally landing on this document.** It records fifteen
 store manifests naming a repository that does not exist and warns *"bare names
@@ -958,6 +1003,38 @@ Also corrected: the providers appear in **24** Python files in `willow-2.0`, not
 "at least six" — and the two documented chains disagree. `willow-seed`'s README
 says Groq → Cerebras → SambaNova; the router says Gemini → Groq → OpenRouter →
 fleet. Neither is wrong about its own subject; there is no single chain.
+
+### Read again 2026-07-31, to build against rather than to cite
+
+The account above is sound and it is not sufficient to build from. Four things
+it does not say, found by reading `core/inference_router.py` line by line while
+writing `records/inference.py` against it:
+
+| | at source | why it changes the guard |
+|---|---|---|
+| **`core/llm_edge.py`** | its `respond()` calls the router and **discards `provider_used`**, returning a bare string; on exception it falls through to `_groq(...)` and then `_ollama(...)` in two `except: pass` blocks | the enforceable return shape is a property of *one* function, not of the fleet's edge. A caller of the sibling has no label to assert on, so **an absent label is a refusal here**, not a benefit of the doubt |
+| **a fourth mode** | `_chain("hns")` returns `hns + local + cloud`, and is absent from the file's own docstring; `_try_hns` posts to `node["2.0_stub"]["ollama_url"]` — **another machine's Ollama** | `provider_used == "ollama"` is necessary and not sufficient. `OLLAMA_URL` moves the plain path off-box too, so the guard checks the **address** as well as the label |
+| **`mode=`** | `chat(system, user, *, mode=None)` takes the chain by argument, bypassing `WILLOW_INFERENCE_PROVIDER` entirely | an off-switch a caller can pass an argument around is a default. Enforcement cannot live in the variable |
+| **`_load_key`** | falls back to `sap.core.inference.load_credential` when the environment is empty | *"no credential prefixes"* in install acceptance (§11.1) has to mean the credential store as well as the environment |
+
+**One disagreement is inside a single file**, which is the cheapest kind to
+miss: the module docstring lists three modes and a three-step cloud chain; the
+code implements four modes and a four-step chain.
+
+**And a count re-derived with its pattern**, because the `24` above has none and
+is therefore not reproducible. Files under `willow-2.0` matching
+`GROQ_API_KEY|OPENROUTER_API_KEY|GEMINI_API_KEY|api.groq.com|openrouter.ai|generativelanguage.googleapis.com`:
+**21** of 848 `.py` files, **17** excluding `archive/` and `tests/`. Files
+mentioning `inference_router`: **4**. Files mentioning `llm_edge`: **9**. The
+`24` is not contradicted — it is unreproducible, which under rule 17 is the same
+problem arriving one step earlier.
+
+**Not read, and it matters:** `willow/routing/shadow.py` carries a five-rung
+complexity ladder — `r1_trivial … r5_frontier` — whose `_RUNG_ENGINE` maps the
+top two rungs to `"cloud"`. It is a *third* ladder using the word rung (§15's
+hazard, with `L1–L5` and `P1–P5`), and its default preference for hard questions
+is the one refusal 1 forbids. Nothing here uses it; if anything ever does, that
+mapping is the thing to look at first.
 
 ### `jeles-remote` — definitions counted, sources claimed
 

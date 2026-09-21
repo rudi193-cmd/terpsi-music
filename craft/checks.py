@@ -55,6 +55,14 @@ class Report:
     notes: list[str] = field(default_factory=list)
     unavailable: list[str] = field(default_factory=list)
 
+    #: The subject could not be read at all, so no check ran. Distinct from
+    #: `unavailable` being non-empty, which also covers a run where most checks
+    #: ran and one declined — a draft can be read and still have 34 words whose
+    #: stress is unknown. Callers that report a count need this one: an empty
+    #: `findings` means "clean" in the first case and "nobody looked" in the
+    #: second, and the two must not print alike (rule 13).
+    unread: bool = False
+
 
 def _fid(check: str, section: Section, stanza: int | None = None,
          index: int | None = None) -> str:
@@ -364,6 +372,43 @@ def _key(f: Finding) -> tuple[str, str]:
     return (f.check, f.id)
 
 
+def diff_declined(before: Report, after: Report) -> list[str]:
+    """Why a draft-to-draft comparison cannot be made, when it cannot.
+
+    **The middle for `checks.run_diff` <-> `prose.run_diff`** (rule 12). The two
+    skins compare different subjects and had the same defect, because the defect
+    is in the shape of the comparison rather than in either subject.
+
+    A draft the checker could not read contributes no findings, and a side with
+    no findings turns the other side's findings into a delta. Both directions
+    are wrong and one of them is dangerous:
+
+    * unreadable *earlier* draft -> every finding reads as newly introduced, and
+      the revision is blamed for defects it did not add
+    * unreadable *revision* -> every finding reads as resolved. `run_diff`'s own
+      docstring says a tool reporting only the wins is flattering rather than
+      teaching; this is the strongest possible version of that report, and the
+      tool never read the draft it is congratulating
+
+    So the comparison is refused and names the side it could not read. Rule 13:
+    absence surfaces as unknown, never as a result — and `0 introduced` is a
+    result.
+    """
+    out = []
+    for report, which in ((before, "the earlier draft"),
+                          (after, "the revision")):
+        if report.unread:
+            reason = " ".join(report.unavailable) or "no reason recorded"
+            out.append(f"Not compared: {which} could not be read. {reason}")
+    if out:
+        out.append(
+            "A delta needs two drafts. Neither the resolutions nor the "
+            "introductions are derivable from one, so none are reported — an "
+            "empty list here would read as a revision that changed nothing."
+        )
+    return out
+
+
 def run_diff(before: str, after: str) -> tuple[list[Finding], list[str]]:
     """Draft to draft: what moved, and what it did to the findings.
 
@@ -372,9 +417,13 @@ def run_diff(before: str, after: str) -> tuple[list[Finding], list[str]]:
     a revision that fixes two things and breaks one has done that, and a tool
     reporting only the wins is flattering rather than teaching.
     """
+    old_report, new_report = run_all(before), run_all(after)
+    declined = diff_declined(old_report, new_report)
+    if declined:
+        return [], declined
+
     old, _ = parse(before)
     new, _ = parse(after)
-    old_report, new_report = run_all(before), run_all(after)
     old_ids = {_key(f): f for f in old_report.findings}
     new_ids = {_key(f): f for f in new_report.findings}
 
@@ -445,6 +494,7 @@ def run_all(text: str, intents: dict[str, str] | None = None) -> Report:
         )
 
     if not lyric.sections:
+        report.unread = True
         report.unavailable.append(
             "No song sections found. Expected headers like VERSE / CHORUS / "
             "BRIDGE with indented lines under them; returning unavailable "

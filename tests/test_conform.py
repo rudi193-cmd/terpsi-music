@@ -14,7 +14,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
 
 import conform  # noqa: E402
-from conform import Check, State, check_no_egress, main, render, run, write  # noqa: E402
+from conform import (  # noqa: E402
+    Check, State, check_no_egress, check_security_audit, main, render, run, write,
+)
 
 AT = datetime(2026, 7, 30, 12, 0, tzinfo=timezone.utc)
 
@@ -83,6 +85,124 @@ def test_the_real_core_passes_it():
     assert got.state is State.PASS, f"records/ reaches the network: {got.evidence}"
 
 
+# --- the security audit, as a gate rather than a document ------------------
+
+#: A minimal audit document. `PIN` is filled in per test, because the check
+#: asks git whether the pinned commit is in this history — a pin naming a tree
+#: nobody has is not evidence about this one.
+_AUDIT = """\
+# Security audit — probe
+
+- **date** `{when}`
+- **commit** `{pin}`
+
+| check | what | verdict | severity | evidence |
+|---|---|---|---|---|
+| `R1` | sql | **NOT-APPLICABLE** | — | applies when a driver arrives |
+
+| id | check | severity | status | one line |
+|---|---|---|---|---|
+{rows}
+"""
+
+
+def _audit(d, *, when="2026-07-31", pin=None, rows=""):
+    if pin is None:
+        import subprocess
+        pin = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
+                             text=True, cwd=conform.ROOT).stdout.strip()
+    path = Path(d) / "SECURITY-AUDIT.md"
+    path.write_text(_AUDIT.format(when=when, pin=pin, rows=rows), encoding="utf-8")
+    return path
+
+
+def test_a_missing_audit_is_absent_and_absent_is_not_a_pass():
+    """Rule 13, and the state §10 cares about most: an install gate that does
+    not exist is a different fact from one that ran and found nothing."""
+    with tempfile.TemporaryDirectory() as d:
+        got = check_security_audit(Path(d) / "nothing-here.md")
+    assert got.state is State.ABSENT and not got.conforms
+
+
+def test_an_open_high_finding_fails_the_build():
+    """The reason this row is a gate. §10 treats the rubric as install
+    acceptance, and an acceptance check that reports a high finding without
+    stopping anything is a ledger."""
+    with tempfile.TemporaryDirectory() as d:
+        got = check_security_audit(_audit(
+            d, rows="| `TM-PROBE-01` | R9 | `S1` | open | it is bad |"))
+    assert got.state is State.FAIL and "TM-PROBE-01" in got.evidence
+
+
+def test_a_closed_high_finding_does_not_fail_the_build():
+    """The other direction. A check that fails on every finding ever recorded
+    is one somebody deletes the findings from."""
+    with tempfile.TemporaryDirectory() as d:
+        got = check_security_audit(_audit(
+            d, rows="| `TM-PROBE-02` | R9 | `S1` | closed 2026-07-31 | it was bad |"))
+    assert got.state is State.PASS, got.evidence
+
+
+def test_an_open_low_finding_does_not_fail_the_build():
+    with tempfile.TemporaryDirectory() as d:
+        got = check_security_audit(_audit(
+            d, rows="| `TM-PROBE-03` | R14 | `S3` | open | unenforced |"))
+    assert got.state is State.PASS and "1 open" in got.evidence
+
+
+def test_a_stale_audit_is_unknown_rather_than_a_pass():
+    """An audit is a statement about a tree at a date. Past the limit it stops
+    being evidence about this one, and `UNKNOWN` is what that state is called."""
+    with tempfile.TemporaryDirectory() as d:
+        got = check_security_audit(_audit(d, when="2020-01-01"))
+    assert got.state is State.UNKNOWN and str(conform.STALE_AFTER_DAYS) in got.evidence
+
+
+def test_an_audit_with_no_date_or_no_pin_is_unknown():
+    with tempfile.TemporaryDirectory() as d:
+        undated = Path(d) / "undated.md"
+        undated.write_text("# audit\n\n- **commit** `d2817f2`\n", encoding="utf-8")
+        assert check_security_audit(undated).state is State.UNKNOWN
+
+        unpinned = Path(d) / "unpinned.md"
+        unpinned.write_text("# audit\n\n- **date** `2026-07-31`\n", encoding="utf-8")
+        assert check_security_audit(unpinned).state is State.UNKNOWN
+
+
+def test_a_pin_this_history_does_not_contain_is_unknown():
+    """The one thing the pin actually decides. *How far behind* is a judgement
+    about diffs and is not decidable here — which is why staleness is a date.
+
+    Two branches since 2026-07-31, because git has two ways of not saying yes
+    and they are different facts: a sha it has never seen (this fixture's
+    zeros) is *undecidable*, while a real commit outside HEAD's ancestry is a
+    definite *no*. CI's shallow checkout hit the first and the check reported
+    the second — a negative nobody established — which is how one red run
+    bought this split."""
+    with tempfile.TemporaryDirectory() as d:
+        got = check_security_audit(_audit(d, pin="0" * 40))
+    assert got.state is State.UNKNOWN and "cannot decide" in got.evidence
+
+    import subprocess as sp
+    r = sp.run(["git", "rev-list", "--max-parents=0", "HEAD"],
+               capture_output=True, text=True, cwd=conform.ROOT)
+    root = r.stdout.split()[0] if r.returncode == 0 and r.stdout.strip() else None
+    orphan = sp.run(["git", "commit-tree", root + "^{tree}", "-m", "orphan"],
+                    capture_output=True, text=True, cwd=conform.ROOT) if root else None
+    if orphan and orphan.returncode == 0:
+        with tempfile.TemporaryDirectory() as d:
+            got = check_security_audit(_audit(d, pin=orphan.stdout.strip()))
+        assert got.state is State.UNKNOWN and "not an ancestor" in got.evidence
+
+
+def test_the_real_audit_document_is_read_and_passes():
+    """Separate from the probes above: they prove the branches, this proves the
+    thing being branched on is the document in the tree."""
+    got = check_security_audit()
+    assert got.state is State.PASS, got.evidence
+    assert "SECURITY-AUDIT.md" in got.evidence
+
+
 # --- the record -----------------------------------------------------------
 
 
@@ -102,6 +222,53 @@ def test_a_record_is_never_overwritten():
         finally:
             conform.RECORDS = conform.ROOT / "docs" / "conformance"
         raise AssertionError("a second run overwrote the first record")
+
+
+def test_write_reports_the_tree_it_found_not_the_one_it_made():
+    """**The observer effect, and it shipped for one run.**
+
+    `render()` asks git whether the working tree is dirty. An empty record file
+    already created in `docs/conformance/` is itself an untracked change, so
+    rendering *inside* the `open("x")` block makes every record report dirty —
+    including one written from a clean checkout, which is the case the warning
+    exists to distinguish. `test_the_record_says_when_the_tree_was_dirty` calls
+    `render()` directly and could not see it.
+
+    So the probe is a **clean git repository of its own**, which is the only
+    place the two orderings give different answers — this repository is dirty
+    whenever `tests/ablate.py` is mutating it, and a probe against this tree
+    would agree with the defect and pass.
+    """
+    import subprocess
+
+    def git(where, *args):
+        return subprocess.run(["git", "-c", "user.email=probe@example.invalid",
+                               "-c", "user.name=probe", *args],
+                              capture_output=True, text=True, cwd=where)
+
+    with tempfile.TemporaryDirectory() as d:
+        probe = Path(d)
+        git(probe, "init", "-q")
+        (probe / "seed.txt").write_text("clean\n", encoding="utf-8")
+        git(probe, "add", "-A")
+        git(probe, "commit", "-q", "-m", "seed")
+        assert not git(probe, "status", "--porcelain").stdout.strip(), (
+            "the probe repository did not start clean; the test proves nothing"
+        )
+
+        real_root, real_records = conform.ROOT, conform.RECORDS
+        try:
+            conform.ROOT = probe
+            conform.RECORDS = probe / "docs" / "conformance"
+            text = write([Check("a", "b", State.PASS, "e")], AT).read_text(
+                encoding="utf-8")
+        finally:
+            conform.ROOT, conform.RECORDS = real_root, real_records
+
+    assert "working tree dirty" not in text, (
+        "a record written from a clean checkout reported the tree dirty — the "
+        "act of creating the file is what git saw"
+    )
 
 
 def test_the_record_carries_the_date_the_commit_and_the_states():
@@ -172,8 +339,10 @@ def test_skipping_omits_a_check_and_never_invents_a_passing_one():
     row is not.
 
     Uses a stand-in registry rather than the real one: the real `check_ablation`
-    shells out to 78 mutations, and paying 40s to learn that a filter filters is
-    the kind of slow suite people stop running.
+    shells out to the whole mutation table, and paying that to learn that a
+    filter filters is the kind of slow suite people stop running. (The count
+    that stood here was a figure the table had moved past — rule 17, in the
+    file that tests the conformance record.)
     """
     real = conform.CHECKS
     try:
@@ -198,6 +367,93 @@ def test_the_real_ablation_check_is_wired_and_passes():
     got = conform.check_ablation()
     assert got.state is State.PASS, got.evidence
     assert "ablate red" in got.evidence
+
+
+# --- the key-escrow row's three states, driven (S-3) -----------------------
+#
+# The row reads UNKNOWN on this tree and `tests/test_atrest.py` holds that.
+# What is driven here is the two transitions either side of it, against
+# synthetic documents — because the transition to PASS happens when five people
+# meet in a room (docs/ESCROW.md, §11.1) and a branch nobody has run is a branch
+# nobody has checked.
+
+
+def _escrow_row(text):
+    """`check_key_escrow` over a synthetic `ESCROW.md`."""
+    import audit  # noqa: E402
+
+    with tempfile.TemporaryDirectory() as d:
+        doc = Path(d) / "ESCROW.md"
+        doc.write_text(text, encoding="utf-8")
+        real = audit.ESCROW_DOC
+        try:
+            audit.ESCROW_DOC = doc
+            return conform.check_key_escrow()
+        finally:
+            audit.ESCROW_DOC = real
+
+
+A_POLICY = """\
+# Escrow
+
+## The shape: 3-of-5
+
+| share | custodian | why |
+|---|---|---|
+| 1 | Program director | operates the box |
+| 2 | District administrator | survives a change of director |
+| 3 | Guardian-council seat | the adverse interest |
+| 4 | District counsel | legally legible custody |
+| 5 | Sealed deposit | survives everyone |
+
+## Rehearsals recorded
+
+*None yet.*
+"""
+
+A_REHEARSED_POLICY = A_POLICY.replace(
+    "*None yet.*", "Rehearsed 2026-09-14 by the five custodians; next drill "
+                   "2027-09-14.")
+
+
+def test_a_recorded_and_unrehearsed_policy_is_unknown_and_cites_the_file():
+    """Neither wall: not ABSENT because a policy exists, not PASS because §5
+    says an untested key recovery is not escrow."""
+    got = _escrow_row(A_POLICY)
+    assert got.state is State.UNKNOWN, got.evidence
+    assert "3-of-5" in got.evidence and "5 custodian" in got.evidence
+    assert "0 rehearsal(s)" in got.evidence
+    assert "ESCROW.md" in got.evidence
+    assert "§11.1" in got.evidence, (
+        "the row says the drill has not happened and not where it happens")
+
+
+def test_a_dated_rehearsal_turns_the_row_green():
+    """**The transition, driven rather than waited for.** Nothing about the code
+    changes; one line of a document does."""
+    got = _escrow_row(A_REHEARSED_POLICY)
+    assert got.state is State.PASS, got.evidence
+    assert "2026-09-14" in got.evidence
+    assert got.conforms
+
+
+def test_a_document_with_no_threshold_is_absent_not_unknown():
+    """The other wall. *Nothing decided* and *decided and never drilled* are
+    different facts and the row must not merge them (rule 13)."""
+    got = _escrow_row("# Escrow\n\nWe will sort this out later.\n")
+    assert got.state is State.ABSENT, got.evidence
+    assert "no k-of-n threshold" in got.evidence
+
+
+def test_the_row_never_reports_pass_without_a_sealed_store_to_report_on():
+    """The evidence has to say what would be lost. A `PASS` over a tree that
+    seals nothing is a rehearsal of a recovery of a key that opens nothing."""
+    from store.sealing_plan import sealed_columns  # noqa: E402
+
+    got = _escrow_row(A_REHEARSED_POLICY)
+    assert sealed_columns(), "nothing seals, so this row is about nothing"
+    for table, column in sealed_columns():
+        assert f"{table}.{column}" in got.evidence, got.evidence
 
 
 if __name__ == "__main__":

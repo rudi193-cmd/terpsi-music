@@ -69,6 +69,31 @@ def _digest(occurred_at, principal_id, subject_id, field_name, rung, outcome,
     return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
+def entry_for(serving: Serving, *, principal_id: str, subject_id: str,
+              field_name: str, at: datetime, prev: str,
+              authority: str = "") -> Entry:
+    """One entry, digested, following `prev`. **The only place an `Entry` is built.**
+
+    `Log.record` calls it with its own head; `store/narration.py` calls it with
+    the head it read out of `disclosure_log`, because the store's chain lives in
+    a table and not in a tuple. Two chains over one algorithm is §16's pair, and
+    the middle is that both get their digest from here — the store composes the
+    row, it does not compute the hash.
+
+    `prev` has no default. A caller that forgot it would silently start a second
+    chain from `GENESIS`, which verifies perfectly and says nothing about what
+    came before.
+    """
+    who = authority or (serving.via_edge or "")
+    return Entry(
+        occurred_at=at, principal_id=principal_id, subject_id=subject_id,
+        field_name=field_name, rung=serving.rung, outcome=serving.outcome,
+        authority=who, prev=prev,
+        digest=_digest(at, principal_id, subject_id, field_name, serving.rung,
+                       serving.outcome, who, prev),
+    )
+
+
 @dataclass(frozen=True)
 class Log:
     """An append-only chain. Every operation returns a new `Log`."""
@@ -88,16 +113,9 @@ class Log:
         restriction working"*, and rule 10 is explicit that an audit trail
         which logs only agreement is not one.
         """
-        prev = self.head
-        e = Entry(
-            occurred_at=at, principal_id=principal_id, subject_id=subject_id,
-            field_name=field_name, rung=serving.rung, outcome=serving.outcome,
-            authority=authority or (serving.via_edge or ""), prev=prev,
-            digest=_digest(at, principal_id, subject_id, field_name,
-                           serving.rung, serving.outcome, authority or (serving.via_edge or ""),
-                           prev),
-        )
-        return Log(self.entries + (e,))
+        return Log(self.entries + (entry_for(
+            serving, principal_id=principal_id, subject_id=subject_id,
+            field_name=field_name, at=at, prev=self.head, authority=authority),))
 
     # --- verification ------------------------------------------------------
 
@@ -146,6 +164,16 @@ def verify_against(log: Log, anchor: tuple) -> tuple:
 # --- per-lane partitioning (§5, W-1) ---------------------------------------
 
 
+class UnknownLane(LookupError):
+    """Asked for the chain of a lane this ledger has never heard of.
+
+    *Empty* and *unknown* are different facts: an empty chain says nobody has
+    read this lane; an unknown lane says the ledger cannot speak for it at
+    all. Answering the second with the first is how a student gets told nobody
+    has read them by a ledger that was never asked (rule 13; §18 item 16,
+    decided strict 2026-07-31)."""
+
+
 @dataclass(frozen=True)
 class Ledger:
     """One chain per lane, because §5 says so and the first version did not.
@@ -177,13 +205,37 @@ class Ledger:
 
     def log_for(self, lane_id: str) -> Log:
         """The lane's chain. A lane with no entries yet is an empty chain, not
-        an error — but it is also not the same object as another lane's."""
-        return self._index().get(lane_id, Log())
+        an error — but a lane this ledger has *never heard of* is neither, and
+        until 2026-07-31 the two returned the same object.
+
+        **Strict by maintainer decision (§18 item 16).** The empty answer was
+        served rather than refused: `own_log` rendered it GRANTED and complete,
+        so a lane missing from the ledger read as *nobody has ever read you* —
+        told by a ledger that was never asked — and `receipts.issue` handed a
+        guardian nothing without saying so. Absence surfaces as its own state
+        (rule 13), so an unknown lane raises rather than answering.
+        """
+        index = self._index()
+        if lane_id not in index:
+            raise UnknownLane(
+                f"this ledger has no chain for lane {lane_id!r}. A lane with no "
+                "entries is an empty chain; a lane the ledger never heard of is "
+                "not an answer, and serving an empty log for it would render "
+                "absence as 'nobody has ever read you'")
+        return index[lane_id]
+
+    def knows(self, lane_id: str) -> bool:
+        """Whether this ledger carries a chain for the lane — the question a
+        caller asks before `log_for`, so *unknown* is handled where it can be
+        told apart from *empty*, not swallowed where it cannot."""
+        return lane_id in self._index()
 
     def record(self, serving, *, lane_id: str, principal_id: str, subject_id: str,
                field_name: str, at: datetime, authority: str = "") -> "Ledger":
         by_lane = self._index()
-        by_lane[lane_id] = self.log_for(lane_id).record(
+        # The write path is the one place an unknown lane is legitimate: W-1
+        # opens the lane at the first write. Reads stay strict.
+        by_lane[lane_id] = by_lane.get(lane_id, Log()).record(
             serving, principal_id=principal_id, subject_id=subject_id,
             field_name=field_name, at=at, authority=authority)
         return Ledger(tuple(sorted(by_lane.items())))

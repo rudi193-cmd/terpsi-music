@@ -1,0 +1,40 @@
+{
+  "app": "terpsi-music",
+  "manifest_version": 1,
+  "surfaces": ["print", "text", "tui", "web"],
+  "listeners": [],
+  "outbound": [
+    {
+      "module": "store/connecting.py",
+      "kind": "database",
+      "why": "the local canonical store. Section 6's inner ring is records/, which reaches nothing; store/ is the declared exception and this is the one module in the tree that opens a connection. Declared by module rather than by host:port because the DSN is resolved from the environment at run time - a store carrying its own address in the tree connects to whatever is running."
+    }
+  ],
+  "permissions": ["local_storage"],
+  "inference": {
+    "provider": "local",
+    "cloud_fallback": false
+  },
+  "write_paths": [
+    {
+      "path": "store/",
+      "kind": "database",
+      "why": "the store, and the only thing in this application that writes. Drafts in, sealed rows never rewritten, disclosure entries in the same transaction as the reads they narrate. Gate G-C: this line and tools/manifest.py's reconciliation landed in the same commit as the package."
+    },
+    {
+      "path": "presentation/render.py",
+      "kind": "filesystem",
+      "why": "renders templates to tracked artifacts under presentation/rendered/. Its own --check mode is the template/rendered pair's named middle and runs in CI."
+    },
+    {
+      "path": "tools/conform.py",
+      "kind": "filesystem",
+      "why": "writes one dated, commit-pinned conformance record per --write run, with open(\"x\") so a record is never overwritten. Invisible to this check until 2026-07-31, when purity.py's mode reader was found to be looking at the wrong argument for the pathlib spelling."
+    },
+    {
+      "path": "tests/",
+      "kind": "filesystem",
+      "why": "temporary trees, fixture files, and tests/ablate.py, which edits the working tree on purpose and restores it three ways. Development machinery rather than application code, and declared rather than excused so that a write appearing here still has to be one somebody wrote."
+    }
+  ]
+}
