@@ -18,7 +18,9 @@ twelve and 93. The DDL moved out of `docs/schema/` on 2026-07-31; a tombstone
 stands at the old path.
 
 > **The provenance note at the bottom is now a record rather than a warning.**
-> Part III was opened at source (`c8c96b4`) before this was promoted, which was
+> Part III was opened at source (`willows-grove` `governance/PROTECTED_AGENTS.md`,
+> blob `2886a41`; re-anchored 2026-09-11, the earlier `c8c96b4` resolves nowhere
+> reachable — `docs/PART-III-READ.md`) before this was promoted, which was
 > the condition that note set. Reading it added two tables.
 
 ---
@@ -454,8 +456,10 @@ mechanism.
 **Resolved 2026-07-31, and the resolution is the reason to keep the note.**
 
 ~~Weaker than `docs/SENSITIVITY.md`, and the difference matters.~~ The clauses
-here are now `P2 Cited` at **one** remove: `Willow`'s `PROTECTED_AGENTS.md`
-Part III was opened at source (`c8c96b4`) and W-1…W-7 read as written, before
+here are now `P2 Cited` at **one** remove: `willows-grove`'s `governance/PROTECTED_AGENTS.md`
+Part III was opened at source (blob `2886a41`; re-anchored 2026-09-11, the
+earlier `c8c96b4` resolves nowhere reachable — `docs/PART-III-READ.md`) and
+W-1…W-7 read as written, before
 promotion rather than after. That was the condition the struck paragraphs set.
 
 ~~The ladder had nothing to verify against — §18 recorded that no definition
@@ -481,7 +485,11 @@ sealed"* and *"a shared event is two lane entries with one referent."* Both are
 true. The sentence between them — *"a crossing requires a guardian-signed
 envelope naming both lanes, purpose, and expiry"* — was gone, and nothing about
 reading the paraphrase could have revealed that, because **a paraphrase that
-drops a clause reads as complete.** W-5 had lost the same half in the same way.
+drops a clause reads as complete.** W-5 had lost the same half in the same way,
+and — found 2026-09-11 — so had W-7, whose *"resolutions accumulate as
+precedent the guardian may ratify into standing envelopes"* was dropped again
+inside `records/conflict.py`'s docstring, which called its truncated quote *"at
+source"* (`docs/PART-III-READ.md`).
 
 The correction cost the two tables named above and a trigger. The lesson generalises past this
 file: **a summary preserves prohibitions and loses permissions**, because a

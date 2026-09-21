@@ -13,7 +13,9 @@
 -- which nobody here had opened; it was gated on blocker 2 (the disposition of
 -- apps/marching-arts); and on blocker 4 (which surfaces exist).
 --
--- Part III was then read at source (`c8c96b4`), which cleared the first gate
+-- Part III was then read at source (`willows-grove` `governance/PROTECTED_AGENTS.md`,
+-- blob `2886a41`; re-anchored 2026-09-11 — the earlier `c8c96b4` resolves nowhere reachable,
+-- see docs/PART-III-READ.md), which cleared the first gate
 -- and opened a better one: W-3's full clause is *"Between wards, default deny;
 -- a crossing requires a guardian-signed envelope naming both lanes, purpose,
 -- and expiry. A shared event is two lane entries with one referent."* The

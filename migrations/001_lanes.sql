@@ -10,8 +10,9 @@
 -- Target: PostgreSQL. That follows §6's mention of a Postgres store and
 -- willow-2.0's .sql migrations; it is an assumption, not a decision.
 --
--- Ward clauses W-1..W-7 are quoted from Willow's PROTECTED_AGENTS.md Part III
--- **read at source** (`c8c96b4`), which is what cleared the paraphrase gate
+-- Ward clauses W-1..W-7 are quoted from willows-grove's governance/PROTECTED_AGENTS.md Part III
+-- **read at source** (blob `2886a41`; re-anchored 2026-09-11, the earlier
+-- `c8c96b4` resolves in no reachable repo — see docs/PART-III-READ.md), which is what cleared the paraphrase gate
 -- §18 item 3 held this file behind. Reading it also produced the two tables
 -- added at promotion: W-3's second sentence names a permission the first
 -- twelve tables could not represent, and W-5's names another.

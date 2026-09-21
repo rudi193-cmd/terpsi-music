@@ -195,7 +195,7 @@ opened in a clone at the named commit, not summarised.
 
 | Repository | Commit | Read | Result |
 |---|---|---|---|
-| `Willow` | `c8c96b4` | `PROTECTED_AGENTS.md` Part III | **Confirms §7.4.** All seven ward clauses present and rendered faithfully in `ARCHITECTURE.md`. Draft 0.6, unratified, candidate Article XIV — which §14 already said |
+| `willows-grove` | `2886a41` (blob; re-anchored 2026-09-11 — `c8c96b4` resolves nowhere reachable) | `governance/PROTECTED_AGENTS.md` Part III | **Confirms §7.4 in part.** All seven ward clauses present. ~~rendered faithfully in `ARCHITECTURE.md`~~ — **corrected 2026-09-11: five of seven.** W-5's co-signature mechanism and W-7's precedent-and-ratification sentence are dropped in §7.4, and W-7's was dropped again inside a docstring labelled *at source* (`docs/PART-III-READ.md`). **A row marked VERIFIED that was itself wrong about faithfulness** — presence is cheap to check and faithfulness is not. Draft 0.6, unratified, candidate Article XIV — which §14 already said |
 | `safe-app-store` | `b1825f7` | `apps/marching-arts`, `libs/subject-consent` | **Both exist.** 27 apps in the store |
 | `safe-app-store` | `b1825f7` | `marching_arts/bands.py`, `policy.py` | **Divergence — see below.** The band scale is not the L-ladder |
 | `safe-app-common-package` | `2b3d088` | `src/safe_app_common/no_egress.py` | **Exists**, with `tests/test_no_egress_checker.py` beside it. §9 foundation 4 confirmed |
