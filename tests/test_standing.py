@@ -15,8 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from records import Edge, Field, Outcome, Principal, Rung, serve  # noqa: E402
 from records.disclosure import Log  # noqa: E402
 from records.standing import (  # noqa: E402
-    SELF, SELF_CAP, LogAccess, Widening, is_self_edge, own_log,
-    past_threshold, self_edge, widens,
+    SELF, SELF_CAP, LogAccess, ProposedWidening, Widening, is_self_edge, own_log,
+    past_threshold, propose, ratify, self_edge, widens,
 )
 
 T0 = datetime(2026, 3, 1)
@@ -234,6 +234,89 @@ def test_an_unknown_threshold_is_not_a_reached_one():
     assert not past_threshold(LATER, None)
     eligible = Principal(BEN, frozenset({"health"}))
     assert serve(health(), eligible, [me()], LATER).outcome is Outcome.INSTRUCTION
+
+
+# --- W-5's proposed state: propose, never enact -----------------------------
+#
+# migrations/005_proposed_widening.sql is the ledger; ratify() is the middle.
+# tests/test_store_rowsecurity.py drives the sealed table against a cluster.
+
+ANN = "guardian-ann"
+CATEGORY = "counseling"
+EXPIRES = LATER + timedelta(days=90)
+
+
+def _ann_over_ben(valid_at=T0):
+    return Edge("guardian_of", ANN, BEN, valid_at, None, created_at=T0)
+
+
+def _proposal(proposed_by=ANN):
+    return propose(BEN, CATEGORY, "self-review", proposed_by=proposed_by,
+                   evidence="a clean term and three asks on the record",
+                   at=T0, expires_at=EXPIRES)
+
+
+def test_a_proposal_is_not_an_enacted_widening():
+    """`propose()` yields a `ProposedWidening`, never a `Widening` — the type is
+    the boundary between requesting and authorizing."""
+    p = _proposal()
+    assert isinstance(p, ProposedWidening) and not isinstance(p, Widening)
+
+
+def test_a_guardians_own_proposal_does_not_widen_until_ratified():
+    """The forbidden act (W-5): *the steward may propose… it may never enact.*
+    Even a guardian's proposal — proposer holds live standing — widens nothing
+    while it is still a proposal. `widens()` refuses it by type."""
+    p = _proposal(proposed_by=ANN)
+    got = widens([p], subject_id=BEN, category=CATEGORY, at=LATER,
+                 signer_edges=[_ann_over_ben()])
+    assert got is None, "a proposal widened before anyone ratified it"
+
+
+def test_ratify_enacts_a_proposal_only_on_a_guardian_signature():
+    """The control and its refusal. A guardian's signature turns the proposal
+    into a `Widening` that then widens; a ward ratifying its own proposal is
+    refused (W-4), in `Widening`'s one implementation of the rule."""
+    p = _proposal()
+    w = ratify(p, signed_by=ANN, at=T0, expires_at=EXPIRES)
+    assert isinstance(w, Widening)
+    assert w.subject_id == BEN and w.category == CATEGORY and w.purpose == "self-review"
+    got = widens([w], subject_id=BEN, category=CATEGORY, at=LATER,
+                 signer_edges=[_ann_over_ben()])
+    assert got is w, "the ratified widening did not widen"
+
+    try:
+        ratify(p, signed_by=BEN, at=T0, expires_at=EXPIRES)
+    except ValueError as exc:
+        assert "request, never authorize" in str(exc)
+    else:
+        raise AssertionError("a ward ratified its own proposal (W-4)")
+
+
+def test_a_proposal_cites_the_record():
+    """W-5: *citing the record.* A proposal with no evidence is drift wearing a
+    form, and is refused at construction."""
+    for bad in ("", "   "):
+        try:
+            propose(BEN, CATEGORY, "self-review", proposed_by=ANN, evidence=bad,
+                    at=T0, expires_at=EXPIRES)
+        except ValueError as exc:
+            assert "evidence" in str(exc)
+        else:
+            raise AssertionError("a proposal with no evidence was accepted")
+
+
+def test_a_proposal_names_one_matter_not_a_wildcard():
+    """W-2 on the matter axis, same as `Widening`: a proposal over 'everything'
+    is a standing grant wearing a request."""
+    for star in ("*", "all", "ANY"):
+        try:
+            propose(BEN, star, "self-review", proposed_by=ANN,
+                    evidence="a clean term", at=T0, expires_at=EXPIRES)
+        except ValueError as exc:
+            assert "names one" in str(exc)
+        else:
+            raise AssertionError(f"a proposal over {star!r} was accepted")
 
 
 # --- the subject's own disclosure log -------------------------------------

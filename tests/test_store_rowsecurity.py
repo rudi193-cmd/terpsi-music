@@ -76,6 +76,7 @@ SEALED = {
     "access_grant": "access_grant_lane_seal",
     "crossing_envelope": "crossing_envelope_lane_seal",
     "self_widening": "self_widening_lane_seal",
+    "proposed_widening": "proposed_widening_lane_seal",
     "declination": "declination_lane_seal",
     "disclosure_log": "disclosure_log_lane_seal",
     "consent_chain": "consent_chain_lane_seal",
@@ -600,7 +601,12 @@ def test_every_policy_this_file_names_is_in_the_cluster_and_in_the_migration():
     """Both directions. A policy renamed in the migration and not here would
     leave the assertions above testing a policy that no longer exists; a policy
     named here and never created would make them vacuous."""
-    text = MIGRATION.read_text(encoding="utf-8")
+    # A seal is created in *some* migration -- 003 for the tables it compiled,
+    # and a later migration for a table added after it (proposed_widening in
+    # 005: 003 runs first and cannot name a table that does not exist yet). So
+    # the policy is looked for across every migration, not only this file's.
+    text = "\n".join(p.read_text(encoding="utf-8")
+                     for p in sorted((ROOT / "migrations").glob("*.sql")))
     with Database() as db:
         owner, app = installed(db)
         try:
@@ -611,7 +617,7 @@ def test_every_policy_this_file_names_is_in_the_cluster_and_in_the_migration():
                 assert (table, policy) in live, (
                     f"{policy} is not a policy on {table} in this cluster")
                 assert f"CREATE POLICY {policy} ON {table}" in text, (
-                    f"{policy} is in the cluster and not in {MIGRATION.name}")
+                    f"{policy} is in the cluster and not in any migration")
             # Every seal has a permissive INSERT policy beside it, and the name
             # says what it is: this migration compiles the READ predicate and
             # the write path is held by privilege, not by row security.
@@ -915,6 +921,59 @@ def test_ending_a_grant_survives_the_signers_standing_ending():
             else:
                 owner.rollback()
                 raise AssertionError("a grant's signer was changed by UPDATE")
+        finally:
+            owner.rollback()
+            app.close()
+            owner.close()
+
+
+def test_a_proposed_widening_is_sealed_to_the_wards_lane_and_grants_nothing():
+    """`migrations/005`, W-5. A steward (here the ward itself — *a ward may
+    request*, W-4) proposes a widening. It is a **ledger** row: it grants
+    nothing and no read path consults it. What the store guarantees is that it
+    is sealed like every other row about the ward — a sibling cannot read it —
+    and that the app may write one but not rewrite it (append-only proposals).
+
+    Enactment lives in `records/standing.py::ratify` and
+    `tests/test_standing.py`; the enacted `self_widening` is a separate,
+    guardian-signed table. This test is the seal, not the enactment."""
+    P = uuid.UUID("bbbb0005-0000-0000-0000-000000000005")
+    propose_sql = ("INSERT INTO proposed_widening VALUES (%s,%s,'counseling',"
+                   "'self-review','L4',%s,'a clean term and three asks',"
+                   "now(),now()+interval '90 day',now(),now(),NULL)")
+    with Database() as db:
+        owner, app = installed(db)
+        seed(owner)
+        try:
+            # The ward requests, as terpsi_app under RLS.
+            app.execute(propose_sql, (P, BEN, BEN))
+            app.commit()
+            assert rows_seen(owner,
+                             "SELECT count(*) FROM proposed_widening WHERE proposal_id = %s",
+                             (P,)) == 1, "the proposal did not land"
+
+            # A sibling cannot read it; the guardian who reaches Ben's lane can.
+            assert rows_seen_as(app, CARA,
+                                "SELECT count(*) FROM proposed_widening WHERE subject_id = %s",
+                                (BEN,)) == 0, (
+                "a sibling read a proposal over another ward's lane (the seal failed)")
+            assert rows_seen_as(app, ANN,
+                                "SELECT count(*) FROM proposed_widening WHERE subject_id = %s",
+                                (BEN,)) == 1, (
+                "the guardian who reaches Ben's lane could not read the proposal")
+
+            # Append-only: the app may not rewrite or delete a proposal.
+            for verb in ("UPDATE proposed_widening SET purpose = 'x' WHERE proposal_id = %s",
+                         "DELETE FROM proposed_widening WHERE proposal_id = %s"):
+                try:
+                    app.execute(verb, (P,))
+                except Exception as exc:  # noqa: BLE001
+                    app.rollback()
+                    assert "permission denied" in str(exc), (
+                        f"refused, but not by the missing privilege: {exc}")
+                else:
+                    app.rollback()
+                    raise AssertionError(f"terpsi_app performed: {verb}")
         finally:
             owner.rollback()
             app.close()

@@ -58,9 +58,9 @@ from .aggregate import (Aggregate, AggregateRequest, Audience, CellFloor,
                         Reading, Release, differencing_risk, release)
 from .marking import Mark, ScorePosition, align, drift, realign
 from .practice import Milestone, OwnPractice, Session, milestones, own
-from .standing import (SELF, SELF_CAP, LogAccess, MaySupersede, OwnLog, Supersession,
-                       Widening, is_self_edge, may_supersede, own_log,
-                       past_threshold, self_edge, widens)
+from .standing import (SELF, SELF_CAP, LogAccess, MaySupersede, OwnLog, ProposedWidening,
+                       Supersession, Widening, is_self_edge, may_supersede, own_log,
+                       past_threshold, propose, ratify, self_edge, widens)
 from .orders import (Ended, Ending, Guardianship, GuardianshipState, NoGuardian,
                      Order, OrderKind, end_guardianship, guardianship_of,
                      past_exercise, supersede)
@@ -110,6 +110,7 @@ __all__ = [
     "Session", "OwnPractice", "Milestone", "own", "milestones",
     "SELF", "SELF_CAP", "Widening", "OwnLog", "LogAccess", "self_edge",
     "is_self_edge", "past_threshold", "widens", "own_log",
+    "ProposedWidening", "propose", "ratify",
     "Supersession", "MaySupersede", "may_supersede",
     "Order", "OrderKind", "NoGuardian", "Ending", "Ended", "Guardianship",
     "GuardianshipState", "end_guardianship", "supersede", "guardianship_of",

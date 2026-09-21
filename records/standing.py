@@ -175,6 +175,109 @@ class Widening:
         return self.signed_at <= when < self.expires_at
 
 
+@dataclass(frozen=True)
+class ProposedWidening:
+    """A widening a steward proposes, citing the record — and enacts by nobody.
+
+    W-5 at source: *"The steward may propose a widening, citing the record; it
+    may never enact one. A clean track record is evidence for a proposal, never
+    a grant in itself."* `Widening` above is the **enacted** form; until this
+    type there was nowhere to put a proposal except the enacted table, so
+    proposing was enacting. This is the proposal, and its whole point is that it
+    **grants nothing and widens nothing.**
+
+    `migrations/005_proposed_widening.sql` is its durable, sealed ledger. The
+    enforcement of *never enact* is `ratify()` below, the named middle (rule 12):
+    the only path from here to a `Widening` runs through a live guardian's
+    signature. `widens()` skips this type on sight, so even a **guardian's own
+    proposal** is inert until they sign it — which is the clause, precisely.
+
+    Same four things with no defaults as `Widening`, minus the signature, plus
+    the evidence: a proposal is a *request* (W-4: *"a ward may request"*), so
+    the proposer may be the ward itself, and there is deliberately no
+    `proposed_by != subject_id` rule — that restriction belongs on the guardian
+    signature that enacts it, not on the asking.
+    """
+
+    subject_id: str
+    category: str
+    purpose: str
+    proposed_by: str
+    evidence: str
+    proposed_at: datetime
+    expires_at: datetime
+
+    def __post_init__(self):
+        if (self.category or "").strip().lower() in _WILDCARDS:
+            raise ValueError(
+                f"{self.category!r} is not a category; a proposal names one (W-2)"
+            )
+        if not (self.purpose or "").strip():
+            raise ValueError("a widening without a purpose is a standing grant")
+        if not (self.evidence or "").strip():
+            raise ValueError(
+                "a proposal cites the record; evidence is required (W-5: "
+                "'citing the record') and a proposal with nothing behind it is "
+                "drift wearing a form"
+            )
+        if not (self.proposed_by or "").strip():
+            raise ValueError("a proposal is made by someone; proposed_by is required")
+        if self.expires_at <= self.proposed_at:
+            raise ValueError(
+                "a proposal without a future expiry is a standing one (W-5)"
+            )
+
+    @property
+    def signed_by(self) -> str:
+        """The proposer, exposed under the name `widens()` reads — deliberately.
+
+        A `ProposedWidening` is otherwise shaped exactly like a `Widening`, so
+        `widens()` refusing it is a decision about its *type* (unratified), not
+        an accident of a missing attribute it would have skipped anyway. A
+        guardian who proposes is still only proposing.
+        """
+        return self.proposed_by
+
+    def live_at(self, when: datetime) -> bool:
+        """Live as a *pending proposal*, which is not live as an authority."""
+        return self.proposed_at <= when < self.expires_at
+
+
+def propose(subject_id: str, category: str, purpose: str, *,
+            proposed_by: str, evidence: str, at: datetime,
+            expires_at: datetime) -> ProposedWidening:
+    """A steward proposes a widening. **This enacts nothing** (W-5).
+
+    Returns a `ProposedWidening`, never a `Widening`: the type is the boundary.
+    A caller that wants the widening to take effect must have a guardian
+    `ratify()` it.
+    """
+    return ProposedWidening(subject_id, category, purpose, proposed_by, evidence,
+                            at, expires_at)
+
+
+def ratify(proposal: ProposedWidening, *, signed_by: str, at: datetime,
+           expires_at: datetime) -> Widening:
+    """Enact a proposal: a live guardian's signature turns it into a `Widening`.
+
+    The named middle (rule 12) between `migrations/005`'s `proposed_widening`
+    ledger and `migrations/001`'s `self_widening`. It **reuses** `Widening`'s
+    construction rather than re-checking (§16): W-4 (`signed_by != subject_id`),
+    the wildcard category and the future expiry are one implementation, so a
+    ward ratifying its own proposal is refused there, in the one place the rule
+    lives. `at` is the signing instant; the enacted widening carries the
+    proposal's subject, category and purpose unchanged.
+    """
+    return Widening(
+        subject_id=proposal.subject_id,
+        category=proposal.category,
+        purpose=proposal.purpose,
+        signed_by=signed_by,
+        signed_at=at,
+        expires_at=expires_at,
+    )
+
+
 class WideningsUnknown(RuntimeError):
     """The widening source could not be consulted.
 
@@ -219,6 +322,12 @@ def widens(widenings: Sequence[Widening] | Callable[[], Sequence[Widening]], *,
     if not category:
         return None
     for w in widenings:
+        # Only an enacted Widening widens. A ProposedWidening is shaped exactly
+        # like one and would otherwise flow through -- including a guardian's own
+        # proposal -- so it is refused by type here: W-5's "may propose... may
+        # never enact" is this one line. ratify() is the only bridge.
+        if not isinstance(w, Widening):
+            continue
         if w.subject_id != subject_id or w.category != category:
             continue
         if not w.live_at(at):
