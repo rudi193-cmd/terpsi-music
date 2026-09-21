@@ -438,6 +438,46 @@ MUTATIONS = [
     ("records/conflict.py",
      "if self.stake is Stake.BETWEEN_WARDS and len(set(self.affects)) < 2:",
      "if False:", "a collision names two", "tests/test_conflict.py"),
+    # W-7's constructive half (PART-III-READ item 2). Each guard on the path
+    # from a halt to a standing precedent gets a mutation that turns a suite red,
+    # rule 19: a precedent that cannot be shown to take no force without a
+    # signature has not been shown to.
+    #
+    # The sharpest one first, and for the same reason the halt's `recommendation`
+    # is mutated by whole-block replacement: `return None` where the raise stood
+    # is the machine answering "so do that again" from stored history -- refusal
+    # 6 one indirection later. A substring mutation risks leaving the file
+    # unparseable (a red that reports `caught` while proving nothing), so replace
+    # the whole block.
+    ("records/conflict.py",
+     '        raise NotComputable(\n            "W-7: a precedent records how one conflict was decided; it is not a "\n'
+     '            "ruling on this one. The system presents and a human decides."\n        )',
+     "        return None",
+     "a precedent yields no recommendation", "tests/test_conflict.py"),
+    # 'None takes force without signature': surface an unratified precedent and
+    # the standing test goes red.
+    ("records/conflict.py", "if not precedent.standing:", "if False:",
+     "an unratified precedent cannot be cited", "tests/test_conflict.py"),
+    ("records/conflict.py", "return self.signed_by is not None", "return True",
+     "a recorded precedent is not standing", "tests/test_conflict.py"),
+    # The two signature checks (`_check_ratifier`), each a W-4/W-7 guard: a role
+    # cannot ratify, and an affected ward cannot ratify its own conflict.
+    ("records/conflict.py",
+     "if not name or name.lower() in _NOT_A_PERSON:", "if False:",
+     "a role cannot ratify a precedent", "tests/test_conflict.py"),
+    ("records/conflict.py", "if name in affects:", "if False:",
+     "an affected ward cannot ratify its own precedent", "tests/test_conflict.py"),
+    # The deciding end, same clause: a role did not decide, and a ward cannot be
+    # recorded as deciding its own conflict.
+    ("records/conflict.py",
+     "if not decider or decider.lower() in _NOT_A_PERSON:", "if False:",
+     "a precedent's decider is a named person", "tests/test_conflict.py"),
+    ("records/conflict.py", "if decider in self.escalation.affects:", "if False:",
+     "an affected ward is not the decider", "tests/test_conflict.py"),
+    # Rule 10: a rejection is recorded as durably as an approval, and an empty
+    # resolution is not a decided case.
+    ("records/conflict.py", 'if not (self.resolution or "").strip():', "if False:",
+     "a resolution must be recorded", "tests/test_conflict.py"),
     # Staleness is checked *before* drift. Swapping the order lets a position
     # derived against a superseded score report AGREES, which is the more
     # dangerous answer — it is internally consistent and points at a bar that
