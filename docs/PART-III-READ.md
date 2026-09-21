@@ -133,10 +133,41 @@ larger agency model `self_widening` does not touch, and it is not this table.
 halt structural and does it well — an `Escalation` cannot carry an order. But
 the source does not end at the halt. Resolutions are meant to *accumulate as
 precedent* a guardian may ratify, and the human register says why: *"They bring
-it to you — and, watching your answers, learn to bring it to you better."* As
-built, the escalation path halts forever and learns nothing. There is no
+it to you — and, watching your answers, learn to bring it to you better."*
+~~As built, the escalation path halts forever and learns nothing. There is no
 `Precedent` type, no ratification, and no standing envelope for a decided case
-to become. (New, 2026-09-11.)
+to become.~~ **Built 2026-09-21 — `records/conflict.py`'s `Precedent`,
+`resolve`, `ratify` and `as_consideration`.** Same recorded/standing boundary as
+W-5's `ProposedWidening`/`Widening` (item 1), and the same named middle (rule
+12): the only path to a *standing* precedent runs through a guardian's
+signature.
+
+- **`resolve()`** records how a **named human** decided one escalation — the
+  §8.2 seal of the decision, and by rule 10 a rejection (*"declined to split the
+  section"*) is as recordable as an approval. It carries no signature: recorded,
+  not standing.
+- **`ratify()`** is the enforcement of *"none takes force without signature"*:
+  a guardian signs a recorded precedent into a standing one, reusing the W-4/W-7
+  signature checks (a role cannot ratify; a student named in the conflict cannot
+  ratify their own — `_check_ratifier`, the one place that rule lives).
+- **Refusal 6 held, one indirection later.** A `Precedent` — even a ratified one
+  — carries no `recommendation`; asking raises `NotComputable`, exactly as the
+  `Escalation` it came from. The *only* way a precedent touches a later conflict
+  is `as_consideration()`: a standing one becomes a plain string in the next
+  escalation's **unordered** `considerations` frozenset, no arrow at an answer.
+  *"Learn to bring it to you better"* is the system surfacing what a human
+  decided before, never deciding for them. An unratified precedent is refused
+  there — it takes no force. Ablated (`tests/ablate.py`), eight guards, each
+  turning `tests/test_conflict.py` red.
+
+**Deferred, named not assumed:** durable store persistence — a precedent that
+survives the process. `conflict.py` is deliberately storeless (like the
+`Escalation` it extends, which is also not a store row), and a `BETWEEN_WARDS`
+precedent names *two* wards' lanes, which is precisely why it does not fit the
+one-lane seal (W-1: *one lane, one key*) the way `proposed_widening` (item 1)
+did. Persisting decided cases is a `crossing_envelope`-shaped question — a
+two-lane record with a guardian signature — and it is not this records-layer
+type. (New, 2026-09-11; resolved at the records layer 2026-09-21.)
 
 **3 · `access_grant.signer_id` may be the lane's own subject.** ~~Nothing in the
 DDL stops a grant over a ward's lane being signed by that ward.~~ **Guardian

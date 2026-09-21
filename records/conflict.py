@@ -47,7 +47,7 @@ Stdlib only.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field as _field
+from dataclasses import dataclass, field as _field, replace as _replace
 from datetime import datetime
 from enum import Enum
 from typing import FrozenSet, Optional, Sequence, Tuple
@@ -173,3 +173,186 @@ def refuse_to_rank(what: str, affects: Sequence[str]) -> None:
         f"W-7: {what} would order {len(set(affects))} students. The system "
         "presents and a human decides; use halt() to escalate."
     )
+
+
+# --- W-7's constructive half: precedent, and its ratification ---------------
+#
+# The clause carries two halves and this repository dropped the second twice
+# (`docs/PART-III-READ.md`): *"Resolutions accumulate as precedent the guardian
+# may ratify into standing envelopes; none takes force without signature."* The
+# halt above is the prohibition. Everything below is the sanctioned path through
+# it — and building only the halt is exactly what item 2 of that read names:
+# *"the escalation path halts forever and learns nothing."*
+
+
+@dataclass(frozen=True)
+class Precedent:
+    """A resolved escalation, kept so a guardian may ratify it — never a rule
+    the machine applies.
+
+    What it is: a durable record of how a **named human** decided **one**
+    conflict — the escalation it resolves, the resolution in plain words, who
+    decided, and when — plus, once a guardian has signed it, that signature.
+    `resolve()` records it; `ratify()` makes it *standing*.
+
+    What it is **not**, and this is refusal 6 held one indirection later: an
+    order for any *other* conflict. Like the `Escalation` it came from,
+    `.recommendation` raises — a precedent does not rank a new collision or
+    resolve it unattended, and a ratified one is the most tempting place to reach
+    for *"so do that again."* The machine still halts on the next conflict.
+
+    The only way a precedent touches a later conflict is `as_consideration()`,
+    and it is deliberately the weakest touch there is: a standing precedent
+    becomes a plain string in the next escalation's `considerations` — the
+    unordered `frozenset` — alongside everything else relevant, with no arrow at
+    an answer. *"They bring it to you — and, watching your answers, learn to
+    bring it to you better"* is the system surfacing what a human decided before,
+    never deciding for them. Assembling considerations is not ranking them, here
+    as in `halt()`.
+
+    **Unratified, it takes no force** — *"none takes force without signature."*
+    `standing` is `False` until `signed_by` is set, and `as_consideration()`
+    refuses a merely recorded precedent. That recorded/standing boundary is the
+    same shape as W-5's `ProposedWidening`/`Widening` (`records/standing.py`),
+    and `ratify()` below is its named middle (rule 12): the one path to a
+    standing precedent runs through a guardian's signature.
+    """
+
+    escalation: Escalation
+    resolution: str          # what the named human decided, in plain domain words
+    decided_by: str          # the named human who decided, never a role (§8.2)
+    decided_at: datetime
+    signed_by: Optional[str] = None   # the ratifying guardian; None = recorded, not standing
+    signed_at: Optional[datetime] = None
+
+    def __post_init__(self):
+        if not (self.resolution or "").strip():
+            raise ValueError(
+                "a precedent records how a conflict was decided; an empty "
+                "resolution is a halt that was never actually resolved, and rule "
+                "10 wants a rejection recorded as durably as an approval"
+            )
+        decider = (self.decided_by or "").strip()
+        if not decider or decider.lower() in _NOT_A_PERSON:
+            raise ValueError(
+                f"{self.decided_by!r} is not a person; a W-7 resolution is a "
+                "named human's decision and a role decided nothing (§8.2)"
+            )
+        if decider in self.escalation.affects:
+            raise ValueError(
+                "a ward may request, never authorize (W-4): an affected student "
+                "cannot be recorded as the one who decided their own conflict"
+            )
+        if self.signed_by is not None:
+            _check_ratifier(self.signed_by, self.escalation.affects)
+            if self.signed_at is None:
+                raise ValueError(
+                    "a ratified precedent carries the instant it was signed; a "
+                    "signature without a date is not a dated act (§7.1)"
+                )
+
+    @property
+    def standing(self) -> bool:
+        """Whether a guardian has ratified this into a standing envelope.
+
+        *"None takes force without signature"* — an unratified precedent is
+        history, and history binds nobody. This one bit decides whether
+        `as_consideration()` will surface it at all.
+        """
+        return self.signed_by is not None
+
+    @property
+    def recommendation(self):
+        """A precedent orders no future case, and asking is the error.
+
+        The same refusal as `Escalation.recommendation`, and it has to live here
+        too: a *ratified* precedent is precisely where a hurried caller reaches
+        for *"then do that again,"* and honouring it would be the machine
+        computing a priority from stored history — refusal 6, one hop later. A
+        property rather than an absent attribute so the refusal is legible, not
+        an `AttributeError` papered over with `getattr(..., None)`.
+        """
+        raise NotComputable(
+            "W-7: a precedent records how one conflict was decided; it is not a "
+            "ruling on this one. The system presents and a human decides."
+        )
+
+
+def _check_ratifier(signed_by: str, affects: Tuple[str, ...]) -> None:
+    """A ratifying signature is a guardian's, and never an affected ward's.
+
+    Shaped after `Widening`'s two signature checks (`records/standing.py`) and
+    kept in one place so `ratify()` and `Precedent.__post_init__` cannot drift:
+    a role cannot ratify (*"the guardian may ratify"*), and a student named in
+    the conflict cannot ratify the precedent of their own conflict (W-4, *"a
+    ward may request, never authorize"*).
+    """
+    name = (signed_by or "").strip()
+    if not name or name.lower() in _NOT_A_PERSON:
+        raise ValueError(
+            f"{signed_by!r} is not a guardian's signature; a role cannot ratify "
+            "a precedent (W-7: 'the guardian may ratify')"
+        )
+    if name in affects:
+        raise ValueError(
+            "a ward may request, never authorize (W-4): an affected student "
+            "cannot ratify the precedent of their own conflict"
+        )
+
+
+def resolve(escalation: Escalation, *, resolution: str, decided_by: str,
+            at: datetime) -> Precedent:
+    """Record how a named human decided an escalation. This ratifies nothing.
+
+    Returns a `Precedent` with no signature — recorded, not standing. It is
+    §8.2's seal of the decision (a named human, a durable record), and by rule
+    10 a rejection is recorded as durably as an approval: *"heard both, chose the
+    earlier audition date"* and *"declined to split the section"* are both
+    resolutions worth keeping. Making the resolution *stand* — so it may be cited
+    in a future escalation — is a separate, signed act: `ratify()`.
+    """
+    return Precedent(escalation, resolution, decided_by, at)
+
+
+def ratify(precedent: Precedent, *, signed_by: str, at: datetime) -> Precedent:
+    """A guardian signs a recorded precedent into a standing one.
+
+    The named middle (rule 12) between a recorded resolution and a standing
+    envelope: the only path to `standing is True` runs through a guardian's
+    signature, and `Precedent.__post_init__` (via `_check_ratifier`) is where
+    that signature is checked — a role, or a ward named in the conflict, is
+    refused there, in the one place the rule lives. It **reuses** the precedent's
+    escalation, resolution, decider and time unchanged; a guardian ratifies what
+    was decided, they do not restate it.
+
+    *"None takes force without signature"* is this function existing at all:
+    before it a resolution could only sit recorded, with no representation of a
+    guardian having adopted it. Even after it, a standing precedent confers no
+    authority to rank — it is a consideration for the next human, never a ruling.
+    """
+    return _replace(precedent, signed_by=signed_by, signed_at=at)
+
+
+def as_consideration(precedent: Precedent) -> str:
+    """A standing precedent, phrased for a future escalation's `considerations`.
+
+    The *only* way a precedent reaches a later conflict, and deliberately the
+    weakest one: a plain string that joins the unordered `frozenset` the deciding
+    human reads. Surfacing *"a like collision in October was resolved by the
+    earlier audition date"* helps a human decide; it does not decide, and it
+    carries no arrow. That is *"learn to bring it to you better"* stopping short
+    of refusal 6.
+
+    **Refuses an unratified precedent** — *"none takes force without signature."*
+    A merely recorded resolution has no standing to be cited as one, and letting
+    it in here would be a precedent taking force without the signature the clause
+    requires. `NotComputable` rather than a soft skip, because a caller citing
+    unratified history as authority has made the W-7 error and must be stopped.
+    """
+    if not precedent.standing:
+        raise NotComputable(
+            "W-7: an unratified precedent takes no force and cannot be cited as "
+            "one; a guardian must ratify() it before it stands as a consideration"
+        )
+    return (f"precedent ({precedent.decided_by}, {precedent.decided_at:%Y-%m-%d}): "
+            f"{precedent.resolution}")
