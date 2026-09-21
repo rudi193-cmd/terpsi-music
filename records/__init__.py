@@ -66,6 +66,8 @@ from .orders import (Ended, Ending, Guardianship, GuardianshipState, NoGuardian,
                      past_exercise, supersede)
 from .rungs import DERIVE_AT, NEVER_SERVED, Rung, at_least, compose, outranks, parse
 from .sealing import Record, State, authored_by, draft, redraft, reject, seal
+from .seal_ledger import (ChainTampered, Entry as SealEntry, Ledger as SealLedger,
+                          Log as SealLog, attested, enforced_servable, unverifiable)
 from .sending import ContactRestriction, Payload, SendList, Standing, deliver, recipients, who_could_see
 from .serving import Edge, Field, Grant, Outcome, Principal, Serving, serve
 
@@ -95,6 +97,8 @@ __all__ = [
     "receipt_text", "schemes",
     "Record", "State", "draft", "seal", "reject", "redraft",
     "Record", "State", "authored_by", "draft", "seal", "reject", "redraft",
+    "SealLog", "SealLedger", "SealEntry", "ChainTampered",
+    "attested", "enforced_servable", "unverifiable",
     "Request", "Disposition", "ask", "answer", "state_at", "extend",
     "Escalation", "NotComputable", "Stake", "halt", "refuse_to_rank", "one_lane",
     "Governance", "Model", "governs",
