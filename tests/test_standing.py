@@ -15,8 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from records import Edge, Field, Outcome, Principal, Rung, serve  # noqa: E402
 from records.disclosure import Log  # noqa: E402
 from records.standing import (  # noqa: E402
-    SELF, SELF_CAP, LogAccess, Widening, is_self_edge, own_log, past_threshold,
-    self_edge, widens,
+    SELF, SELF_CAP, LogAccess, Widening, is_self_edge, own_log,
+    past_threshold, self_edge, widens,
 )
 
 T0 = datetime(2026, 3, 1)

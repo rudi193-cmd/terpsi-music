@@ -212,6 +212,20 @@ MUTATIONS: Tuple[Tuple[str, str, str, str, str, str], ...] = (
      "    created: Tuple[str, ...]      # roles that did not exist before this call\n"
      '    app_privileges: Tuple[str, ...] = ("SELECT", "INSERT")',
      "the role state asserts a privilege nobody read", ROLES, "caught"),
+
+    # --- migrations/001: the grant signer's guardian standing at write -------
+    #
+    # access_grant_signer_has_standing refuses a grant whose signer holds no
+    # live guardian_of edge over the lane. Replacing the signer match with TRUE
+    # makes the EXISTS find any live guardian edge over the lane (the ward's own
+    # guardian's, say), so a stranger's signature passes -- W-4 defeated at the
+    # write. Caught by the forbidden acts in test_store_rowsecurity.py, which run
+    # as terpsi_app under RLS.
+    ("migrations/001_lanes.sql",
+     "e.holder_id = NEW.signer_id",
+     "TRUE",
+     "a grant's signer stops being checked for standing (W-4)",
+     ROWSECURITY, "caught"),
 )
 
 

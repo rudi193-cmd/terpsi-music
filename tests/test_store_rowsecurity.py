@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import sys
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -774,6 +775,147 @@ def test_a_reader_that_cannot_evaluate_the_seal_gets_an_error_not_an_empty_resul
         finally:
             owner.rollback()
             owner.execute("RESET ROLE")
+            owner.rollback()
+            app.close()
+            owner.close()
+
+
+#: A staff member entitled into Ben's lane (the grant's holder), and a guardian
+#: whose standing has already ended (the backdated-signature attacker).
+STAFF = uuid.UUID("11111111-4444-4444-4444-444444444444")
+E_STAFF = uuid.UUID("dddddddd-4444-4444-4444-444444444444")
+SELF_BEN = uuid.UUID("dddddddd-1b1b-1b1b-1b1b-1b1b1b1b1b1b")
+NGUYEN = uuid.UUID("11111111-5555-5555-5555-555555555555")
+E_NGUYEN_ENDED = uuid.UUID("dddddddd-5555-5555-5555-555555555555")
+
+_GRANT = ("INSERT INTO access_grant VALUES (%s,%s,%s,%s,%s,%s,%s,"
+          "now()+interval '1 day',now(),%s,NULL)")
+_NOW = datetime.now(timezone.utc)
+_BACKDATED = _NOW - timedelta(days=550)  # ~18 months, when Nguyen's edge was still live
+
+
+def _signer_fixtures(owner):
+    """On top of `seed()`: a staff holder into Ben's lane, Ben's own self edge,
+    and a guardian (Nguyen) whose edge ended a year ago."""
+    with owner.cursor() as cur:
+        for who in (STAFF, NGUYEN):
+            cur.execute("INSERT INTO person VALUES (%s,%s,now(),now(),NULL)",
+                        (who, "1980-01-01"))
+        cur.execute(
+            "INSERT INTO edge VALUES (%s,'staff_of',%s,%s,NULL,'roster',"
+            "now(),now() - interval '1 year',NULL)", (E_STAFF, STAFF, LBEN))
+        cur.execute(
+            "INSERT INTO edge VALUES (%s,'self',%s,%s,NULL,'enrolment',"
+            "now(),now() - interval '1 year',NULL)", (SELF_BEN, BEN, LBEN))
+        cur.execute(
+            "INSERT INTO edge VALUES (%s,'guardian_of',%s,%s,NULL,'former "
+            "guardian',now(),now() - interval '2 years',now() - interval '1 year')",
+            (E_NGUYEN_ENDED, NGUYEN, LBEN))
+    owner.commit()
+
+
+def _refused_as_app(app, params, *, why):
+    """Attempt a grant INSERT as `terpsi_app` (the real write path, under RLS)
+    and assert the signer-standing trigger refused it by name."""
+    try:
+        app.execute(_GRANT, params)
+    except Exception as exc:  # noqa: BLE001
+        app.rollback()
+        msg = str(exc)
+        assert ("live guardian_of edge" in msg or "self-grant" in msg
+                or "signing fields are fixed" in msg), (
+            f"{why}: refused, but not by the guard under test: {exc}")
+    else:
+        app.rollback()
+        raise AssertionError(f"{why}: the grant was accepted")
+
+
+def test_a_grant_signer_must_hold_live_guardian_standing_at_issuance():
+    """`access_grant_signer_has_standing` (migrations/001), W-4 / I-2, reworked
+    after Loki's audit and driven as `terpsi_app` under RLS — not as the owner,
+    whose superuser bypasses the seal the trigger's own read must survive.
+
+    The control lands; four attacks are refused, each the shape the first draft
+    accepted:
+
+    * **A guardian signs** for a staff holder → lands.
+    * **A stranger signs** (Cara, no edge into Ben's lane) → refused.
+    * **The subject self-signs** (Ben, holding a genuine `self` edge over his own
+      lane) → refused: a `self` edge is not guardian standing. The only
+      self-signed grant the charter allows is a graduate past W-6's threshold,
+      which this layer cannot check, so it admits none (`docs/PART-III-READ.md`
+      item 3).
+    * **A self-grant** (signer = holder) → refused (I-2).
+    * **A backdated signature** (Nguyen, whose guardian edge ended a year ago,
+      signing with `valid_at` a year and a half back) → refused: standing is
+      read at `now()`, not at a `valid_at` the inserter chose.
+    """
+    G_OK = uuid.UUID("aaaa1111-0000-0000-0000-00000000000a")
+    with Database() as db:
+        owner, app = installed(db)
+        seed(owner)
+        _signer_fixtures(owner)
+        try:
+            # Control: Ann (live guardian) signs a grant for the staff holder.
+            app.execute(_GRANT, (G_OK, STAFF, LBEN, E_STAFF, "L3", None, ANN, _NOW))
+            app.commit()
+            assert rows_seen(owner,
+                             "SELECT count(*) FROM access_grant WHERE grant_id = %s",
+                             (G_OK,)) == 1, "a guardian-signed grant did not land"
+
+            _refused_as_app(app, (uuid.uuid4(), STAFF, LBEN, E_STAFF, "L3", None, CARA, _NOW),
+                            why="a stranger with no edge into the lane signed")
+            _refused_as_app(app, (uuid.uuid4(), STAFF, LBEN, E_STAFF, "L3", None, BEN, _NOW),
+                            why="the subject self-signed on a self edge")
+            _refused_as_app(app, (uuid.uuid4(), ANN, LBEN, GANN, "L3", None, ANN, _NOW),
+                            why="signer is the grant's own holder (self-grant, I-2)")
+            _refused_as_app(app,
+                            (uuid.uuid4(), STAFF, LBEN, E_STAFF, "L3", None, NGUYEN, _BACKDATED),
+                            why="a backdated signature borrowed an ended standing")
+        finally:
+            owner.rollback()
+            app.close()
+            owner.close()
+
+
+def test_ending_a_grant_survives_the_signers_standing_ending():
+    """Refusal 3 / §7.1. A grant is ended by setting `invalid_at`, and that
+    UPDATE must pass even after the signer's own `guardian_of` edge has ended —
+    the court order arriving mid-season. The first draft re-ran the standing
+    check on every UPDATE and blocked the ending precisely when it was needed;
+    the signing fields are now fixed at issuance and an ending is not a signing.
+    Run as the owner, since `terpsi_app` holds no UPDATE and an ending is a
+    privileged act."""
+    G = uuid.UUID("aaaa1111-0000-0000-0000-0000000000ee")
+    with Database() as db:
+        owner, app = installed(db)
+        seed(owner)
+        _signer_fixtures(owner)
+        try:
+            app.execute(_GRANT, (G, STAFF, LBEN, E_STAFF, "L3", None, ANN, _NOW))
+            app.commit()
+            # Ann's guardianship ends (a court order).
+            owner.execute("UPDATE edge SET invalid_at = now() WHERE edge_id = %s", (GANN,))
+            owner.commit()
+            # The grant she signed is now ended too. This must pass.
+            owner.execute("UPDATE access_grant SET invalid_at = now() WHERE grant_id = %s", (G,))
+            owner.commit()
+            row = owner.execute(
+                "SELECT invalid_at IS NOT NULL FROM access_grant WHERE grant_id = %s",
+                (G,)).fetchone()
+            assert row and row[0], "ending the grant did not take"
+            # And re-signing by UPDATE is still refused.
+            try:
+                owner.execute("UPDATE access_grant SET signer_id = %s WHERE grant_id = %s",
+                              (NGUYEN, G))
+            except Exception as exc:  # noqa: BLE001
+                owner.rollback()
+                assert "signing fields are fixed" in str(exc), (
+                    f"refused, but not by the guard under test: {exc}")
+            else:
+                owner.rollback()
+                raise AssertionError("a grant's signer was changed by UPDATE")
+        finally:
             owner.rollback()
             app.close()
             owner.close()

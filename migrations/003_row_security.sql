@@ -436,6 +436,16 @@ GRANT EXECUTE ON FUNCTION reaches_lane(uuid, uuid)     TO terpsi_app, terpsi_mig
 -- What the definer role may read: the three reference tables, and nothing else.
 GRANT SELECT ON edge, lane, crossing_envelope TO terpsi_reach;
 
+-- migrations/001's access_grant signer-standing trigger is SECURITY DEFINER and
+-- reads `edge`; re-own it here, where terpsi_reach exists and holds the SELECT
+-- above, so its EXISTS sees every lane's edges rather than the writer's own RLS
+-- window. Without this the trigger would refuse a grant a real guardian signed
+-- merely because the acting session could not see the guardian's edge -- a
+-- security answer that changed with who was looking. No EXECUTE grant: a trigger
+-- function fires without one, and a definer function PUBLIC can call is an
+-- oracle (see the note above holds_live_edge).
+ALTER FUNCTION refuse_grant_signer_without_standing() OWNER TO terpsi_reach;
+
 -- ------------------------------------------------------- ownership, then FORCE
 --
 -- All fourteen, not only the eleven that get policies: "the migrator owns the

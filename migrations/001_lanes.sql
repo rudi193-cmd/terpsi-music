@@ -613,6 +613,85 @@ CREATE TRIGGER self_widening_guardian_signed
     BEFORE INSERT OR UPDATE ON self_widening
     FOR EACH ROW EXECUTE FUNCTION refuse_unsigned_by_guardian();
 
+-- A grant's signer holds live guardian standing over the lane it grants into.
+-- access_grant carried a signer_id that REFERENCES person and nothing more: any
+-- person, the ward included, could sign a grant over any lane. That is the
+-- crossing envelope's gap one table over -- a signature column with nothing
+-- behind it -- and docs/PART-III-READ.md opened it (item 3): W-4 and I-2 at once.
+--
+-- Four things this refuses, and one it deliberately does not:
+--
+--   * A signer with no live guardian_of edge over the lane. This is the hole:
+--     an unrelated third party, a director, a staff member -- none may sign.
+--   * A `self`-signed grant. The ONLY self-signed grant the charter sanctions
+--     is a graduate PAST W-6's threshold re-admitting their guardian, and the
+--     threshold is NOT in this store -- it is a birthdate or a graduation date
+--     derived at read time (records/serving.py). It is therefore not
+--     enforceable here, so a `self` edge is not accepted as standing at all:
+--     every self-signed grant is refused rather than one admitted unchecked.
+--     Fail-closed -- it forbids a future legitimate act, never admits a present
+--     illegitimate one. The graduate case is named future work in item 3.
+--   * A self-GRANT: signer_id = holder_id. I-2 at source is "never to
+--     self-grant" -- minting a credential from one's own standing.
+--   * Standing borrowed from a past instant. The check reads now(), the moment
+--     of issuance, not a valid_at the inserter chose: a grant backdated to when
+--     an ended guardianship was still live does not thereby acquire it.
+--
+-- And what it must NOT refuse: an ending. §7.1 ends a grant by setting
+-- invalid_at, and that UPDATE must pass even after the signer's own standing
+-- has since ended -- a court order arriving mid-season is the case that proves
+-- it. So the signing fields are fixed at issuance and an UPDATE may only re-time
+-- or end the row; the standing check runs once, on INSERT.
+--
+-- SECURITY DEFINER, owned by terpsi_reach in migrations/003 (like every other
+-- reference-reading definer function there), so the edge EXISTS reads the real
+-- table and not the caller's RLS window -- a security answer must not depend on
+-- who is looking. search_path is pinned and edge is schema-qualified for the
+-- reason migrations/003 spells out at length.
+
+CREATE FUNCTION refuse_grant_signer_without_standing() RETURNS trigger
+    LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+BEGIN
+    IF TG_OP = 'UPDATE' THEN
+        IF NEW.signer_id     IS DISTINCT FROM OLD.signer_id
+        OR NEW.holder_id     IS DISTINCT FROM OLD.holder_id
+        OR NEW.lane_id       IS DISTINCT FROM OLD.lane_id
+        OR NEW.basis_edge_id IS DISTINCT FROM OLD.basis_edge_id
+        OR NEW.valid_at      IS DISTINCT FROM OLD.valid_at THEN
+            RAISE EXCEPTION
+                'a grant''s signing fields are fixed at issuance; end it by '
+                'setting invalid_at, never re-sign it by UPDATE (§7.1, W-5)';
+        END IF;
+        RETURN NEW;   -- an ending is not a signing
+    END IF;
+
+    IF NEW.signer_id = NEW.holder_id THEN
+        RAISE EXCEPTION
+            'a grant is not signed by its own holder; % over lane % would '
+            'self-grant (I-2)', NEW.signer_id, NEW.lane_id;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM public.edge e
+        WHERE e.holder_id = NEW.signer_id
+          AND e.target_lane_id = NEW.lane_id
+          AND e.kind = 'guardian_of'
+          AND e.valid_at <= now()
+          AND (e.invalid_at IS NULL OR e.invalid_at > now())
+    ) THEN
+        RAISE EXCEPTION
+            'a grant is signed by a live guardian of its lane; % held no live '
+            'guardian_of edge over lane % at issuance (W-4, I-2)',
+            NEW.signer_id, NEW.lane_id;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER access_grant_signer_has_standing
+    BEFORE INSERT OR UPDATE ON access_grant
+    FOR EACH ROW EXECUTE FUNCTION refuse_grant_signer_without_standing();
+
 -- ============================================================================
 -- CLASSIFICATION SEED
 --

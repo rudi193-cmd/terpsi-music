@@ -116,17 +116,45 @@ built, the escalation path halts forever and learns nothing. There is no
 `Precedent` type, no ratification, and no standing envelope for a decided case
 to become. (New, 2026-09-11.)
 
-**3 · `access_grant.signer_id` may be the lane's own subject.** Nothing in the
-DDL stops a grant over a ward's lane being signed by that ward. That is W-4 and
-I-2 at once. It is the same unreachable-CHECK shape as the `self` edge's holder,
-and the same answer applies: a predicate in `records/`, a trigger in the
-migration. **And it must not be written as a flat rule** — W-6 says the
-guardian's standing *"ends or reduces to what the new owner grants back,"* so
-**after** the threshold, a grant signed by the subject over their own lane is
-the mechanism by which a graduate re-admits their parent. A naive
-`signer_id <> subject_id` would forbid the exact act W-6 requires. (This branch
-already wrote `edge_self_holder_is_subject` for the `edge` case on 2026-07-31;
-`signer_id` is the same shape, on `access_grant`, and is not yet guarded.)
+**3 · `access_grant.signer_id` may be the lane's own subject.** ~~Nothing in the
+DDL stops a grant over a ward's lane being signed by that ward.~~ **Guardian
+signature enforced 2026-09-21 — `migrations/001_lanes.sql`'s
+`access_grant_signer_has_standing`.** W-4 and I-2 at once.
+
+*A first version of this fix claimed more than it enforced, and a peer audit
+(Loki, Opus) caught it before merge — the claim is corrected here rather than
+struck out of sight.* That version accepted a `self` edge as standing and
+deferred the ward-versus-graduate question to a `records/standing.py`
+predicate, `may_self_sign` — **which nothing called.** A ward with a genuine
+self edge could sign an `L4` grant over their own lane and it landed; the
+threshold half was a rule-18 ledger the doc called enforcement. Removed.
+
+What is enforced, at the store, driven as `terpsi_app` under RLS
+(`tests/test_store_rowsecurity.py`) and ablated (`tests/ablate_store.py`):
+
+- The signer holds a **live `guardian_of` edge** over the lane — a director, a
+  staff member, a stranger, or the ward on a self edge all hold none, and are
+  refused. A `self` edge is deliberately not accepted (see below).
+- **No self-grant** (`signer_id = holder_id`) — I-2 at source, *"never to
+  self-grant."*
+- Standing is read at **`now()`**, the instant of issuance, not a `valid_at`
+  the inserter chose — a grant backdated to when an ended guardianship was live
+  does not borrow it.
+- An **ending passes**: §7.1 ends a grant by setting `invalid_at`, and the
+  signing fields are fixed at issuance, so that UPDATE is not re-checked as a
+  fresh signature (the court order arriving mid-season). The function is
+  `SECURITY DEFINER` owned by `terpsi_reach` so its `edge` read is not the
+  writer's own RLS window.
+
+**Deferred, named not assumed:** the one self-signed grant the charter
+sanctions — a graduate *past* W-6's threshold re-admitting their guardian —
+needs the threshold in the enforcement path, and W-6's threshold is a birthdate
+or graduation date derived at read time (`records/serving.py`), not a column.
+Until that reaches enforcement, every self-signed grant is refused: fail-closed,
+forbidding a future legitimate act rather than admitting a present illegitimate
+one. And the **read-time** re-check (a signer whose standing later ends, which
+`crossing_envelope` carries in `migrations/003` and `access_grant` does not
+yet).
 
 **4 · `edge` versus `access_grant` as the office I-3 requires an exit from.**
 `lane` has `exit_terms` NOT NULL; `access_grant` has `expires_at` NOT NULL;
