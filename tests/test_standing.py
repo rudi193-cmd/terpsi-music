@@ -15,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from records import Edge, Field, Outcome, Principal, Rung, serve  # noqa: E402
 from records.disclosure import Log  # noqa: E402
 from records.standing import (  # noqa: E402
-    SELF, SELF_CAP, LogAccess, Widening, is_self_edge, may_self_sign, own_log,
+    SELF, SELF_CAP, LogAccess, Widening, is_self_edge, own_log,
     past_threshold, self_edge, widens,
 )
 
@@ -234,42 +234,6 @@ def test_an_unknown_threshold_is_not_a_reached_one():
     assert not past_threshold(LATER, None)
     eligible = Principal(BEN, frozenset({"health"}))
     assert serve(health(), eligible, [me()], LATER).outcome is Outcome.INSTRUCTION
-
-
-# --- may_self_sign: the threshold half of the signer-standing pair ----------
-#
-# migrations/001_lanes.sql's access_grant_signer_has_standing enforces the half
-# the store can see (the signer holds a live guardian_of or self edge over the
-# lane); may_self_sign is its named middle for the half it cannot — a grant the
-# subject signs over their own lane is legal only past W-6's threshold.
-# tests/test_store_rowsecurity.py drives the trigger against a cluster.
-
-
-def test_a_ward_cannot_self_sign_a_grant_over_its_own_lane():
-    """The forbidden act (W-4): before the threshold, the subject signing a
-    grant over their own lane is the ward authorizing itself."""
-    assert not may_self_sign(signer_id=BEN, subject_id=BEN, at=T0, threshold=MAJORITY)
-
-
-def test_an_unknown_threshold_blocks_a_self_signed_grant():
-    """Fail-closed: a subject whose threshold nobody supplied cannot self-sign,
-    the same direction `past_threshold(None)` reads."""
-    assert not may_self_sign(signer_id=BEN, subject_id=BEN, at=LATER, threshold=None)
-
-
-def test_past_the_threshold_the_subject_may_self_sign_the_graduate_re_admits():
-    """W-6: after the threshold, a grant the subject signs over their own lane
-    is how a graduate re-admits their former guardian — the exact act a flat
-    `signer_id != subject_id` would forbid."""
-    assert may_self_sign(signer_id=BEN, subject_id=BEN, at=MAJORITY, threshold=MAJORITY)
-
-
-def test_a_non_subject_signer_is_not_this_predicates_business():
-    """A grant signed by someone other than the subject stands on the guardian
-    edge the trigger already required; may_self_sign adds nothing and allows it,
-    threshold or no threshold."""
-    assert may_self_sign(signer_id="guardian-ann", subject_id=BEN, at=T0, threshold=None)
-    assert may_self_sign(signer_id="guardian-ann", subject_id=BEN, at=LATER, threshold=MAJORITY)
 
 
 # --- the subject's own disclosure log -------------------------------------

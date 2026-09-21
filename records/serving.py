@@ -160,13 +160,14 @@ class Grant:
       standing grant W-5 forbids, and it is `Envelope`'s rule under another
       name.
 
-    The one constraint **not** repeated here is the signer's standing: it needs
-    the lane's subject and W-6's threshold, neither of which a `Grant` carries.
-    `migrations/001_lanes.sql`'s `access_grant_signer_has_standing` enforces the
-    threshold-independent half (the signer holds a live `guardian_of` or `self`
-    edge over the lane) and `records/standing.py::may_self_sign` the rest (a
-    self-signed grant is legal only past the threshold). See that predicate and
-    `docs/PART-III-READ.md` item 3.
+    The one constraint **not** repeated here is the signer's standing, which is
+    a fact about a second row (the signer's `guardian_of` edge) that a value
+    type cannot see. `migrations/001_lanes.sql`'s `access_grant_signer_has_standing`
+    trigger enforces it at the store: the signer holds a live `guardian_of` edge
+    over the lane at issuance, is not the grant's own holder (I-2), and a
+    self-signed grant is refused outright — the one the charter would allow, a
+    graduate past W-6's threshold re-admitting their guardian, needs a threshold
+    this layer does not carry and is deferred (`docs/PART-III-READ.md` item 3).
     """
 
     holder_id: str

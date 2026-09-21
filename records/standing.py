@@ -121,40 +121,6 @@ def past_threshold(at: datetime, threshold: Optional[datetime]) -> bool:
     return threshold is not None and at >= threshold
 
 
-def may_self_sign(*, signer_id: str, subject_id: str, at: datetime,
-                  threshold: Optional[datetime]) -> bool:
-    """Whether a grant signed by `signer_id` over `subject_id`'s lane is allowed.
-
-    The named middle (§16) for `migrations/001_lanes.sql`'s
-    `access_grant_signer_has_standing` trigger, which enforces the half the
-    store can see — the signer holds a live `guardian_of` or `self` edge over
-    the lane — but stops short of the half it cannot: W-6's threshold is a
-    birthdate or a graduation date derived at read time, not a column, so the
-    trigger lets a self-signed grant through and this predicate decides it.
-
-    * **Signer is not the subject.** Their standing is the guardian edge the
-      trigger already required; this predicate has nothing to add and returns
-      ``True``.
-    * **Signer IS the subject, before the threshold.** A ward signing a grant
-      over its own lane is the ward authorizing itself — W-4, *"a ward may
-      request, never authorize."* Refused.
-    * **Signer IS the subject, past the threshold.** The cap has lifted
-      (`past_threshold`), the guardian's standing has *"ended or reduced to what
-      the new owner grants back"* (W-6), and a grant the subject signs over
-      their own lane is exactly how a graduate re-admits their former guardian.
-      Allowed.
-
-    So the rule is conditional on the threshold and W-6 is why: a flat
-    ``signer_id != subject_id`` would forbid the graduate's re-admission, the
-    precise act W-6 requires. An unknown threshold reads as not-yet-reached
-    (`past_threshold`'s fail-closed direction), so a subject whose threshold
-    nobody supplied cannot self-sign.
-    """
-    if signer_id != subject_id:
-        return True
-    return past_threshold(at, threshold)
-
-
 # --- the guardian-signed widening (W-5) ------------------------------------
 
 

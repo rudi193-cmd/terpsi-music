@@ -254,11 +254,6 @@ MUTATIONS = [
      "        return MaySupersede(\n            Supersession.PERMITTED,\n"
      "            \"supersession is a dated act and no instant was supplied\")",
      "an undated supersession is not permitted", "tests/test_standing.py"),
-    # may_self_sign — the threshold half of access_grant_signer_has_standing.
-    # Skipping the subject check makes every self-signed grant pass regardless of
-    # the threshold, so a ward authorizes itself (W-4).
-    ("records/standing.py", "    if signer_id != subject_id:", "    if True:",
-     "a self-signed grant needs the threshold (W-4/W-6)", "tests/test_standing.py"),
     # records/orders.py — §7.1's ending, bound.
     ("records/orders.py", "        if matches:", "        if False:",
      "an order ends a guardianship at all", "tests/test_orders.py"),
